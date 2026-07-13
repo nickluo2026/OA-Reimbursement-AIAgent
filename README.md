@@ -1,6 +1,6 @@
 # 报销智能化系统 — OA-Agent
 
-基于 DeepSeek AI Agent + Function Call + LangGraph StateGraph 实现的发票/行程单报销智能校验系统，支持双智能体并行校验、Web 可视化与流水线动画展示。
+基于 DeepSeek AI Agent + Function Call + LangGraph StateGraph 实现的发票和行程单多智能体校验系统，支持双智能体并行校验、Web 可视化与流水线动画展示。
 
 ## 功能架构
 
@@ -43,68 +43,84 @@ START → 票据类型路由 ┤
 ## 目录结构
 
 ```
-skill/
-├── __init__.py                  # 包入口（导出 run_reimbursement_skill）
-├── skill_manifest.yaml          # 技能清单
-├── config.py                    # 配置加载（环境变量 + YAML 规则 + SMALL_AMOUNT_THRESHOLD）
-├── agent.py                     # 编排入口：构造 State → 委托 graph.run_graph → 转回旧返回结构
-├── database.py                  # SQLAlchemy ORM 模型（5张表）与会话管理
-├── orchestrator/                # LangGraph 编排层（V1.4 重构）
-│   ├── __init__.py                  # 导出 build_reimbursement_graph / run_graph / State
-│   ├── state.py                     # ReimbursementState（TypedDict）+ CheckStatus 枚举
-│   ├── graph.py                     # StateGraph 构建：节点注册 + 条件边路由 + compile
-│   ├── registry.py                  # Agent 注册中心（插件化扩展，V1.5+）
-│   └── nodes/                       # 工作流节点（每个节点封装一个功能工具）
-│       ├── ocr_node.py                  # 功能1：OCR 提取
-│       ├── anomaly_node.py              # 功能3：异常检查
-│       ├── classify_node.py             # 功能2：分类限额
-│       ├── skip_node.py                 # 小额免审跳过分类
-│       ├── itinerary_node.py            # 行程单提取（票据类型路由分支）
-│       └── verify_node.py               # 发票查验（P1 占位）
-├── agents/                      # Agent 抽象层（插件化扩展基础）
+.
+├── run_web.py                   # Web 服务启动脚本（端口 5001）
+├── run_tests.sh                 # 单元测试运行脚本
+├── pyproject.toml               # 项目元数据与依赖（PEP 621）
+├── pyrightconfig.json           # Pyright 类型检查配置
+├── requirements.txt             # 依赖锁定
+├── .env.example                 # 环境变量示例（DEEPSEEK_API_KEY 等）
+├── LICENSE
+│
+├── docs/                        # 项目文档
+│   ├── constitution.md              # 项目宪章（核心原则与治理规范）
+│   ├── design.md                    # 设计文档（架构图与 §16 设计要点）
+│   └── requirement.md               # 需求文档（R1.x / R2.x 需求清单）
+│
+├── skill/                       # 技能包（核心业务逻辑）
+│   ├── __init__.py                  # 包入口（导出 run_reimbursement_skill）
+│   ├── skill_manifest.yaml          # 技能清单
+│   ├── config.py                    # 配置加载（环境变量 + YAML 规则 + SMALL_AMOUNT_THRESHOLD）
+│   ├── agent.py                     # 编排入口：构造 State → 委托 graph.run_graph → 转回旧返回结构
+│   ├── database.py                  # SQLAlchemy ORM 模型（5张表）与会话管理
+│   ├── orchestrator/                # LangGraph 编排层（V1.4 重构）
+│   │   ├── __init__.py                  # 导出 build_reimbursement_graph / run_graph / State
+│   │   ├── state.py                     # ReimbursementState（TypedDict）+ CheckStatus 枚举
+│   │   ├── graph.py                     # StateGraph 构建：节点注册 + 条件边路由 + compile
+│   │   ├── registry.py                  # Agent 注册中心（插件化扩展，V1.5+）
+│   │   └── nodes/                       # 工作流节点（每个节点封装一个功能工具）
+│   │       ├── ocr_node.py                  # 功能1：OCR 提取
+│   │       ├── anomaly_node.py              # 功能3：异常检查
+│   │       ├── classify_node.py             # 功能2：分类限额
+│   │       ├── skip_node.py                 # 小额免审跳过分类
+│   │       ├── itinerary_node.py            # 行程单提取（票据类型路由分支）
+│   │       └── verify_node.py               # 发票查验（P1 占位）
+│   ├── agents/                      # Agent 抽象层（插件化扩展基础）
+│   │   ├── __init__.py
+│   │   └── base_agent.py                # BaseAgent 抽象基类 + AgentMeta 元信息
+│   ├── tools/                       # 功能工具
+│   │   ├── tool_ocr_extract.py          # 发票 OCR 提取（PDF文本 + 图片Vision）
+│   │   ├── tool_anomaly_check.py        # 发票异常检查（含金额对比）
+│   │   ├── tool_classify_limit.py       # 发票分类限额
+│   │   ├── tool_itinerary_ocr.py        # 行程单 OCR 提取（汇总 + 明细列表）
+│   │   ├── tool_itinerary_anomaly.py    # 行程单异常检测（字段/日期/金额）
+│   │   ├── tool_itinerary_verify.py     # 行程合理性校验（金额匹配/天数/连续性）
+│   │   └── tool_approval_routing.py     # 审批权限路由
+│   ├── schemas/                     # Function Call Schema
+│   │   ├── invoice_schema.py
+│   │   ├── itinerary_schema.py          # 行程单提取Schema
+│   │   ├── classify_schema.py
+│   │   └── anomaly_schema.py
+│   ├── rules/                       # YAML 规则配置
+│   │   ├── category_limits.yaml         # 费用分类限额
+│   │   ├── anomaly_rules.yaml           # 异常检测规则
+│   │   └── approval_authority.yaml      # 金额阶梯审批规则
+│   └── utils/                       # 工具
+│       ├── pdf_extractor.py             # PyMuPDF 封装
+│       ├── http_client.py               # DeepSeek API 客户端
+│       ├── db_store.py                  # 数据库 CRUD 操作
+│       └── structured_log.py            # 结构化日志（request_id 追踪）
+│
+├── web/                          # Flask Web 服务
 │   ├── __init__.py
-│   └── base_agent.py                # BaseAgent 抽象基类 + AgentMeta 元信息
-├── tools/                       # 功能工具
-│   ├── tool_ocr_extract.py          # 发票 OCR 提取（PDF文本 + 图片Vision）
-│   ├── tool_anomaly_check.py        # 发票异常检查（含金额对比）
-│   ├── tool_classify_limit.py       # 发票分类限额
-│   ├── tool_itinerary_ocr.py        # 行程单 OCR 提取（汇总 + 明细列表）
-│   ├── tool_itinerary_anomaly.py    # 行程单异常检测（字段/日期/金额）
-│   ├── tool_itinerary_verify.py     # 行程合理性校验（金额匹配/天数/连续性）
-│   └── tool_approval_routing.py     # 审批权限路由
-├── schemas/                     # Function Call Schema
-│   ├── invoice_schema.py
-│   ├── itinerary_schema.py          # 行程单提取Schema
-│   ├── classify_schema.py
-│   └── anomaly_schema.py
-├── rules/                       # YAML 规则配置
-│   ├── category_limits.yaml         # 费用分类限额
-│   ├── anomaly_rules.yaml           # 异常检测规则
-│   └── approval_authority.yaml      # 金额阶梯审批规则
-└── utils/                       # 工具
-    ├── pdf_extractor.py             # PyMuPDF 封装
-    ├── http_client.py               # DeepSeek API 客户端
-    ├── db_store.py                  # 数据库 CRUD 操作
-    └── structured_log.py            # 结构化日志（request_id 追踪）
-
-web/
-├── app.py                       # Flask Web 服务
-├── templates/
-│   ├── index.html                   # 上传页面（支持多文件）
-│   └── result.html                  # 结果页面
-└── static/
-    ├── style.css
-    └── upload.js
-
-tests/
-├── __init__.py
-├── conftest.py                  # fixtures & mock 工具
-├── test_ocr_extract.py          # 发票 OCR 提取测试
-├── test_anomaly_check.py        # 发票异常检查测试
-├── test_classify_limit.py       # 发票分类限额测试
-├── test_itinerary_agent.py      # 行程单 Agent 集成测试
-├── test_itinerary_verify.py     # 行程合理性校验测试
-└── test_agent.py                # 发票 Agent 编排集成测试
+│   ├── app.py                       # Flask 应用（GET / 上传页 + POST /upload 校验）
+│   ├── templates/
+│   │   ├── index.html                   # 上传页面（支持多文件）
+│   │   └── result.html                  # 结果页面
+│   └── static/
+│       ├── style.css
+│       └── upload.js
+│
+└── tests/                        # 测试
+    ├── __init__.py
+    ├── conftest.py                  # fixtures & mock 工具
+    ├── test_ocr_extract.py          # 发票 OCR 提取测试
+    ├── test_anomaly_check.py        # 发票异常检查测试
+    ├── test_classify_limit.py       # 发票分类限额测试
+    ├── test_itinerary_agent.py      # 行程单 Agent 集成测试
+    ├── test_itinerary_verify.py     # 行程合理性校验测试
+    ├── test_agent.py                # 发票 Agent 编排集成测试
+    └── uat.sh                       # UAT 验收脚本（依赖检查 + 单元测试 + Git 安全检查）
 ```
 
 ## 快速开始
@@ -142,7 +158,14 @@ python -m skill.agent itinerary.pdf 350 2026-06-25 行程单
 ### 5. 运行测试
 
 ```bash
+# 方式一：直接 pytest
 pytest tests/ -v
+
+# 方式二：使用脚本
+./run_tests.sh
+
+# 方式三：UAT 验收（含依赖检查、单元测试、Git 安全检查）
+bash tests/uat.sh
 ```
 
 ### 6. 代码调用
@@ -175,11 +198,11 @@ print(result["status"])
 
 | 分类 | 限额（元） |
 |------|-----------|
-| 差旅 | 1000 |
-| 餐饮 | 300 |
+| 餐饮 | 1000 |
+| 交通 | 300 |
 | 住宿 | 800 |
-| 交通 | 500 |
 | 办公 | 500 |
+| 差旅 | 1000 |
 | 其他 | 200 |
 
 > 限额可在 `rules/category_limits.yaml` 中调整。
