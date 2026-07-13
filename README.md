@@ -1,7 +1,7 @@
 # OA报销AI智能体系统 
 — OA Reimbursement AI Agent System
 
-企业日常报销流程依赖人工录入发票、行程单信息，效率低、易出错。本项目基于开源智能体编排平台LangGraph和DeepSeek大模型，使用多个智能体对发票和行程单票据进行智能识别、异常检测、分类限额、合规性校验等，提升报销处理效率与合规性。
+企业日常报销流程依赖人工录入发票、行程单信息，效率低、易出错。本项目基于开源智能体编排平台LangGraph和DeepSeek大模型，使用多个智能体对发票和行程单票据进行智能识别、异常检测、分类限额、合规性校验、审批路由等，提升报销处理效率与合规性。
 
 ## 功能架构
 
@@ -248,19 +248,29 @@ print(result["status"])
 
 ## 设计要点
 
-- **LangGraph StateGraph 编排**：V1.4 重构，工作流由 `orchestrator/graph.py` 的 StateGraph 声明式定义，条件边路由替代硬编码线性串联（§16.4）
-- **全局共享状态**：`ReimbursementState`（TypedDict）作为节点间数据载体，框架自动管理状态合并，消除手工传参（§16.3）
-- **插件化 Agent 扩展**：`agents/base_agent.py` 抽象基类 + `orchestrator/registry.py` 注册中心，新增票据类型只需注册新 Agent + 扩展路由（§16.5）
-- **新旧 API 兼容**：`graph.py` 通过 `try/except` 兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧（`set_conditional_entry_point`）
-- **Temperature 0.0**：所有提取任务确定性输出（遵循宪章 §3.2）
-- **Function Call 优先**：结构化数据通过 `tools` 机制获取，避免正则解析（§3.2）
-- **规则引擎 + AI 双重校验**：异常检查先走本地确定性规则，再由 DeepSeek 语义补充
-- **申请金额校验**：发票金额 > 申请金额直接拦截（设计文档 §2.3.1，P0 已实现）
-- **快速失败**：OCR 失败 / 异常拦截通过条件边直接路由到 END，不浪费 API 调用（§2.5）
-- **可解释性**：每个校验结果包含明确说明文字，非布尔值（§2.1）
-- **图片OCR**：JPG/PNG 文件通过 DeepSeek Vision API（base64）识别（P1 已实现）
-- **行程单智能体**：独立的行程单 Agent（OCR → 异常检测 → 合理性校验），通过票据类型路由分发，支持汇总信息与明细列表提取
-- **多文件上传**：前端支持拖拽多选，后端并发处理（P1 已实现）
-- **智能体执行流水线**：前端提交校验后展示 LangGraph 节点逐步执行动画（路由 → OCR → 异常检测 → 分类/校验），含节点名、工具、详情
-- **结构化日志**：每个请求带 request_id 贯穿全链路，审计可追溯（P2 已实现）
-- **向后兼容**：`agent.py` 保留 `run_reimbursement_skill()` 签名与返回结构不变，`web/app.py` 透明切换
+### 架构设计
+
+- **LangGraph StateGraph 声明式编排**：V1.4 重构后，工作流由 `orchestrator/graph.py` 中的 StateGraph 声明式定义，以条件边路由替代硬编码的线性串联（§16.4）
+- **全局共享状态管理**：采用 `ReimbursementState`（TypedDict）作为节点间数据传递载体，由框架自动管理状态合并，消除手工传参的繁琐（§16.3）
+- **插件化 Agent 扩展机制**：基于 `agents/base_agent.py` 抽象基类与 `orchestrator/registry.py` 注册中心，新增票据类型仅需注册新 Agent 并扩展路由即可（§16.5）
+- **新旧 API 向下兼容**：`graph.py` 通过 `try/except` 机制兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧版（`set_conditional_entry_point`）两种调用方式
+
+### AI 与算法
+
+- **确定性输出**：所有提取任务均设置 Temperature 为 0.0，确保结果可复现（遵循宪章 §3.2）
+- **Function Call 优先**：结构化数据通过 `tools` 机制获取，避免依赖正则解析（§3.2）
+- **规则引擎 + AI 双重校验**：异常检查优先执行本地确定性规则，再由 DeepSeek 进行语义层面的补充校验
+- **申请金额校验**：当发票金额大于申请金额时直接拦截（设计文档 §2.3.1，P0 已实现）
+
+### 工程实践
+
+- **快速失败机制**：OCR 失败或异常拦截时，通过条件边直接路由至 END 节点，避免不必要的 API 调用开销（§2.5）
+- **结果可解释性**：每个校验结果均附带明确的文字说明，而非简单的布尔值返回（§2.1）
+- **结构化日志追踪**：每个请求携带 `request_id` 贯穿全链路，确保审计可追溯（P2 已实现）
+
+### 功能特性
+
+- **图片 OCR 支持**：JPG/PNG 文件通过 DeepSeek Vision API（base64 编码）进行识别（P1 已实现）
+- **行程单智能体**：独立封装行程单处理 Agent（OCR → 异常检测 → 合理性校验），通过票据类型路由分发，支持汇总信息与明细列表的提取
+- **多文件并发上传**：前端支持拖拽多选上传，后端并发处理多文件校验（P1 已实现）
+- **执行流水线可视化**：前端在校验提交后展示 LangGraph 节点逐步执行的动画（路由 → OCR → 异常检测 → 分类/校验），包含节点名称、调用工具及执行详情
