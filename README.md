@@ -142,7 +142,7 @@ cp .env.example .env
 ### 3. Web 服务
 
 ```bash
-python run_web.py
+python3 run_web.py
 # 访问 http://127.0.0.1:5001
 ```
 
