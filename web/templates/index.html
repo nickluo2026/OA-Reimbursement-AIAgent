@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报销智能化系统 — 发票上传</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="header">
+    <h1>报销智能化系统</h1>
+    <div class="subtitle">DeepSeek AI Agent 智能发票校验</div>
+</div>
+
+<main class="container">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-icon">📄</span>
+            <h2>发票上传与报销申请</h2>
+        </div>
+        <p class="card-desc">上传发票文件，填写报销信息，AI 自动完成 OCR 识别、异常检测与分类限额校验。</p>
+
+        <form id="uploadForm" enctype="multipart/form-data">
+
+            <!-- 票据类型选择 -->
+            <div class="form-section">
+                <label class="form-label" for="ticket_type_select">票据类型 <span class="required">*</span></label>
+                <select id="ticket_type_select" class="form-input">
+                    <option value="发票">📄 发票</option>
+                    <option value="行程单">🚕 行程单</option>
+                </select>
+                <input type="hidden" id="ticket_type" name="ticket_type" value="发票">
+            </div>
+
+            <!-- 文件上传区域 -->
+            <div class="form-section">
+                <label class="form-label">票据文件 <span class="required">*</span></label>
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-placeholder" id="uploadPlaceholder">
+                        <div class="upload-icon">📎</div>
+                        <p class="upload-text">拖拽文件到此处，或 <span class="upload-link">点击选择文件</span></p>
+                        <p class="upload-hint" id="uploadHint">支持 PDF、JPG、PNG 格式，单文件最大 10MB，支持多文件</p>
+                    </div>
+                    <div class="upload-preview" id="uploadPreview" style="display:none;">
+                        <div class="file-list" id="fileList"></div>
+                    </div>
+                    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none;">
+                </div>
+            </div>
+
+            <!-- 表单字段 -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="apply_amount">申请金额（元） <span class="required">*</span></label>
+                    <input type="number" id="apply_amount" name="apply_amount" class="form-input"
+                           placeholder="请输入报销金额" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="apply_date">申请日期 <span class="required">*</span></label>
+                    <input type="date" id="apply_date" name="apply_date" class="form-input" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="reason">报销事由 <span class="required">*</span></label>
+                <input type="text" id="reason" name="reason" class="form-input"
+                       placeholder="例如：北京出差住宿费" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="expense_category">费用类型</label>
+                    <select id="expense_category" name="expense_category" class="form-input">
+                        <option value="">— AI 将自动识别 —</option>
+                        <option value="差旅">差旅</option>
+                        <option value="餐饮">餐饮</option>
+                        <option value="住宿">住宿</option>
+                        <option value="交通">交通</option>
+                        <option value="办公">办公</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="remark">备注</label>
+                    <input type="text" id="remark" name="remark" class="form-input"
+                           placeholder="补充说明（可选）">
+                </div>
+            </div>
+
+            <!-- 提交按钮 -->
+            <button type="submit" class="btn-submit" id="submitBtn">
+                <span class="btn-text">提交校验</span>
+                <span class="btn-loading" style="display:none;">
+                    <span class="spinner"></span> AI 校验中...
+                </span>
+            </button>
+        </form>
+    </div>
+
+    <!-- 智能体执行流水线 -->
+    <div class="pipeline" id="pipeline" style="display:none;">
+        <div class="pipeline-header">
+            <span class="pipeline-title-icon" id="pipelineAgentIcon">🤖</span>
+            <span class="pipeline-title-text" id="pipelineTitle">智能体执行流水线</span>
+            <span class="pipeline-agent-badge" id="pipelineAgentBadge">发票智能体</span>
+        </div>
+        <div class="pipeline-steps" id="pipelineSteps"></div>
+    </div>
+
+    <!-- 结果区域 -->
+    <div id="resultContainer" style="display:none;"></div>
+</main>
+
+<script src="/static/upload.js"></script>
+</body>
+</html>

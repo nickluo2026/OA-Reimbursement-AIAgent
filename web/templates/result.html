@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校验结果 — 报销智能化系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="header">
+    <h1>报销智能化系统</h1>
+    <div class="subtitle">AI 校验结果</div>
+</div>
+
+<main class="container">
+    <!-- 返回链接 -->
+    <a href="/" class="back-link">← 返回首页</a>
+
+    <!-- 状态标签 -->
+    <div class="result-status" id="statusBanner">
+        <div class="status-icon" id="statusIcon">✅</div>
+        <div>
+            <div class="status-label" id="statusLabel">—</div>
+            <div class="status-summary" id="statusSummary">—</div>
+        </div>
+    </div>
+
+    <!-- 表单信息 -->
+    <div class="card" id="formCard" style="display:none;">
+        <div class="card-header">
+            <span class="card-icon">📋</span>
+            <h3>报销申请信息</h3>
+        </div>
+        <div class="info-grid" id="formInfo"></div>
+    </div>
+
+    <!-- OCR 结果 -->
+    <div class="card" id="ocrCard" style="display:none;">
+        <div class="card-header">
+            <span class="card-icon">🔍</span>
+            <h3>OCR 提取结果</h3>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table" id="ocrTable"></table>
+        </div>
+        <details class="raw-details">
+            <summary>查看完整 JSON</summary>
+            <pre class="raw-json" id="ocrRaw"></pre>
+        </details>
+    </div>
+
+    <!-- 异常检测结果 -->
+    <div class="card" id="anomalyCard" style="display:none;">
+        <div class="card-header">
+            <span class="card-icon">⚠️</span>
+            <h3>异常检测结果</h3>
+        </div>
+        <div class="anomaly-conclusion" id="anomalyConclusion"></div>
+        <div id="anomalyDetails"></div>
+        <details class="raw-details">
+            <summary>查看完整 JSON</summary>
+            <pre class="raw-json" id="anomalyRaw"></pre>
+        </details>
+    </div>
+
+    <!-- 分类限额结果 -->
+    <div class="card" id="classifyCard" style="display:none;">
+        <div class="card-header">
+            <span class="card-icon">💰</span>
+            <h3>分类与限额校验</h3>
+        </div>
+        <div class="info-grid" id="classifyInfo"></div>
+        <details class="raw-details">
+            <summary>查看完整 JSON</summary>
+            <pre class="raw-json" id="classifyRaw"></pre>
+        </details>
+    </div>
+
+    <!-- 错误信息 -->
+    <div class="card" id="errorCard" style="display:none;">
+        <div class="card-header">
+            <span class="card-icon">❌</span>
+            <h3>错误信息</h3>
+        </div>
+        <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <div class="action-bar">
+        <a href="/" class="btn-secondary">继续上传</a>
+    </div>
+</main>
+
+<script src="/static/upload.js"></script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+# 报销智能化系统 — OA-Agent
+
+基于 DeepSeek AI Agent + Function Call + LangGraph StateGraph 实现的发票/行程单报销智能校验系统，支持双智能体并行校验、Web 可视化与流水线动画展示。
+
+## 功能架构
+
+| 功能 | 模块 | 说明 |
+|------|------|------|
+| 编排层 | `orchestrator/graph.py` | LangGraph StateGraph 工作流编排（票据路由 → 发票/行程单双 Agent 分支 → END） |
+| **发票智能体** | | |
+| 发票 OCR | `tools/tool_ocr_extract.py` | OCR 提取发票全部内容（PyMuPDF + Vision API + DeepSeek Function Call） |
+| 发票异常检测 | `tools/tool_anomaly_check.py` | 异常输入检查（规则引擎 + DeepSeek，前置拦截，含金额对比校验） |
+| 发票分类限额 | `tools/tool_classify_limit.py` | 费用分类与限额校验（仅金额 > 100 元时执行） |
+| 发票查验 | `orchestrator/nodes/verify_node.py` | 发票真伪查验（P1 占位） |
+| **行程单智能体** | | |
+| 行程单 OCR | `tools/tool_itinerary_ocr.py` | 提取行程汇总信息与明细列表（DeepSeek Vision API） |
+| 行程单异常检测 | `tools/tool_itinerary_anomaly.py` | 字段/日期/金额异常检查（规则引擎） |
+| 行程合理性校验 | `tools/tool_itinerary_verify.py` | 金额匹配/天数/连续性校验 |
+| **通用** | | |
+| 审批路由 | `tools/tool_approval_routing.py` | 金额阶梯审批权限路由 |
+
+### 执行顺序（StateGraph 条件边路由）
+
+```
+                    ┌─ 行程单 → itinerary_node ────────────────────────→ END
+                    │              (OCR → 异常检测 → 合理性校验)
+START → 票据类型路由 ┤
+                    │              ┌─(OCR失败)─→ END
+                    └─ 发票 → ocr_node ┤
+                                   │    └─(成功)─→ anomaly_node ─(拦截)─→ END
+                                   │                     │
+                                   │               ┌─(金额>100)─→ classify_node ─┐
+                                   │               │                              ↓
+                                   │               └─(小额免审)─→ skip_node ──→ verify_node → END
+```
+
+- **票据类型路由**：条件边 `route_by_ticket_type` 根据票据类型分发到发票 Agent 或行程单 Agent
+- **OCR 失败**：条件边 `route_after_ocr` 直接路由到 END，提前结束
+- **异常检测**为前置拦截：若检出严重异常（字段缺失/重复报销/金额异常/**申请金额不足**等），条件边 `route_after_anomaly` 路由到 END
+- **分类限额**仅对发票金额超过 `SMALL_AMOUNT_THRESHOLD`（默认 100 元）的发票执行，小额免审走 `skip_node`
+- **行程单 Agent**：`itinerary_node` 内部封装完整的行程单处理流程（OCR → 异常检测 → 合理性校验），拦截后提前结束
+
+## 目录结构
+
+```
+skill/
+├── __init__.py                  # 包入口（导出 run_reimbursement_skill）
+├── skill_manifest.yaml          # 技能清单
+├── config.py                    # 配置加载（环境变量 + YAML 规则 + SMALL_AMOUNT_THRESHOLD）
+├── agent.py                     # 编排入口：构造 State → 委托 graph.run_graph → 转回旧返回结构
+├── database.py                  # SQLAlchemy ORM 模型（5张表）与会话管理
+├── orchestrator/                # LangGraph 编排层（V1.4 重构）
+│   ├── __init__.py                  # 导出 build_reimbursement_graph / run_graph / State
+│   ├── state.py                     # ReimbursementState（TypedDict）+ CheckStatus 枚举
+│   ├── graph.py                     # StateGraph 构建：节点注册 + 条件边路由 + compile
+│   ├── registry.py                  # Agent 注册中心（插件化扩展，V1.5+）
+│   └── nodes/                       # 工作流节点（每个节点封装一个功能工具）
+│       ├── ocr_node.py                  # 功能1：OCR 提取
+│       ├── anomaly_node.py              # 功能3：异常检查
+│       ├── classify_node.py             # 功能2：分类限额
+│       ├── skip_node.py                 # 小额免审跳过分类
+│       ├── itinerary_node.py            # 行程单提取（票据类型路由分支）
+│       └── verify_node.py               # 发票查验（P1 占位）
+├── agents/                      # Agent 抽象层（插件化扩展基础）
+│   ├── __init__.py
+│   └── base_agent.py                # BaseAgent 抽象基类 + AgentMeta 元信息
+├── tools/                       # 功能工具
+│   ├── tool_ocr_extract.py          # 发票 OCR 提取（PDF文本 + 图片Vision）
+│   ├── tool_anomaly_check.py        # 发票异常检查（含金额对比）
+│   ├── tool_classify_limit.py       # 发票分类限额
+│   ├── tool_itinerary_ocr.py        # 行程单 OCR 提取（汇总 + 明细列表）
+│   ├── tool_itinerary_anomaly.py    # 行程单异常检测（字段/日期/金额）
+│   ├── tool_itinerary_verify.py     # 行程合理性校验（金额匹配/天数/连续性）
+│   └── tool_approval_routing.py     # 审批权限路由
+├── schemas/                     # Function Call Schema
+│   ├── invoice_schema.py
+│   ├── itinerary_schema.py          # 行程单提取Schema
+│   ├── classify_schema.py
+│   └── anomaly_schema.py
+├── rules/                       # YAML 规则配置
+│   ├── category_limits.yaml         # 费用分类限额
+│   ├── anomaly_rules.yaml           # 异常检测规则
+│   └── approval_authority.yaml      # 金额阶梯审批规则
+└── utils/                       # 工具
+    ├── pdf_extractor.py             # PyMuPDF 封装
+    ├── http_client.py               # DeepSeek API 客户端
+    ├── db_store.py                  # 数据库 CRUD 操作
+    └── structured_log.py            # 结构化日志（request_id 追踪）
+
+web/
+├── app.py                       # Flask Web 服务
+├── templates/
+│   ├── index.html                   # 上传页面（支持多文件）
+│   └── result.html                  # 结果页面
+└── static/
+    ├── style.css
+    └── upload.js
+
+tests/
+├── __init__.py
+├── conftest.py                  # fixtures & mock 工具
+├── test_ocr_extract.py          # 发票 OCR 提取测试
+├── test_anomaly_check.py        # 发票异常检查测试
+├── test_classify_limit.py       # 发票分类限额测试
+├── test_itinerary_agent.py      # 行程单 Agent 集成测试
+├── test_itinerary_verify.py     # 行程合理性校验测试
+└── test_agent.py                # 发票 Agent 编排集成测试
+```
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 配置 API Key
+
+```bash
+cp .env.example .env
+# 编辑 .env 填入 DEEPSEEK_API_KEY
+```
+
+### 3. Web 服务
+
+```bash
+python run_web.py
+# 访问 http://127.0.0.1:5001
+```
+
+### 4. 命令行使用
+
+```bash
+# 发票校验
+python -m skill.agent invoice.pdf 900 2026-06-25 发票
+
+# 行程单校验
+python -m skill.agent itinerary.pdf 350 2026-06-25 行程单
+```
+
+### 5. 运行测试
+
+```bash
+pytest tests/ -v
+```
+
+### 6. 代码调用
+
+```python
+from skill import run_reimbursement_skill
+
+# 发票校验
+result = run_reimbursement_skill(
+    pdf_path="invoice.pdf",
+    apply_amount=900,
+    apply_date="2026-06-25",
+    ticket_type="发票",
+    request_id="REQ-001",
+    employee_id="E001",
+)
+print(result["status"])  # "通过" | "预警" | "拦截" | "错误"
+
+# 行程单校验
+result = run_reimbursement_skill(
+    pdf_path="itinerary.pdf",
+    apply_amount=350,
+    apply_date="2026-06-25",
+    ticket_type="行程单",
+)
+print(result["status"])
+```
+
+## 费用分类限额
+
+| 分类 | 限额（元） |
+|------|-----------|
+| 差旅 | 1000 |
+| 餐饮 | 300 |
+| 住宿 | 800 |
+| 交通 | 500 |
+| 办公 | 500 |
+| 其他 | 200 |
+
+> 限额可在 `rules/category_limits.yaml` 中调整。
+
+## 异常检测规则
+
+| 检测项 | 规则 | 严重程度 |
+|--------|------|----------|
+| 字段缺失 | 必填字段为空 | 严重（拦截） |
+| 格式错误 | 发票号码长度/日期格式不符 | 严重（拦截） |
+| 重复报销 | 同一发票号码 30 天内已报销 | 严重（拦截） |
+| 票据过期 | 开票日期距申请日超 180 天 | 严重（拦截） |
+| 金额异常 | 发票金额超 10000 元 | 严重（拦截） |
+| **申请金额不足** | **发票金额 > 申请金额** | **严重（拦截）** |
+| 日期异常 | 开票日期晚于申请日 | 严重（拦截） |
+| 即将过期 | 票据剩余有效期 < 30 天 | 警告（预警） |
+
+> 规则可在 `rules/anomaly_rules.yaml` 中调整。
+
+## 审批金额阶梯
+
+| 级别 | 金额范围 | 审批人 |
+|------|---------|--------|
+| 1 | ≤ 5,000 元 | 直属领导 |
+| 2 | 5,000 – 20,000 元 | 部门总监 |
+| 3 | 20,000 – 100,000 元 | VP/分管副总 |
+| 4 | > 100,000 元 | CEO |
+
+> 会签规则：金额 ≥ 50,000 元时需两人会签。配置见 `rules/approval_authority.yaml`。
+
+## 数据库模型
+
+基于 SQLite + SQLAlchemy ORM，5 张核心表：
+
+| 表名 | 用途 |
+|------|------|
+| `employee` | 员工信息 |
+| `reimbursement` | 报销单主表 |
+| `invoice_record` | 发票数据 + OCR 原始 JSON |
+| `invoice_history` | 已报销发票历史（防重） |
+| `ai_check_result` | AI 校验结果（OCR/异常检测/分类限额） |
+
+## 设计要点
+
+- **LangGraph StateGraph 编排**：V1.4 重构，工作流由 `orchestrator/graph.py` 的 StateGraph 声明式定义，条件边路由替代硬编码线性串联（§16.4）
+- **全局共享状态**：`ReimbursementState`（TypedDict）作为节点间数据载体，框架自动管理状态合并，消除手工传参（§16.3）
+- **插件化 Agent 扩展**：`agents/base_agent.py` 抽象基类 + `orchestrator/registry.py` 注册中心，新增票据类型只需注册新 Agent + 扩展路由（§16.5）
+- **新旧 API 兼容**：`graph.py` 通过 `try/except` 兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧版（`set_conditional_entry_point`）
+- **Temperature 0.0**：所有提取任务确定性输出（遵循宪章 §3.2）
+- **Function Call 优先**：结构化数据通过 `tools` 机制获取，避免正则解析（§3.2）
+- **规则引擎 + AI 双重校验**：异常检查先走本地确定性规则，再由 DeepSeek 语义补充
+- **申请金额校验**：发票金额 > 申请金额直接拦截（设计文档 §2.3.1，P0 已实现）
+- **快速失败**：OCR 失败 / 异常拦截通过条件边直接路由到 END，不浪费 API 调用（§2.5）
+- **可解释性**：每个校验结果包含明确说明文字，非布尔值（§2.1）
+- **图片 OCR**：JPG/PNG 文件通过 DeepSeek Vision API（base64）识别（P1 已实现）
+- **行程单智能体**：独立的行程单 Agent（OCR → 异常检测 → 合理性校验），通过票据类型路由分发，支持汇总信息与明细列表提取
+- **多文件上传**：前端支持拖拽多选，后端并发处理（P1 已实现）
+- **智能体执行流水线**：前端提交校验后展示 LangGraph 节点逐步执行动画（路由 → OCR → 异常检测 → 分类/校验），含节点名、工具、详情
+- **结构化日志**：每个请求带 request_id 贯穿全链路，审计可追溯（P2 已实现）
+- **向后兼容**：`agent.py` 保留 `run_reimbursement_skill()` 签名与返回结构不变，`web/app.py` 透明切换

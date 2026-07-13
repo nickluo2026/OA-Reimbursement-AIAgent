@@ -1,0 +1,12 @@
+{
+    "include": [
+        "skill",
+        "web",
+        "tests",
+        "run_web.py"
+    ],
+    "extraPaths": [
+        "."
+    ],
+    "reportMissingImports": "warning"
+}

@@ -1,0 +1,43 @@
+# DeepSeek AI Agent Skill Manifest
+# 发票报销智能校验技能
+
+name: invoice_reimbursement_skill
+version: "1.0.0"
+description: >
+  发票报销智能校验技能。通过 DeepSeek Function Call 实现：
+  1) OCR 识别提取发票全部内容；
+  2) 对金额超过 100 元的发票进行限额与费用分类；
+  3) 异常输入检查（字段缺失/格式错误/重复报销/票据过期/金额异常/日期异常）。
+  执行顺序：OCR → 异常检查(前置拦截) → 分类限额(仅金额>100)。
+
+author: Deepseek_OCR Team
+language: python
+python_version: ">=3.10"
+
+# 三大功能入口
+functions:
+  - name: ocr_extract_invoice
+    module: tools.tool_ocr_extract
+    description: 功能1 — OCR 提取发票全部字段内容
+
+  - name: detect_anomaly
+    module: tools.tool_anomaly_check
+    description: 功能3 — 异常输入检查，前置拦截
+
+  - name: classify_and_check_limit
+    module: tools.tool_classify_limit
+    description: 功能2 — 金额>100 时进行费用分类与限额校验
+
+# 依赖
+dependencies:
+  - pymupdf>=1.23.0
+  - requests>=2.31.0
+  - python-dotenv>=1.0.0
+  - pyyaml>=6.0
+
+# 配置
+config:
+  deepseek_model: deepseek-v4-flash
+  temperature: 0.0
+  max_tokens: 4096
+  small_amount_threshold: 100  # 小额免审阈值（元）

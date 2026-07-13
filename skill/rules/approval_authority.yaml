@@ -1,0 +1,75 @@
+# 审批权限规则：金额阶梯审批配置
+# 根据报销金额自动路由到对应审批级别
+
+# 金额阶梯审批规则
+# 金额单位为「元」，max_amount 为该级别的金额上限（不含）
+approval_levels:
+  - level: 1
+    max_amount: 5000
+    approver: "直属领导"
+    auto_pass: false
+    description: "5000 元以下由直属领导审批"
+
+  - level: 2
+    max_amount: 20000
+    approver: "部门总监"
+    auto_pass: false
+    description: "5000-20000 元需部门总监审批"
+
+  - level: 3
+    max_amount: 100000
+    approver: "VP/分管副总"
+    auto_pass: false
+    description: "20000-100000 元需 VP/分管副总审批"
+
+  - level: 4
+    max_amount: null  # 无上限
+    approver: "CEO"
+    auto_pass: false
+    description: "100000 元以上需 CEO 审批"
+
+# 会签规则
+countersign:
+  enabled: true
+  threshold: 50000  # 超过此金额需要会签（两人审批）
+  min_signers: 2
+
+# 自动通过规则（小额免审）
+auto_approval:
+  threshold: 100  # 小额免审阈值，与 category_limits.yaml 中的 small_amount_threshold 保持一致
+  note: "金额 ≤ 阈值时跳过分类限额，但仍需异常检测通过"
+
+# 审批流程节点（按顺序）
+workflow_nodes:
+  - node: "AI校验"
+    description: "DeepSeek AI Agent 自动校验（OCR + 异常检测 + 分类限额）"
+    auto_execute: true
+
+  - node: "直属领导"
+    condition: "通过AI校验 AND 通过/预警状态"
+    can_delegate: true
+    can_reject: true
+
+  - node: "部门总监"
+    condition: "金额 ≥ 5000 或 直属领导转审"
+    can_delegate: true
+    can_reject: true
+
+  - node: "VP/分管副总"
+    condition: "金额 ≥ 20000 或 部门总监转审"
+    can_delegate: true
+    can_reject: true
+
+  - node: "CEO"
+    condition: "金额 ≥ 100000 或 VP转审"
+    can_delegate: false
+    can_reject: true
+
+  - node: "财务复核"
+    condition: "所有审批节点通过"
+    can_delegate: false
+    can_reject: true
+
+  - node: "归档/发放"
+    condition: "财务确认通过"
+    auto_execute: true

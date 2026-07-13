@@ -1,0 +1,49 @@
+# 异常检测规则配置
+
+# 票据有效期（天）：开票日期距申请日不得超过此天数
+max_invoice_age_days: 180
+
+# 重复报销检查窗口（天）：同一发票号码在此天数内不可重复报销
+duplicate_check_window_days: 30
+
+# 金额异常阈值（元）：单张发票金额超过此值标记为"金额异常"预警
+amount_anomaly_threshold: 10000
+
+# 必填字段：以下字段缺失则标记为"字段缺失"异常
+required_fields:
+  - 发票号码
+  - 开票日期
+  - 发票金额
+  - 销售方名称
+  - 购买方名称
+
+# 发票号码格式：长度范围
+invoice_number_min_length: 8
+invoice_number_max_length: 20
+
+# 日期格式校验
+date_format: YYYY-MM-DD
+
+# 历史发票记录（Mock，用于重复报销检测）
+# 实际使用时应替换为真实数据库查询
+history_invoices:
+  # - "12345678"  # 示例：已报销过的发票号码
+
+# ============ 行程单规则配置 ============
+
+# 行程单必填字段：以下字段缺失则标记为"字段缺失"异常
+itinerary_required_fields:
+  - 申请日期
+  - 行程开始日期
+  - 行程结束日期
+  - 总金额_元
+  - 行程详情
+
+# 行程单单笔金额异常阈值（元）：单行程金额超过此值标记为异常
+itinerary_single_amount_threshold: 200
+
+# 行程单总金额异常阈值（元）：总金额超过此值标记为异常
+itinerary_total_amount_threshold: 2000
+
+# 行程单行程数上限：行程详情条数超过此值标记为异常
+itinerary_max_count: 50
