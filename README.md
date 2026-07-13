@@ -151,11 +151,10 @@ python3 run_web.py
 
 ### 架构设计
 
-- **LangGraph StateGraph 声明式编排**：V1.4 重构后，工作流由 `orchestrator/graph.py` 中的 StateGraph 声明式定义，以条件边路由替代硬编码的线性串联
+- **LangGraph StateGraph 声明式编排**：工作流由 `orchestrator/graph.py` 中的 StateGraph 声明式定义，以条件边路由替代硬编码的线性串联
 - **全局共享状态管理**：采用 `ReimbursementState`（TypedDict）作为节点间数据传递载体，由框架自动管理状态合并，消除手工传参的繁琐
 - **插件化 Agent 扩展机制**：基于 `agents/base_agent.py` 抽象基类与 `orchestrator/registry.py` 注册中心，新增票据类型仅需注册新 Agent 并扩展路由即可
 - **新旧 API 向下兼容**：`graph.py` 通过 `try/except` 机制兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧版（`set_conditional_entry_point`）两种调用方式
-- **架构决策记录（ADR）**：重大技术决策以 ADR 形式记录，已采纳 ADR-001 至 ADR-008 共 8 条（见设计文档 §10）
 
 ### AI 与算法
 
