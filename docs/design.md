@@ -74,15 +74,15 @@ graph TB
 
 ### 1.3 技术选型方案
 
-| 层级 | 技术选型（目标） | 当前状态（V0.x） | 选型理由 |
+| 层级 | 技术选型（目标） | 当前状态（V1.4） | 选型理由 |
 |------|------------------|-------------------|---------|
 | **后端语言** | Python 3.12 | ✅ 已对齐 | DeepSeek SDK 原生支持，AI 生态成熟 |
 | **AI 引擎** | DeepSeek AI Agent（Function Call） | ✅ 已对齐 | 支持结构化 JSON 输出，OCR + NLP 一体化 |
-| **智能体编排** | LangGraph（StateGraph 图式工作流） | ⚠️ 未实现（规划中，见 §17） | 开源 MIT；状态机/条件分支/并行/断点续跑/Human-in-the-loop；与现有 Function Call 架构契合度高，支撑多 AI Agent 扩展 |
+| **智能体编排** | LangGraph（StateGraph 图式工作流） | ✅ 已对齐（V1.4 已实现，见 §16） | 开源 MIT；状态机/条件分支/并行/断点续跑/Human-in-the-loop；与现有 Function Call 架构契合度高，支撑多 AI Agent 扩展 |
 | **PDF 处理** | PyMuPDF (fitz) | ✅ 已对齐 | 纯 Python，提取速度快，无需系统级依赖 |
 | **OA 系统** | 泛微 e-cology | ⚠️ 未集成（设计中） | 企业已有系统，支持 REST API 流程启动与表单填充 |
 | **配置管理** | PyYAML + python-dotenv | ✅ 已对齐 | 规则与密钥分离，规则可热更新 |
-| **数据库** | MySQL 8.0 | ⚠️ **SQLite**（单机开发） | 目标 MySQL：事务可靠，泛微 OA 底层已有 MySQL 实例。当前 SQLite 仅用于 V0.x 快速验证，<br/>不支撑生产级并发与 §7.1 主从架构 |
+| **数据库** | MySQL 8.0 | ⚠️ **SQLite**（单机开发） | 目标 MySQL：事务可靠，泛微 OA 底层已有 MySQL 实例。当前 SQLite 仅用于 V1.4 功能验证，<br/>不支撑生产级并发与 §7.1 主从架构 |
 | **缓存** | Redis | ❌ 未实现 | 目标 Redis：发票查重缓存、API 限流、幂等控制。当前代码无 Redis 依赖 |
 | **消息队列** | （可选）RabbitMQ | ❌ 未实现 | 异步处理 OCR 任务，解耦 OA 与 AI Agent |
 | **文件存储** | 对象存储 OSS（加密） | ⚠️ **本地 uploads/**（临时） | 目标 OSS：票据文件 AES-256 加密持久化，支持归档。当前仅本地临时存储 |
@@ -116,7 +116,7 @@ graph TB
     ├──▶ 泛微 OA 接收表单数据 + 票据文件
     │      │
     │      ├── 保存票据文件至对象存储 OSS（AES-256 加密）
-    │      │    ⚠️ 当前 V0.x：暂存本地 uploads/，目标：迁移至 OSS 持久化归档
+    │      │    ⚠️ 当前 V1.4：暂存本地 uploads/，目标：迁移至 OSS 持久化归档
     │      ├── 创建报销单记录（状态：待AI校验）
     │      └── 调用 AI Agent 接口（异步）
     │
@@ -135,8 +135,8 @@ graph TB
 > 异常检测在分类限额**之前**执行，若拦截则直接返回，跳过后续校验。
 
 > **编排方式演进**：
-> - **当前（V1.0）**：三功能以硬编码线性串联方式实现在 `skill/agent.py` 的 `run_reimbursement_skill()` 中（见 ADR-007 背景）。
-> - **目标（V1.4，见 §17）**：引入 **LangGraph** 作为智能体编排平台，将三功能重构为 `StateGraph` 节点，通过条件边实现「异常检测拦截则提前返回」的分支逻辑，并支持后续多 AI Agent 动态扩展。编排逻辑从业务代码中解耦至 `skill/orchestrator/` 层。
+> - **历史（V1.0）**：三功能以硬编码线性串联方式实现在 `skill/agent.py` 的 `run_reimbursement_skill()` 中（见 ADR-007 背景）。
+> - **当前（V1.4，已实现，见 §16）**：引入 **LangGraph** 作为智能体编排平台，将三功能重构为 `StateGraph` 节点，通过条件边实现「异常检测拦截则提前返回」的分支逻辑，并支持后续多 AI Agent 动态扩展。编排逻辑从业务代码中解耦至 `skill/orchestrator/` 层。`agent.py` 现仅作为编排入口，委托 `graph.run_graph()` 执行。
 
 | 执行顺序 | 子模块 | 功能 | 技术方案 |
 |---------|--------|------|---------|
@@ -165,8 +165,8 @@ rules = {
 
     # —— 费用分类限额（6 类）——
     "category_limit": {
-        "餐饮": 300,
-        "交通": 500,
+        "餐饮": 1000,
+        "交通": 300,
         "住宿": 800,
         "办公": 500,
         "差旅": 1000,
@@ -363,7 +363,7 @@ Authorization: Bearer {API_KEY}
 
 ### 3.3 行程单提取 Schema
 
-> ⚠️ **待实现**：设计已定义，代码中尚未实现行程单 Schema。列入演进计划。
+> ✅ **已实现**：代码 `skill/schemas/itinerary_schema.py` 已实现，包含 `ITINERARY_EXTRACT_TOOL`（OCR 提取）与 `ITINERARY_VERIFY_TOOL`（合理性校验）两个 Function Call 工具。
 
 ```json
 {
@@ -774,15 +774,15 @@ graph TB
 
 #### 7.1.1 当前实现与目标差距
 
-> ⚠️ **当前 V0.x 实现**：`web/app.py` 以 `app.run(debug=True)` 单实例运行，无 Nginx 负载均衡、无 MySQL 主从、无 Redis、无对象存储。上述部署架构图为 **目标生产环境** 设计，当前阶段仅用于功能验证，不可直接部署生产。
+> ⚠️ **当前 V1.4 实现**：`web/app.py` 以 `app.run(debug=True)` 单实例运行，无 Nginx 负载均衡、无 MySQL 主从、无 Redis、无对象存储。上述部署架构图为 **目标生产环境** 设计，当前阶段仅用于功能验证，不可直接部署生产。
 
-| 组件 | 目标架构（§7.1） | 当前实现（V0.x） | 迁移计划 |
+| 组件 | 目标架构（§7.1） | 当前实现（V1.4） | 迁移计划 |
 |------|------------------|------------------|---------|
-| 应用层 | 多实例 + Nginx 负载均衡 | 单实例 `debug=True` | V1.0 切换至 Gunicorn + Nginx |
-| 数据库 | MySQL 8.0 主从 | SQLite 单文件 | V1.0 迁移至 MySQL，主从同步 |
-| 缓存 | Redis 哨兵模式 | 未实现 | V1.0 引入 Redis（查重缓存/限流/幂等） |
-| 存储 | 对象存储 OSS 多副本 | 本地 `uploads/` 临时目录 | V1.0 对接 OSS，AES-256 加密 |
-| 消息队列 | RabbitMQ | 未实现 | V1.1 按需引入（异步 OCR） |
+| 应用层 | 多实例 + Nginx 负载均衡 | 单实例 `debug=True` | V2.0 切换至 Gunicorn + Nginx |
+| 数据库 | MySQL 8.0 主从 | SQLite 单文件 | V2.0 迁移至 MySQL，主从同步 |
+| 缓存 | Redis 哨兵模式 | 未实现 | V2.0 引入 Redis（查重缓存/限流/幂等） |
+| 存储 | 对象存储 OSS 多副本 | 本地 `uploads/` 临时目录 | V2.0 对接 OSS，AES-256 加密 |
+| 消息队列 | RabbitMQ | 未实现 | V2.1 按需引入（异步 OCR） |
 
 ### 7.2 容灾方案
 
@@ -868,11 +868,11 @@ graph TB
 
 | 阶段 | 内容 | 优先级 |
 |------|------|--------|
-| **V1.0（当前）** | 发票 OCR + 异常检测 + 分类限额 + 泛微 OA 集成 | ✅ 已实现 |
-| **V1.1** | 行程单 Schema 实现 + 行程单 OCR 提取 | P1 |
-| **V1.2** | 增值税发票查验平台对接 + 银行流水核对 | P1 |
-| **V1.3** | 审批权限规则落地（金额阶梯审批） | P0（待补） |
-| **V1.4** | 引入 LangGraph 编排层，三功能重构为 StateGraph 节点；抽象 Agent 注册机制（见 §17、ADR-007/008） | P0 |
+| **V1.0** | 发票 OCR + 异常检测 + 分类限额 + 泛微 OA 集成 | ✅ 已实现 |
+| **V1.1** | 行程单 Schema 实现 + 行程单 OCR 提取 + 行程单异常检测 + 合理性校验 | ✅ 已实现 |
+| **V1.2** | 增值税发票查验平台对接 + 银行流水核对 | P1（待实现） |
+| **V1.3** | 审批权限规则落地（金额阶梯审批，`rules/approval_authority.yaml` + `tool_approval_routing.py`） | ✅ 已实现 |
+| **V1.4（当前）** | 引入 LangGraph 编排层，三功能重构为 StateGraph 节点；抽象 Agent 注册机制（见 §16、ADR-007/008） | ✅ 已实现 |
 | **V2.0** | 火车票/机票 Schema + 多票据类型支持（多 Agent 并行编排） | P2 |
 | **V2.0** | 数据分析仪表盘（报销趋势、异常统计） | P2 |
 | **V3.0** | 智能审批建议（AI 基于历史数据推荐通过/驳回，多 Agent 协作） | P3 |
@@ -893,8 +893,8 @@ graph TB
 | ADR-004 | YAML 配置驱动规则引擎 vs 硬编码规则 | 已采纳 | 2025-07 |
 | ADR-005 | V0.x 使用 SQLite 快速验证，V1.0 迁移 MySQL | 已采纳 | 2025-07 |
 | ADR-006 | 票据文件暂存本地，V1.0 迁移至对象存储 OSS | 已采纳 | 2025-07 |
-| ADR-007 | 引入 LangGraph 作为智能体编排平台 | 待评审 | 2026-07 |
-| ADR-008 | Agent 注册中心设计（插件化扩展多 AI Agent） | 待评审 | 2026-07 |
+| ADR-007 | 引入 LangGraph 作为智能体编排平台 | 已采纳 | 2026-07 |
+| ADR-008 | Agent 注册中心设计（插件化扩展多 AI Agent） | 已采纳 | 2026-07 |
 
 ### 10.2 ADR-001：AI 引擎选型
 
@@ -916,6 +916,7 @@ graph TB
 - **背景**：设计目标为 MySQL 8.0，当前 V0.x 阶段使用 SQLite
 - **原因**：V0.x 阶段聚焦 AI 核心能力验证，SQLite 零配置、无需运维，加速迭代；生产环境（V1.0）再迁移至 MySQL 8.0 以支撑并发与主从架构
 - **迁移计划**：V0.x `database.py` 基于 SQLAlchemy ORM 实现，迁移时仅需替换连接字符串 + 数据迁移脚本，业务代码无需修改
+- **更新（V1.4）**：截至 V1.4，SQLite 仍在使用（聚焦 AI 核心能力与 LangGraph 编排验证），MySQL 迁移顺延至 V2.0 生产化阶段
 - **风险**：SQLite 不支撑并发写入、无连接池，不可用于生产环境
 
 ### 10.4 ADR-007：引入 LangGraph 作为智能体编排平台
@@ -1154,7 +1155,7 @@ graph TB
                   └───────────┘
 ```
 
-| 组件 | 当前方案（V0.x） | 目标方案（V1.0） |
+| 组件 | 当前方案（V1.4） | 目标方案（V2.0） |
 |------|-----------------|-----------------|
 | Trace ID | `request_id`（`structured_log.py`） | OpenTelemetry Trace ID |
 | 日志聚合 | 本地文件 | ELK（Elasticsearch + Logstash + Kibana） |
@@ -1378,7 +1379,7 @@ def create_oa_adapter() -> OAAdapter:
 
 ## 16. 智能体编排平台设计（LangGraph）
 
-> 对应 ADR-007 / ADR-008。引入开源智能体编排平台 **LangGraph**，将当前硬编码线性串联重构为图式工作流，支撑多 AI Agent 动态扩展、并行编排、断点续跑与审计追溯。
+> 对应 ADR-007 / ADR-008（已采纳）。引入开源智能体编排平台 **LangGraph**，将原硬编码线性串联重构为图式工作流，支撑多 AI Agent 动态扩展、并行编排、断点续跑与审计追溯。**V1.4 已实现**：`skill/orchestrator/` 编排层（`graph.py` / `state.py` / `registry.py` / `nodes/`）、`skill/agents/` Agent 抽象层均已落地。
 
 ### 16.1 设计目标
 
@@ -1425,31 +1426,43 @@ from enum import Enum
 
 
 class CheckStatus(str, Enum):
+    """校验状态枚举（与原 agent.py 返回的 status 字符串保持一致）"""
     PASS = "通过"
     WARNING = "预警"
     BLOCK = "拦截"
+    ERROR = "错误"
 
 
-class ReimbursementState(TypedDict):
+class ReimbursementState(TypedDict, total=False):
+    """报销校验工作流全局状态。
+
+    所有字段可选（``total=False``），由各节点按需写入并合并。
+    """
+
     # —— 输入 ——
-    request_id: str                       # 报销单号（全链路追踪）
+    request_id: str                       # 报销单号（全链路追踪；为空则不持久化）
     pdf_path: str                         # 票据文件路径
-    apply_amount: float                   # 申请金额
+    apply_amount: Optional[float]         # 申请金额
     apply_date: str                       # 申请日期 YYYY-MM-DD
+    employee_id: str                      # 员工工号
+    reason: str                           # 报销事由
+    expense_category: str                 # 费用分类预选
     ticket_type: str                      # 票据类型：发票/行程单/火车票/机票
 
     # —— 节点产出（Agent 间共享）——
-    ocr_result: Optional[dict]            # OCR 提取的结构化票据数据
-    anomaly_result: Optional[dict]        # 异常检测结果
-    classify_result: Optional[dict]       # 分类限额校验结果
-    verify_result: Optional[dict]         # 发票查验结果（P1）
+    ocr_result: Optional[dict[str, Any]]            # OCR 提取的结构化票据数据
+    anomaly_result: Optional[dict[str, Any]]        # 异常检测结果
+    classify_result: Optional[dict[str, Any]]       # 分类限额校验结果
+    verify_result: Optional[dict[str, Any]]         # 发票查验结果（P1 占位）
+    itinerary_result: Optional[dict[str, Any]]      # 行程单合理性校验结果
 
     # —— 流程控制 ——
     final_status: CheckStatus             # 最终校验状态
+    summary: str                          # 总结说明（出口直接使用）
     warnings: list[str]                   # 预警明细
     block_reason: Optional[str]           # 拦截原因
     errors: list[str]                     # 异常错误
-    history: list[dict]                   # 节点执行历史（审计）
+    history: list[dict[str, Any]]         # 节点执行历史（审计）
 ```
 
 ### 16.4 工作流定义（StateGraph）
@@ -1677,8 +1690,8 @@ skill/
 
 | 阶段 | 内容 | 目标 |
 |------|------|------|
-| **V1.4（P0）** | 引入 LangGraph，将现有三功能重构为 StateGraph 节点；抽象 Agent 注册中心 | 功能等价重构，编排逻辑解耦 |
-| **V1.5（P1）** | 行程单 Agent 注册上线；条件边支持票据类型路由 | 验证插件化扩展能力 |
+| **V1.4（P0）✅** | 引入 LangGraph，将现有三功能重构为 StateGraph 节点；抽象 Agent 注册中心 | ✅ 已完成：功能等价重构，编排逻辑解耦 |
+| **V1.5（P1）✅** | 行程单 Agent 注册上线；条件边支持票据类型路由 | ✅ 已完成：行程单 Agent 已通过 `itinerary_node` 接入 StateGraph |
 | **V2.0（P1）** | 火车票/机票 Agent；多票据并行编排；checkpointer 状态持久化 | 多 Agent 并行 + 断点续跑 |
 | **V3.0（P2）** | 智能审批建议 Agent（多 Agent 协作 + Human-in-the-loop） | 多 Agent 对话协作 |
 
@@ -1686,11 +1699,11 @@ skill/
 
 | 现有资产 | 迁移处理 |
 |---------|---------|
-| `skill/tools/` 原子工具（OCR/异常/分类 Function Call） | **保留**，封装为 Graph 节点内部调用 |
-| `skill/schemas/` Schema 定义 | **保留**，作为 Agent 输入/输出契约 |
-| `skill/rules/` YAML 规则配置 | **保留**，规则引擎逻辑不变 |
-| `skill/agent.py` `run_reimbursement_skill()` | **重构**为编排入口，委托 `graph.py` 执行 |
-| `web/app.py` 调用入口 | **不变**，仍调用 `run_reimbursement_skill()`，内部透明切换至 LangGraph |
+| `skill/tools/` 原子工具（OCR/异常/分类 Function Call） | ✅ **保留**，封装为 Graph 节点内部调用 |
+| `skill/schemas/` Schema 定义 | ✅ **保留**，作为 Agent 输入/输出契约 |
+| `skill/rules/` YAML 规则配置 | ✅ **保留**，规则引擎逻辑不变 |
+| `skill/agent.py` `run_reimbursement_skill()` | ✅ **已重构**为编排入口，委托 `graph.py` 执行 |
+| `web/app.py` 调用入口 | ✅ **不变**，仍调用 `run_reimbursement_skill()`，内部透明切换至 LangGraph |
 
 ---
 
@@ -1701,3 +1714,4 @@ skill/
 | V1.0 | 2025-07-13 | — | 初始版本：系统架构 + 核心模块 + API 接口 + 数据模型 |
 | V1.1 | 2025-07-13 | EA 架构评审 | 修复 P0：ER 图关系修正（一对一 → 一对多）；<br/>新增 P0：技术选型当前状态标注 + 部署差距说明；<br/>新增 P1-P2：ADR / 认证授权 / 集成架构 / 运维监控 / OA 适配器 / 数据分级合规 / 文档版本信息 |
 | V1.2 | 2026-07-13 | EA 架构评审 | 新增 P0：§16 智能体编排平台设计（LangGraph），含架构图/状态定义/工作流定义/Agent 注册中心/目录结构/迁移计划；<br/>新增 ADR-007（LangGraph 编排平台选型）、ADR-008（Agent 注册中心设计）；<br/>更新 §1.2 架构图新增编排层、§1.3 技术选型新增编排层级、§2.2 编排方式演进说明、§8.5 扩展性措施、§9.2 演进路线新增 V1.4 阶段 |
+| V1.3 | 2026-07-13 | 代码同步评审 | 修复文档与代码不一致：§1.3 LangGraph 状态由「未实现」更正为「已对齐」；§2.2 编排方式演进更正为当前 V1.4 已实现；§2.3.1 修正餐饮/交通限额值与 `category_limits.yaml` 一致；§3.3 行程单 Schema 由「待实现」更正为「已实现」；§7.1.1 版本标识由 V0.x 更正为 V1.4；§9.2 演进路线 V1.1/V1.3/V1.4 状态更正为已实现；§10.1 ADR-007/008 状态由「待评审」更正为「已采纳」；§16.3 状态定义补齐 `CheckStatus.ERROR` 与 `itinerary_result`/`summary` 等字段；§16/§16.7/§16.8 标注 LangGraph 编排层已落地 |
