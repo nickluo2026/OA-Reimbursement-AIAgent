@@ -1,6 +1,6 @@
-# 报销智能化系统 — OA-Agent
+# OA报销AI智能体系统 — OA Reimbursement AI Agent System
 
-基于 DeepSeek AI Agent + Function Call + LangGraph StateGraph 实现的发票和行程单多智能体校验系统，支持双智能体并行校验、Web 可视化与流水线动画展示。
+企业日常报销流程依赖人工录入发票、行程单信息，效率低、易出错。本项目基于开源智能体编排平台LangGraph和DeepSeek大模型，使用多个智能体对发票和行程单票据进行智能识别、异常检测、分类限额、合规性校验等，提升报销处理效率与合规性。
 
 ## 功能架构
 
