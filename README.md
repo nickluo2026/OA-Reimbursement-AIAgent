@@ -63,7 +63,7 @@ START → 票据类型路由 ┤
 │   ├── skill_manifest.yaml          # 技能清单
 │   ├── config.py                    # 配置加载（环境变量 + YAML 规则 + SMALL_AMOUNT_THRESHOLD）
 │   ├── agent.py                     # 编排入口：构造 State → 委托 graph.run_graph → 转回旧返回结构
-│   ├── database.py                  # SQLAlchemy ORM 模型（5张表）与会话管理
+│   ├── database.py                  # SQLAlchemy ORM 模型（6张表）与会话管理
 │   ├── orchestrator/                # LangGraph 编排层（V1.4 重构）
 │   │   ├── __init__.py                  # 导出 build_reimbursement_graph / run_graph / State
 │   │   ├── state.py                     # ReimbursementState（TypedDict）+ CheckStatus 枚举
@@ -236,7 +236,7 @@ print(result["status"])
 
 ## 数据库模型
 
-基于 SQLite + SQLAlchemy ORM，5 张核心表：
+基于 SQLite + SQLAlchemy ORM（当前 V1.4 验证环境），6 张核心表：
 
 | 表名 | 用途 |
 |------|------|
@@ -244,7 +244,10 @@ print(result["status"])
 | `reimbursement` | 报销单主表 |
 | `invoice_record` | 发票数据 + OCR 原始 JSON |
 | `invoice_history` | 已报销发票历史（防重） |
+| `approval_record` | 审批记录（审批人/节点/动作/意见） |
 | `ai_check_result` | AI 校验结果（OCR/异常检测/分类限额） |
+
+> 当前使用 SQLite 用于功能验证，目标迁移至 MySQL 8.0 支撑生产级并发与主从架构（见设计文档 §1.3、ADR-005）。
 
 ## 设计要点
 
@@ -254,6 +257,7 @@ print(result["status"])
 - **全局共享状态管理**：采用 `ReimbursementState`（TypedDict）作为节点间数据传递载体，由框架自动管理状态合并，消除手工传参的繁琐（§16.3）
 - **插件化 Agent 扩展机制**：基于 `agents/base_agent.py` 抽象基类与 `orchestrator/registry.py` 注册中心，新增票据类型仅需注册新 Agent 并扩展路由即可（§16.5）
 - **新旧 API 向下兼容**：`graph.py` 通过 `try/except` 机制兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧版（`set_conditional_entry_point`）两种调用方式
+- **架构决策记录（ADR）**：重大技术决策以 ADR 形式记录，已采纳 ADR-001 至 ADR-008 共 8 条（见设计文档 §10）
 
 ### AI 与算法
 
@@ -267,6 +271,7 @@ print(result["status"])
 - **快速失败机制**：OCR 失败或异常拦截时，通过条件边直接路由至 END 节点，避免不必要的 API 调用开销（§2.5）
 - **结果可解释性**：每个校验结果均附带明确的文字说明，而非简单的布尔值返回（§2.1）
 - **结构化日志追踪**：每个请求携带 `request_id` 贯穿全链路，确保审计可追溯（P2 已实现）
+- **OA 适配器层**：目标集成 OA 系统，通过适配器模式封装（`OAAdapter` 抽象接口），切换 OA 系统仅需新增适配器实现（设计文档 §14）
 
 ### 功能特性
 
