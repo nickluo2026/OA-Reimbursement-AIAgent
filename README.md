@@ -1,6 +1,7 @@
 # OA报销AI智能体系统 
 — OA Reimbursement AI Agent System
 
+## 项目背景
 企业日常报销流程依赖人工录入发票、行程单信息，效率低、易出错。本项目基于开源智能体编排平台LangGraph和DeepSeek大模型，使用多个智能体对发票和行程单票据进行智能识别、异常检测、分类限额、合规性校验、审批路由等，提升报销处理效率与合规性。
 
 ## 功能架构
@@ -139,60 +140,11 @@ cp .env.example .env
 # 编辑 .env 填入 DEEPSEEK_API_KEY
 ```
 
-### 3. Web 服务
+### 3. 启动Web 服务
 
 ```bash
-python run_web.py
+python3 run_web.py
 # 访问 http://127.0.0.1:5001
-```
-
-### 4. 命令行使用
-
-```bash
-# 发票校验
-python -m skill.agent invoice.pdf 900 2026-06-25 发票
-
-# 行程单校验
-python -m skill.agent itinerary.pdf 350 2026-06-25 行程单
-```
-
-### 5. 运行测试
-
-```bash
-# 方式一：直接 pytest
-pytest tests/ -v
-
-# 方式二：使用脚本
-./run_tests.sh
-
-# 方式三：UAT 验收（含依赖检查、单元测试、Git 安全检查）
-bash tests/uat.sh
-```
-
-### 6. 代码调用
-
-```python
-from skill import run_reimbursement_skill
-
-# 发票校验
-result = run_reimbursement_skill(
-    pdf_path="invoice.pdf",
-    apply_amount=900,
-    apply_date="2026-06-25",
-    ticket_type="发票",
-    request_id="REQ-001",
-    employee_id="E001",
-)
-print(result["status"])  # "通过" | "预警" | "拦截" | "错误"
-
-# 行程单校验
-result = run_reimbursement_skill(
-    pdf_path="itinerary.pdf",
-    apply_amount=350,
-    apply_date="2026-06-25",
-    ticket_type="行程单",
-)
-print(result["status"])
 ```
 
 ## 费用分类限额
@@ -234,10 +186,10 @@ print(result["status"])
 
 > 会签规则：金额 ≥ 50,000 元时需两人会签。配置见 `rules/approval_authority.yaml`。
 
-## 数据库模型
+## 数据库设计
 
-基于 SQLite + SQLAlchemy ORM（当前 V1.4 验证环境），6 张核心表：
-
+基于 SQLite + SQLAlchemy ORM（当前 V1.4 验证环境），
+6 张核心表：
 | 表名 | 用途 |
 |------|------|
 | `employee` | 员工信息 |
