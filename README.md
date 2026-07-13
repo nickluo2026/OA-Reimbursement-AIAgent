@@ -1,4 +1,5 @@
-# OA报销AI智能体系统 — OA Reimbursement AI Agent System
+# OA报销AI智能体系统 
+— OA Reimbursement AI Agent System
 
 企业日常报销流程依赖人工录入发票、行程单信息，效率低、易出错。本项目基于开源智能体编排平台LangGraph和DeepSeek大模型，使用多个智能体对发票和行程单票据进行智能识别、异常检测、分类限额、合规性校验等，提升报销处理效率与合规性。
 
@@ -250,14 +251,14 @@ print(result["status"])
 - **LangGraph StateGraph 编排**：V1.4 重构，工作流由 `orchestrator/graph.py` 的 StateGraph 声明式定义，条件边路由替代硬编码线性串联（§16.4）
 - **全局共享状态**：`ReimbursementState`（TypedDict）作为节点间数据载体，框架自动管理状态合并，消除手工传参（§16.3）
 - **插件化 Agent 扩展**：`agents/base_agent.py` 抽象基类 + `orchestrator/registry.py` 注册中心，新增票据类型只需注册新 Agent + 扩展路由（§16.5）
-- **新旧 API 兼容**：`graph.py` 通过 `try/except` 兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧版（`set_conditional_entry_point`）
+- **新旧 API 兼容**：`graph.py` 通过 `try/except` 兼容 langgraph 新版（`add_conditional_edges(START, ...)`）与旧（`set_conditional_entry_point`）
 - **Temperature 0.0**：所有提取任务确定性输出（遵循宪章 §3.2）
 - **Function Call 优先**：结构化数据通过 `tools` 机制获取，避免正则解析（§3.2）
 - **规则引擎 + AI 双重校验**：异常检查先走本地确定性规则，再由 DeepSeek 语义补充
 - **申请金额校验**：发票金额 > 申请金额直接拦截（设计文档 §2.3.1，P0 已实现）
 - **快速失败**：OCR 失败 / 异常拦截通过条件边直接路由到 END，不浪费 API 调用（§2.5）
 - **可解释性**：每个校验结果包含明确说明文字，非布尔值（§2.1）
-- **图片 OCR**：JPG/PNG 文件通过 DeepSeek Vision API（base64）识别（P1 已实现）
+- **图片OCR**：JPG/PNG 文件通过 DeepSeek Vision API（base64）识别（P1 已实现）
 - **行程单智能体**：独立的行程单 Agent（OCR → 异常检测 → 合理性校验），通过票据类型路由分发，支持汇总信息与明细列表提取
 - **多文件上传**：前端支持拖拽多选，后端并发处理（P1 已实现）
 - **智能体执行流水线**：前端提交校验后展示 LangGraph 节点逐步执行动画（路由 → OCR → 异常检测 → 分类/校验），含节点名、工具、详情
