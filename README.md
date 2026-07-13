@@ -214,12 +214,11 @@ python3 run_web.py
 | 3 | 20,000 – 100,000 元 | VP/分管副总 |
 | 4 | > 100,000 元 | CEO |
 
-> 会签规则：金额 ≥ 50,000 元时需两人会签。配置见 `rules/approval_authority.yaml`。
+> 配置见 `rules/approval_authority.yaml`。
 
 ### 数据库设计
 
-基于 SQLite + SQLAlchemy ORM（当前 V1.4 验证环境），
-6 张核心表：
+基于 SQLite + SQLAlchemy ORM 实现，6 张核心表：
 | 表名 | 用途 |
 |------|------|
 | `employee` | 员工信息 |
