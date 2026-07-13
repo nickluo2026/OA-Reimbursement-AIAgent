@@ -109,7 +109,7 @@ def _rule_based_check(
         # 即将过期预警（剩余 30 天内）
         elif age_days > max_age - 30:
             anomalies.append({
-                "异常类型": "票据过期",
+                "异常类型": "即将过期",
                 "异常描述": f"票据将在 {max_age - age_days} 天后过期，请及时报销",
                 "严重程度": "警告",
             })

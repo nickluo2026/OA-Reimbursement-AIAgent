@@ -17,9 +17,9 @@
 | **行程单智能体** | | |
 | 行程单 OCR | `tools/tool_itinerary_ocr.py` | 提取行程汇总信息与明细列表（DeepSeek Vision API） |
 | 行程单异常检测 | `tools/tool_itinerary_anomaly.py` | 字段/日期/金额异常检查（规则引擎） |
-| 行程合理性校验 | `tools/tool_itinerary_verify.py` | 金额匹配/天数/连续性校验 |
+| 行程合理性校验 | `tools/tool_itinerary_verify.py` | 金额匹配/天数/单笔最高/日期合理性/连续性校验 |
 | **通用** | | |
-| 审批路由 | `tools/tool_approval_routing.py` | 金额阶梯审批权限路由 |
+| 审批路由 | `tools/tool_approval_routing.py` | 金额阶梯审批权限路由（已实现，待接入 StateGraph 工作流） |
 
 ### 执行顺序（StateGraph 条件边路由）
 
@@ -86,7 +86,7 @@ START → 票据类型路由 ┤
 │   │   ├── tool_classify_limit.py       # 发票分类限额
 │   │   ├── tool_itinerary_ocr.py        # 行程单 OCR 提取（汇总 + 明细列表）
 │   │   ├── tool_itinerary_anomaly.py    # 行程单异常检测（字段/日期/金额）
-│   │   ├── tool_itinerary_verify.py     # 行程合理性校验（金额匹配/天数/连续性）
+│   │   ├── tool_itinerary_verify.py     # 行程合理性校验（金额匹配/天数/单笔最高/日期合理性/连续性）
 │   │   └── tool_approval_routing.py     # 审批权限路由
 │   ├── schemas/                     # Function Call Schema
 │   │   ├── invoice_schema.py

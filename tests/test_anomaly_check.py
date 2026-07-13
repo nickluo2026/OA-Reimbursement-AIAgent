@@ -151,7 +151,7 @@ class TestSummarize:
         assert conclusion == "拦截"
 
     def test_warning_only(self):
-        anomalies = [{"严重程度": "警告", "异常类型": "票据过期", "异常描述": "测试"}]
+        anomalies = [{"严重程度": "警告", "异常类型": "即将过期", "异常描述": "测试"}]
         conclusion, summary = _summarize(anomalies)
         assert conclusion == "预警"
 

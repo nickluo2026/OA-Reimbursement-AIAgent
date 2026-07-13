@@ -1,11 +1,12 @@
 """数据库层：SQLAlchemy ORM 模型与会话管理
 
-基于设计文档 §6 ER 模型，定义 5 张核心表：
-    - employee        : 员工信息
-    - reimbursement   : 报销单主表
-    - invoice_record  : 发票数据
-    - approval_record : 审批记录
-    - ai_check_result : AI 校验结果
+基于设计文档 §6 ER 模型，定义 6 张核心表：
+    - employee         : 员工信息
+    - reimbursement    : 报销单主表
+    - invoice_record   : 发票数据
+    - invoice_history  : 已报销发票历史（防重）
+    - approval_record  : 审批记录
+    - ai_check_result  : AI 校验结果
 """
 
 from __future__ import annotations
