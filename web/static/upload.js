@@ -390,7 +390,8 @@
                 '</div>';
         });
 
-        html += '<div class="action-bar"><a href="/" class="btn-secondary">继续上传</a></div>';
+        var multiBtnText = worstStatus === '通过' ? '提交审批' : '人工审核';
+        html += '<div class="action-bar"><a href="/" class="btn-secondary">' + multiBtnText + '</a></div>';
         resultContainer.innerHTML = html;
     }
 
@@ -407,7 +408,8 @@
             '</div>';
 
         html += buildResultContent(data);
-        html += '<div class="action-bar"><a href="/" class="btn-secondary">继续上传</a></div>';
+        var actionBtnText = status === '通过' ? '提交审批' : '人工审核';
+        html += '<div class="action-bar"><a href="/" class="btn-secondary">' + actionBtnText + '</a></div>';
         return html;
     }
 
@@ -501,6 +503,12 @@
         if (status === '错误' && !data.ocr_result && !data.anomaly_result) {
             document.getElementById('errorCard').style.display = 'block';
             document.getElementById('errorMsg').textContent = data.summary || '未知错误';
+        }
+
+        // 动态设置底部按钮文案：校验通过 → 提交审批，否则 → 人工审核
+        var actionBtn = document.getElementById('actionBtn');
+        if (actionBtn) {
+            actionBtn.textContent = status === '通过' ? '提交审批' : '人工审核';
         }
     }
 
@@ -713,6 +721,17 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
     }
+
+    /* ========================================
+       事件委托：点击"提交审批"按钮时显示提示框
+       ======================================== */
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.action-bar .btn-secondary');
+        if (btn && btn.textContent.trim() === '提交审批') {
+            e.preventDefault();
+            alert('提交成功，等待审批');
+        }
+    });
 
     /* ========================================
        初始化：独立结果页数据加载
