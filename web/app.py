@@ -16,7 +16,7 @@ import uuid
 import logging
 from pathlib import Path
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 
 from skill import run_reimbursement_skill
 from skill.database import init_db
@@ -59,6 +59,24 @@ app = Flask(
     static_url_path="/static",
 )
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key-prototype")
+
+# ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
+# 角色定义：对应 design.md §1.1 / §17.2 与 constitution.md §2.6
+ROLE_INFO = {
+    "employee": {"icon": "👤", "name": "普通员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
+    "approver": {"icon": "👔", "name": "审批领导", "desc": "审核下属报销申请"},
+    "finance":  {"icon": "💼", "name": "财务人员", "desc": "财务终审与打款"},
+    "admin":    {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
+}
+
+# 演示账号映射（工号 → 姓名），密码任意
+DEMO_ACCOUNTS = {
+    "EMP-2026": {"name": "张三", "role": "employee"},
+    "APR-001":  {"name": "李总", "role": "approver"},
+    "FIN-001":  {"name": "王会计", "role": "finance"},
+    "ADM-001":  {"name": "赵管理", "role": "admin"},
+}
 
 
 def allowed_file(filename: str) -> bool:
@@ -66,9 +84,50 @@ def allowed_file(filename: str) -> bool:
     return ext in ALLOWED_EXTENSIONS
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """登录页：4 角色选择 + 工号密码（原型演示，密码任意）。
+
+    对应 design.md §11 认证授权架构、§17 前端架构设计。
+    """
+    if request.method == "POST":
+        account = request.form.get("account", "").strip()
+        password = request.form.get("password", "").strip()
+        role = request.form.get("role", "employee")
+        if not account or not password:
+            return render_template("login.html", error="请输入工号和密码", selected_role=role)
+        # 原型演示：密码任意，仅记录账号与角色
+        info = DEMO_ACCOUNTS.get(account, {"name": account, "role": role})
+        session["account"] = account
+        session["role"] = role
+        session["name"] = info["name"]
+        logger.info("用户登录 account=%s role=%s", account, role)
+        return redirect(url_for("index"))
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    """登出：清除 session，返回登录页。"""
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    """首页：需登录，按角色展示用户信息（对应 design.md §17.4）。"""
+    if "account" not in session:
+        return redirect(url_for("login"))
+    role = session.get("role", "employee")
+    role_info = ROLE_INFO.get(role, ROLE_INFO["employee"])
+    return render_template(
+        "index.html",
+        user_name=session.get("name", "—"),
+        user_account=session.get("account", "—"),
+        user_role=role_info["name"],
+        user_icon=role_info["icon"],
+        role_desc=role_info["desc"],
+    )
 
 
 @app.route("/upload", methods=["POST"])

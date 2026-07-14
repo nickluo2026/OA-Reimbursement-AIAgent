@@ -9,8 +9,21 @@
 <body>
 
 <div class="header">
+    <div class="header-user">
+        <span class="user-avatar">{{ user_icon }}</span>
+        <div>
+            <div class="user-name">{{ user_name }}</div>
+            <div class="user-role">{{ user_role }} · {{ user_account }}</div>
+        </div>
+        <a href="/logout" class="btn-logout">退出登录</a>
+    </div>
     <h1>报销智能化系统</h1>
     <div class="subtitle">DeepSeek AI Agent 智能发票校验</div>
+    <div class="role-banner">
+        <span class="rb-name">{{ user_role }}</span>
+        <span class="rb-sep">·</span>
+        <span class="rb-desc">{{ role_desc }}</span>
+    </div>
 </div>
 
 <main class="container">

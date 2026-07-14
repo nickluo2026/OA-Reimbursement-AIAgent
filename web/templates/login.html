@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OA 报销智能化系统 — 登录</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="login-screen">
+    <div class="login-card">
+        <div class="login-logo">
+            <h2>OA 报销智能化系统</h2>
+            <div class="login-sub">V1.5 多角色和多智能体协同工作台</div>
+        </div>
+
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+            <div class="form-section">
+                <label class="form-label" for="loginRole">选择身份（4 角色）</label>
+                <select id="loginRole" name="role" class="form-input" onchange="fillDemoAccount(this.value)">
+                    <option value="employee" {% if selected_role == 'employee' %}selected{% endif %}>👤 普通员工（提交报销申请）</option>
+                    <option value="approver" {% if selected_role == 'approver' %}selected{% endif %}>👔 审批领导（审核下属报销）</option>
+                    <option value="finance"  {% if selected_role == 'finance'  %}selected{% endif %}>💼 财务人员（终审与打款）</option>
+                    <option value="admin"    {% if selected_role == 'admin'    %}selected{% endif %}>⚙️ 系统管理员（维护制度规则）</option>
+                </select>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label" for="loginAccount">工号 / 账号</label>
+                <input type="text" id="loginAccount" name="account" class="form-input"
+                       value="{{ account or 'EMP-2026' }}" placeholder="请输入工号" required>
+            </div>
+            <div class="form-section">
+                <label class="form-label" for="loginPassword">密码</label>
+                <input type="password" id="loginPassword" name="password" class="form-input"
+                       value="123456" placeholder="请输入密码" required>
+            </div>
+
+            <button type="submit" class="btn-login">🔓 登 录</button>
+        </form>
+
+        <div class="login-hint">
+            <strong>演示账号：</strong><br>
+            普通员工 <code>EMP-2026</code> · 审批领导 <code>APR-001</code><br>
+            财务人员 <code>FIN-001</code> · 系统管理员 <code>ADM-001</code><br>
+            （密码任意，原型演示无需校验）
+        </div>
+    </div>
+</div>
+
+<script>
+/* 切换角色时自动填充演示账号 */
+function fillDemoAccount(role) {
+    var accounts = {
+        'employee': 'EMP-2026',
+        'approver': 'APR-001',
+        'finance': 'FIN-001',
+        'admin': 'ADM-001'
+    };
+    document.getElementById('loginAccount').value = accounts[role] || 'EMP-2026';
+}
+</script>
+</body>
+</html>
