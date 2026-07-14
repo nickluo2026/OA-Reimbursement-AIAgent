@@ -730,6 +730,7 @@
         if (btn && btn.textContent.trim() === '提交审批') {
             e.preventDefault();
             alert('提交成功，等待审批');
+            window.location.href = '/';
         }
     });
 
