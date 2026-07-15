@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from ..database import (
@@ -20,6 +20,7 @@ from ..database import (
     InvoiceRecord,
     Reimbursement,
     get_session,
+    utcnow,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ def save_reimbursement(
             reason=reason,
             expense_category=expense_category,
             remark=remark,
-            updated_at=datetime.utcnow(),
+            updated_at=utcnow(),
         )
         s.merge(record)
         s.commit()
@@ -61,12 +62,24 @@ def update_ai_status(
         record = s.query(Reimbursement).filter_by(request_id=request_id).first()
         if record:
             record.ai_status = ai_status
-            record.updated_at = datetime.utcnow()
+            record.updated_at = utcnow()
             if workflow_status:
                 record.workflow_status = workflow_status
             s.commit()
         else:
             logger.warning("报销单 %s 不存在，无法更新状态", request_id)
+
+
+def update_workflow_status(request_id: str, workflow_status: str) -> None:
+    """仅更新报销单工作流状态（不影响 ai_status）"""
+    with get_session() as s:
+        record = s.query(Reimbursement).filter_by(request_id=request_id).first()
+        if record:
+            record.workflow_status = workflow_status
+            record.updated_at = utcnow()
+            s.commit()
+        else:
+            logger.warning("报销单 %s 不存在，无法更新工作流状态", request_id)
 
 
 def save_invoice(ocr_result: dict[str, Any], request_id: str, file_path: str = "") -> InvoiceRecord:
@@ -111,7 +124,7 @@ def save_ai_check_result(
             check_type=check_type,
             status=status,
             detail=detail,
-            check_time=datetime.utcnow(),
+            check_time=utcnow(),
         )
         s.add(record)
         s.commit()
@@ -168,7 +181,7 @@ def save_approval_record(
             approval_node=approval_node,
             action=action,
             comment=comment,
-            action_time=datetime.utcnow(),
+            action_time=utcnow(),
         )
         s.add(record)
         s.commit()

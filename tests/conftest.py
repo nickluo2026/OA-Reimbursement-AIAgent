@@ -2,6 +2,15 @@
 
 import os
 import sys
+import tempfile
+
+# 测试统一使用独立临时数据库，避免污染真实 oa_agent.db
+_TEST_DB_PATH = os.path.join(tempfile.gettempdir(), "oa_test_agent.db")
+os.environ.setdefault("OA_DB_PATH", _TEST_DB_PATH)
+
+# 清理上一次测试残留的数据库文件，避免 init_db -> create_all 时 table already exists
+if os.path.exists(_TEST_DB_PATH):
+    os.unlink(_TEST_DB_PATH)
 
 # 将项目根目录加入 Python 搜索路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -280,3 +289,54 @@ def mock_deepseek_return(data: dict) -> MagicMock:
     mock = MagicMock()
     mock.return_value = data
     return mock
+
+
+# ═══════════════════════════════════════════════
+# 数据库 fixtures
+# ═══════════════════════════════════════════════
+@pytest.fixture
+def fresh_db():
+    """每次测试使用干净的数据库（重建全部表，结束后保留表结构供其他测试）"""
+    from skill.database import Base, _engine
+
+    Base.metadata.drop_all(_engine)
+    Base.metadata.create_all(_engine)
+    yield
+
+
+@pytest.fixture
+def sample_reimbursement(fresh_db):
+    """创建一条待审批报销单（含发票），返回 request_id"""
+    from skill.utils.db_store import save_reimbursement, save_invoice
+
+    rid = "REQ-TEST-001"
+    save_reimbursement(
+        request_id=rid,
+        employee_id="EMP-2026",
+        apply_amount=358.50,
+        apply_date="2026-07-14",
+        reason="北京出差住宿费",
+        expense_category="差旅-住宿",
+    )
+    save_invoice(
+        {
+            "发票类型": "增值税普通发票",
+            "发票号码": "88886666",
+            "发票金额": 358.50,
+            "销售方名称": "XX酒店",
+            "开票日期": "2026-07-10",
+        },
+        rid,
+        "",
+    )
+    return rid
+
+
+@pytest.fixture
+def client():
+    """Flask 测试客户端（供 API / 端到端测试复用）"""
+    from web.app import app as flask_app
+
+    flask_app.config["TESTING"] = True
+    with flask_app.test_client() as c:
+        yield c

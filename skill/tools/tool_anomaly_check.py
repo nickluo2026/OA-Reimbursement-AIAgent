@@ -209,6 +209,7 @@ def detect_anomaly(
         system_prompt=SYSTEM_PROMPT,
         user_content=user_content,
         tools=ANOMALY_CHECK_TOOL,
+        call_type="异常检测",
     )
 
     # ③ 合并规则引擎结果

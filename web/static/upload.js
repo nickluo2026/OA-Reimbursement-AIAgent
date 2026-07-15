@@ -391,7 +391,7 @@
         });
 
         var multiBtnText = worstStatus === '通过' ? '提交审批' : '人工审核';
-        html += '<div class="action-bar"><a href="/" class="btn-secondary">' + multiBtnText + '</a></div>';
+        html += '<div class="action-bar"><button type="button" class="btn-secondary" onclick="loadMyList()">查看我的报销</button></div>';
         resultContainer.innerHTML = html;
     }
 
@@ -408,8 +408,7 @@
             '</div>';
 
         html += buildResultContent(data);
-        var actionBtnText = status === '通过' ? '提交审批' : '人工审核';
-        html += '<div class="action-bar"><a href="/" class="btn-secondary">' + actionBtnText + '</a></div>';
+        html += '<div class="action-bar"><button type="button" class="btn-secondary" onclick="loadMyList()">查看我的报销</button></div>';
         return html;
     }
 
@@ -723,16 +722,46 @@
     }
 
     /* ========================================
-       事件委托：点击"提交审批"按钮时显示提示框
+       "我的报销"：加载当前用户提交的报销单与进度
        ======================================== */
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest('.action-bar .btn-secondary');
-        if (btn && btn.textContent.trim() === '提交审批') {
-            e.preventDefault();
-            alert('提交成功，等待审批');
-            window.location.href = '/';
-        }
-    });
+    function loadMyList() {
+        var box = document.getElementById('myList');
+        if (!box) return;
+        fetch('/api/my').then(function (r) { return r.json(); }).then(function (data) {
+            if (data.error) { box.innerHTML = ''; return; }
+            var items = data.items || [];
+            var cnt = document.getElementById('myCount');
+            if (cnt) cnt.textContent = items.length;
+            if (!items.length) {
+                box.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无报销单，提交后将显示在此</div></div>';
+                return;
+            }
+            box.innerHTML = items.map(function (it) {
+                var wsText = {
+                    '待审批': '⏳ 待审批', '审批中': '🔄 审批中', '已通过': '✓ 已通过',
+                    '已驳回': '✕ 已驳回', '已归档': '📦 已归档', '已发放': '💰 已发放',
+                }[it.workflow_status] || it.workflow_status;
+                var wsCls = {
+                    '待审批': 'status-pending', '审批中': 'status-inreview', '已通过': 'status-paid',
+                    '已驳回': 'status-rejected', '已归档': 'status-archived', '已发放': 'status-paid',
+                }[it.workflow_status] || '';
+                return '<div class="my-item">' +
+                    '<div><div class="my-id">' + escHtml(it.request_id) + '</div>' +
+                    '<div class="my-reason">' + escHtml(it.reason || '—') + '</div>' +
+                    '<span class="tag ' + wsCls + '" style="margin-top:6px;">' + wsText + '</span></div>' +
+                    '<div class="my-amount">' + money(it.apply_amount) + '</div>' +
+                '</div>';
+            }).join('');
+        }).catch(function () { box.innerHTML = ''; });
+    }
+
+    function money(v) {
+        if (v == null) return '—';
+        return '¥' + Number(v).toFixed(2);
+    }
+
+    window.loadMyList = loadMyList;
+    if (document.getElementById('myList')) { loadMyList(); }
 
     /* ========================================
        初始化：独立结果页数据加载

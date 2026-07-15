@@ -33,7 +33,8 @@
             <div class="form-section">
                 <label class="form-label" for="loginAccount">工号 / 账号</label>
                 <input type="text" id="loginAccount" name="account" class="form-input"
-                       value="{{ account or 'EMP-2026' }}" placeholder="请输入工号" required>
+                       value="{{ account or 'EMP-2026' }}" placeholder="请输入工号"
+                       oninput="syncRoleFromAccount(this.value)" required>
             </div>
             <div class="form-section">
                 <label class="form-label" for="loginPassword">密码</label>
@@ -63,6 +64,20 @@ function fillDemoAccount(role) {
         'admin': 'ADM-001'
     };
     document.getElementById('loginAccount').value = accounts[role] || 'EMP-2026';
+}
+
+/* 输入工号时自动同步角色下拉框（反向联动） */
+function syncRoleFromAccount(account) {
+    var roleByAccount = {
+        'EMP-2026': 'employee',
+        'APR-001': 'approver',
+        'FIN-001': 'finance',
+        'ADM-001': 'admin'
+    };
+    var role = roleByAccount[(account || '').trim().toUpperCase()];
+    if (role) {
+        document.getElementById('loginRole').value = role;
+    }
 }
 </script>
 </body>

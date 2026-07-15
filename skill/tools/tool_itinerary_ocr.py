@@ -103,6 +103,7 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
         system_prompt=SYSTEM_PROMPT,
         user_content=user_content,
         tools=ITINERARY_EXTRACT_TOOL,
+        call_type="行程单OCR提取",
     )
 
     return result
@@ -165,16 +166,38 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
             tool_call = message["tool_calls"][0]
             func_args_str = tool_call["function"]["arguments"]
             logger.info("Vision API 成功提取行程单数据")
+            _record_vision_usage(data, "成功")
             return json.loads(func_args_str)
 
         # 兜底
         content = message.get("content", "").strip()
+        _record_vision_usage(data, "成功")
         return {"_warning": "Vision API 未调用工具函数", "_raw": content}
 
     except json.JSONDecodeError:
+        _record_vision_usage(None, "失败")
         return {"_error": "Vision API 返回的 JSON 解析失败"}
     except requests.exceptions.Timeout:
+        _record_vision_usage(None, "失败")
         return {"_error": "Vision API 调用超时"}
     except Exception as e:
         logger.error("Vision API 调用异常: %s", e)
+        _record_vision_usage(None, "失败")
         return {"_error": f"Vision API 调用失败: {e}"}
+
+
+def _record_vision_usage(data: dict | None, status: str) -> None:
+    """记录 Vision API 图片识别的用量（尽力而为）。"""
+    try:
+        from ..utils.admin_store import record_api_usage
+
+        usage = (data or {}).get("usage", {}) or {}
+        record_api_usage(
+            call_type="Vision API",
+            model=DEEPSEEK_MODEL,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            status=status,
+        )
+    except Exception:  # pragma: no cover
+        pass

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统管理后台 — 报销智能化系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/workbench.css">
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+
+<div class="header">
+    <div class="header-user">
+        <span class="user-avatar">{{ user_icon }}</span>
+        <div>
+            <div class="user-name">{{ user_name }}</div>
+            <div class="user-role">{{ user_role }} · {{ user_account }}</div>
+        </div>
+        <a href="/logout" class="btn-logout">退出登录</a>
+    </div>
+    <h1>报销智能化系统</h1>
+    <div class="subtitle">系统管理员工作台</div>
+    <div class="role-banner">
+        <span class="rb-name">{{ user_role }}</span>
+        <span class="rb-sep">·</span>
+        <span class="rb-desc">{{ role_desc }}</span>
+    </div>
+</div>
+
+<main class="container">
+    {% if forbidden %}
+    <div class="card">
+        <div class="forbidden-box">
+            <div class="fb-icon">🔒</div>
+            <div>当前角色「{{ user_role }}」无系统管理权限。</div>
+            <div style="margin-top:10px;"><a href="/">返回首页</a></div>
+        </div>
+    </div>
+    {% else %}
+    <!-- ========== Tab 导航 ========== -->
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="tab-admin" onclick="switchTab('tab-admin')">⚙️ 系统配置</button>
+        <button class="tab-btn" data-tab="tab-audit" onclick="switchTab('tab-audit')">📜 审计日志</button>
+        <button class="tab-btn" data-tab="tab-usage" onclick="switchTab('tab-usage')">📊 用量统计</button>
+    </div>
+
+    <!-- ========== Tab: 系统配置 ========== -->
+    <div id="tab-admin" class="tab-panel">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">⚙️</span>
+                <h2>系统配置</h2>
+            </div>
+            <p class="card-desc">维护费用限额、异常规则、审批权限。所有变更会进入审计日志。</p>
+            <div id="configSections"></div>
+            <div class="action-bar">
+                <button class="btn-secondary" onclick="saveConfig()">💾 保存配置</button>
+                <button class="btn-secondary" onclick="resetConfig()">↩️ 恢复默认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== Tab: 审计日志 ========== -->
+    <div id="tab-audit" class="tab-panel" style="display:none;">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📜</span>
+                <h2>审计日志</h2>
+            </div>
+            <p class="card-desc">所有用户操作、AI 校验、系统配置变更的完整记录。支持追溯与合规审查。</p>
+            <div class="table-wrap">
+                <table class="data-table audit-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>操作人</th>
+                            <th>角色</th>
+                            <th>操作类型</th>
+                            <th>对象</th>
+                            <th>结果</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== Tab: 用量统计 ========== -->
+    <div id="tab-usage" class="tab-panel" style="display:none;">
+        <div class="pricing-banner">
+            <span style="font-size:16px;">🏷️</span>
+            <span style="font-weight:600;color:var(--text);">DeepSeek-V4-Flash 定价</span>
+            <span class="price-tag">输入 ¥0.001 / 1K tokens</span>
+            <span class="price-tag">输出 ¥0.002 / 1K tokens</span>
+            <span class="price-formula">费用 = 输入量 ÷ 1000 × 0.001 + 输出量 ÷ 1000 × 0.002</span>
+        </div>
+
+        <div class="metric-grid" id="usageOverview"></div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📈</span>
+                <h2>每日调用趋势（近 7 天）</h2>
+            </div>
+            <p class="card-desc">柱高表示当日 Token 消耗量，柱顶数字为当日调用次数。鼠标悬停查看明细。</p>
+            <div class="chart-container" id="usageDailyBars"></div>
+            <div class="chart-x-labels" id="usageDailyLabels"></div>
+            <div class="chart-legend">
+                <span><span class="legend-dot" style="background:var(--primary);"></span>Token 消耗量（柱高）</span>
+                <span><span class="legend-dot" style="background:var(--text-light);"></span>柱顶数字 = 调用次数</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🧩</span>
+                <h2>按调用类型统计</h2>
+            </div>
+            <p class="card-desc">各调用类型的 Token 占比、调用次数与预估费用分布。</p>
+            <div id="usageByType"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📝</span>
+                <h2>调用明细记录</h2>
+            </div>
+            <p class="card-desc">最近 DeepSeek API 调用记录，支持按日期 / 类型 / 状态筛选。</p>
+
+            <div class="usage-filters">
+                <div class="filter-group">
+                    <label class="form-label" for="filterDateRange">日期</label>
+                    <select id="filterDateRange" class="form-input" onchange="renderUsageRecords()">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="form-label" for="filterCallType">调用类型</label>
+                    <select id="filterCallType" class="form-input" onchange="renderUsageRecords()">
+                        <option value="">全部</option>
+                        <option value="发票OCR提取">发票OCR提取</option>
+                        <option value="行程单OCR提取">行程单OCR提取</option>
+                        <option value="异常检测">异常检测</option>
+                        <option value="分类限额">分类限额</option>
+                        <option value="Vision API">Vision API</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="form-label" for="filterStatus">状态</label>
+                    <select id="filterStatus" class="form-input" onchange="renderUsageRecords()">
+                        <option value="">全部</option>
+                        <option value="成功">成功</option>
+                        <option value="失败">失败</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="usage-records-wrap" id="usageRecords"></div>
+        </div>
+    </div>
+    {% endif %}
+</main>
+
+<script src="/static/admin.js"></script>
+</body>
+</html>

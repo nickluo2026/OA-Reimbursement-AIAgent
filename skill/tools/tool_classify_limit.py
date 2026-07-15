@@ -64,6 +64,7 @@ def classify_and_check_limit(
         system_prompt=SYSTEM_PROMPT,
         user_content=user_content,
         tools=CLASSIFY_LIMIT_TOOL,
+        call_type="分类限额",
     )
 
     if "_error" in result or "_warning" in result:

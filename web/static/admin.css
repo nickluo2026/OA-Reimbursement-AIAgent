@@ -1,0 +1,253 @@
+/* ============================================
+   系统管理员工作台样式（系统配置 / 审计日志 / 用量统计）
+   复用 style.css 的 CSS 变量与设计语言，补充原型专属类。
+   ============================================ */
+
+:root {
+    --purple: #7c3aed;
+    --teal: #0d9488;
+}
+
+/* ── Tab 导航 ── */
+.tab-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.18s;
+}
+.tab-btn:hover { color: var(--primary); }
+.tab-btn.active { background: var(--primary); color: #fff; }
+
+/* ── 系统配置 ── */
+.config-section { margin-bottom: 18px; }
+.config-section h4 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+.config-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--bg);
+}
+.cfg-label { font-size: 14px; color: var(--text); }
+.cfg-input {
+    width: 130px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    text-align: right;
+    background: #fff;
+}
+.cfg-input:focus { outline: none; border-color: var(--primary); }
+.cfg-suffix { font-size: 13px; color: var(--text-light); margin-left: 6px; }
+.cfg-toggle {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    background: var(--border);
+    position: relative;
+    cursor: pointer;
+    transition: 0.2s;
+    flex-shrink: 0;
+}
+.cfg-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: 0.2s;
+}
+.cfg-toggle.on { background: var(--green); }
+.cfg-toggle.on::after { left: 22px; }
+
+.action-bar { display: flex; gap: 12px; margin-top: 20px; }
+
+/* ── 审计日志 ── */
+.audit-table th, .audit-table td { padding: 10px 12px; font-size: 13px; }
+.audit-user { font-weight: 600; }
+.audit-action {
+    display: inline-block;
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-pill.success { background: var(--green-bg); color: var(--green); }
+.status-pill.error { background: var(--red-bg); color: var(--red); }
+
+/* ── 用量统计：定价横幅 ── */
+.pricing-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, #eff6ff, #f5f3ff);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: var(--text-light);
+}
+.price-tag {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-weight: 600;
+    color: var(--text);
+}
+.price-formula { font-family: monospace; font-size: 12px; }
+
+/* ── 用量统计：概览卡 ── */
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.metric-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+.metric-icon { font-size: 22px; margin-bottom: 6px; }
+.metric-value { font-size: 26px; font-weight: 700; line-height: 1.2; }
+.metric-value.blue { color: var(--primary); }
+.metric-value.purple { color: var(--purple); }
+.metric-value.green { color: var(--green); }
+.metric-value.orange { color: var(--orange); }
+.metric-label { font-size: 13px; color: var(--text); font-weight: 600; margin-top: 4px; }
+.metric-sub { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+
+/* ── 用量统计：每日柱状图 ── */
+.chart-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 220px;
+    padding: 10px 4px 0;
+    border-bottom: 2px solid var(--border);
+}
+.chart-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+}
+.chart-bar {
+    width: 100%;
+    max-width: 48px;
+    background: linear-gradient(180deg, var(--primary), #60a5fa);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    min-height: 4px;
+    transition: 0.2s;
+    cursor: default;
+}
+.chart-bar:hover { filter: brightness(1.05); }
+.bar-calls {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+}
+.bar-tip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 22px;
+    background: var(--text);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.15s;
+    z-index: 5;
+}
+.chart-bar:hover .bar-tip { opacity: 1; }
+.chart-x-labels { display: flex; gap: 10px; margin-top: 8px; }
+.chart-x-labels span { flex: 1; text-align: center; font-size: 12px; color: var(--text-light); }
+.chart-legend { display: flex; gap: 18px; margin-top: 12px; font-size: 12px; color: var(--text-light); }
+.legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+/* ── 用量统计：按类型占比 ── */
+.type-row { margin-bottom: 14px; }
+.type-row-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.type-name { font-weight: 600; font-size: 14px; }
+.type-stats { font-size: 12px; color: var(--text-light); }
+.type-bar-track {
+    height: 14px;
+    background: var(--bg);
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+.type-bar-fill { height: 100%; border-radius: 7px; transition: width 0.3s; }
+
+/* ── 用量统计：明细筛选 ── */
+.usage-filters { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.usage-records-wrap { overflow-x: auto; }
+.usage-empty { text-align: center; padding: 36px 20px; color: var(--text-light); }
+
+/* ── 响应式 ── */
+@media (max-width: 640px) {
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .tab-btn { font-size: 13px; padding: 10px 6px; }
+}

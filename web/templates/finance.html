@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务工作台 — 报销智能化系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/workbench.css">
+</head>
+<body>
+
+<div class="header">
+    <div class="header-user">
+        <span class="user-avatar">{{ user_icon }}</span>
+        <div>
+            <div class="user-name">{{ user_name }}</div>
+            <div class="user-role">{{ user_role }} · {{ user_account }}</div>
+        </div>
+        <a href="/logout" class="btn-logout">退出登录</a>
+    </div>
+    <h1>报销智能化系统</h1>
+    <div class="subtitle">财务终审工作台</div>
+    <div class="role-banner">
+        <span class="rb-name">{{ user_role }}</span>
+        <span class="rb-sep">·</span>
+        <span class="rb-desc">{{ role_desc }}</span>
+    </div>
+</div>
+
+<main class="container">
+    {% if forbidden %}
+    <div class="card">
+        <div class="forbidden-box">
+            <div class="fb-icon">🔒</div>
+            <div>当前角色「{{ user_role }}」无财务权限。</div>
+            <div style="margin-top:10px;"><a href="/">返回首页</a></div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-title-row">
+            <h2><span class="card-icon">💼</span> 待终审报销单</h2>
+            <div style="font-size:13px;color:var(--text-light);">
+                <span style="margin-right:14px;">⏳ 待终审：<strong style="color:var(--primary);" id="financePendingCount">—</strong></span>
+                <span style="margin-right:14px;">📦 待归档：<strong style="color:var(--orange);" id="financeArchiveCount">—</strong></span>
+                <span>💰 已打款：<strong style="color:var(--green);" id="financePaidCount">—</strong></span>
+            </div>
+        </div>
+        <p class="card-desc">审批领导已通过的报销单。复核 AI 校验结果 → 确认归档 → 发起费用发放。</p>
+        <div class="reimburse-list" id="financeList"></div>
+    </div>
+    {% endif %}
+</main>
+
+<!-- 详情弹窗 -->
+<div class="modal-mask" id="detailModal" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h3 id="detailTitle">报销单明细</h3>
+            <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+        </div>
+        <div class="modal-body" id="detailBody"></div>
+    </div>
+</div>
+
+<!-- 财务操作弹窗 -->
+<div class="modal-mask" id="actionModal" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h3 id="actionTitle">财务操作</h3>
+            <button class="modal-close" onclick="closeModal('actionModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <p id="actionHint" style="font-size:14px;color:var(--text-light);"></p>
+            <textarea id="actionComment" class="modal-textarea" placeholder="填写备注（可选）"></textarea>
+            <div class="modal-actions">
+                <button class="btn-mini" onclick="closeModal('actionModal')">取消</button>
+                <button class="btn-mini success" id="actionConfirm">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/finance.js"></script>
+</body>
+</html>

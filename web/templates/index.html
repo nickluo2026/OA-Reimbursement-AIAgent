@@ -19,12 +19,29 @@
     </div>
     <h1>报销智能化系统</h1>
     <div class="subtitle">DeepSeek AI Agent 智能发票校验</div>
-    <div class="role-banner">
-        <span class="rb-name">{{ user_role }}</span>
-        <span class="rb-sep">·</span>
-        <span class="rb-desc">{{ role_desc }}</span>
+        <div class="role-banner">
+            <span class="rb-name">{{ user_role }}</span>
+            <span class="rb-sep">·</span>
+            <span class="rb-desc">{{ role_desc }}</span>
+        </div>
     </div>
-</div>
+
+    {# 普通员工仅能提交报销，隐藏顶部导航（报销上传 / 审批工作台 / 财务工作台） #}
+    {% if role_key != "employee" %}
+    <nav class="topnav">
+        <a href="/" class="{% if role_key in ('approver', 'finance', 'admin') %}active{% endif %}">📤 报销上传</a>
+        {% if role_key in ('approver', 'admin') %}
+        <a href="/approve">📥 审批工作台</a>
+        {% endif %}
+        {% if role_key in ('finance', 'admin') %}
+        <a href="/finance">💼 财务工作台</a>
+        {% endif %}
+        {% if role_key == "admin" %}
+        <a href="/admin">⚙️ 系统管理</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+
 
 <main class="container">
     <div class="card">
@@ -111,7 +128,7 @@
         </form>
     </div>
 
-    <!-- 智能体执行流水线 -->
+        <!-- 智能体执行流水线 -->
     <div class="pipeline" id="pipeline" style="display:none;">
         <div class="pipeline-header">
             <span class="pipeline-title-icon" id="pipelineAgentIcon">🤖</span>
@@ -123,6 +140,18 @@
 
     <!-- 结果区域 -->
     <div id="resultContainer" style="display:none;"></div>
+
+    <!-- 我的报销：跟踪提交后的审批/财务进度 -->
+    <div class="card">
+        <div class="card-title-row">
+            <h2><span class="card-icon">📂</span> 我的报销</h2>
+            <div style="font-size:13px;color:var(--text-light);">
+                共 <strong style="color:var(--primary);" id="myCount">—</strong> 单
+            </div>
+        </div>
+        <p class="card-desc">您提交的报销单及当前审批 / 财务进度。提交后由 AI 预校验，进入审批领导与财务流程。</p>
+        <div class="my-list" id="myList"></div>
+    </div>
 </main>
 
 <script src="/static/upload.js"></script>
