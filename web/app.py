@@ -13,15 +13,19 @@
 
 import os
 import uuid
+import secrets
 import logging
 from pathlib import Path
+from typing import Any
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from skill import run_reimbursement_skill
 from skill import workflow as wf
 from skill.database import init_db
 from skill.utils import admin_store
+from skill.utils.mask_sensitive import mask_ocr_result
 from skill.utils.structured_log import set_request_id, get_request_id
 
 # ── 数据库初始化 ──
@@ -65,7 +69,24 @@ app = Flask(
     static_url_path="/static",
 )
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key-prototype")
+
+# ── Secret Key：禁止使用硬编码默认值 ──
+# [S-005] 生产环境必须通过 FLASK_SECRET_KEY 环境变量设置固定密钥；
+#         未设置时生成随机密钥（每次重启后 session 失效），并输出警告。
+_flask_secret = os.environ.get("FLASK_SECRET_KEY")
+if not _flask_secret:
+    _flask_secret = secrets.token_hex(32)
+    logger.warning(
+        "FLASK_SECRET_KEY 环境变量未设置，已生成随机临时密钥。"
+        "生产环境请务必通过环境变量指定固定密钥。"
+    )
+app.secret_key = _flask_secret
+
+# ── Session Cookie 安全属性 ──
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
 
 # ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
 # 角色定义：对应 design.md §1.1 / §17.2 与 constitution.md §2.6
@@ -76,12 +97,14 @@ ROLE_INFO = {
     "admin":    {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
 }
 
-# 演示账号映射（工号 → 姓名），密码任意
+# 演示账号映射（工号 → 姓名 / 角色 / 密码哈希）
+# [S-001] 密码使用 werkzeug PBKDF2 哈希存储，不再接受任意密码。
+#         演示密码统一为 "123456"，生产环境应替换为真实密码库。
 DEMO_ACCOUNTS = {
-    "EMP-2026": {"name": "张三", "role": "employee"},
-    "APR-001":  {"name": "李总", "role": "approver"},
-    "FIN-001":  {"name": "王会计", "role": "finance"},
-    "ADM-001":  {"name": "赵管理", "role": "admin"},
+    "EMP-2026": {"name": "张三", "role": "employee", "password_hash": generate_password_hash("123456")},
+    "APR-001":  {"name": "李总", "role": "approver", "password_hash": generate_password_hash("123456")},
+    "FIN-001":  {"name": "王会计", "role": "finance", "password_hash": generate_password_hash("123456")},
+    "ADM-001":  {"name": "赵管理", "role": "admin", "password_hash": generate_password_hash("123456")},
 }
 
 
@@ -90,27 +113,91 @@ def allowed_file(filename: str) -> bool:
     return ext in ALLOWED_EXTENSIONS
 
 
+# ═══════════════════════════════════════════════
+# CSRF 防护 [S-007]
+# ═══════════════════════════════════════════════
+def _get_csrf_token() -> str:
+    """获取或生成 CSRF token，存储在 session 中。"""
+    if "_csrf_token" not in session:
+        session["_csrf_token"] = secrets.token_hex(32)
+    return session["_csrf_token"]
+
+
+@app.context_processor
+def _inject_csrf_token():
+    """向所有模板注入 csrf_token 变量。"""
+    return {"csrf_token": _get_csrf_token()}
+
+
+@app.before_request
+def _csrf_protect():
+    """对所有状态变更请求（POST/PUT/DELETE/PATCH）校验 CSRF token。
+
+    - GET /login 页面渲染时通过 context_processor 生成 token 并写入 session；
+    - 登录表单 POST 时在路由内部校验 CSRF（以便返回 HTML 错误页而非 JSON）；
+    - 其他 POST 路由（AJAX）通过 X-CSRF-Token 请求头校验；
+    - 测试模式（TESTING=True）跳过校验，兼容现有测试。
+    """
+    if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+        return
+    if app.config.get("TESTING"):
+        return
+    # 登录路由单独处理 CSRF（在路由内部校验，以便渲染错误页面）
+    if request.endpoint == "login":
+        return
+    session_token = session.get("_csrf_token")
+    submitted = request.form.get("_csrf_token") or request.headers.get("X-CSRF-Token")
+    if not session_token or not submitted or submitted != session_token:
+        return jsonify({"error": "CSRF token 校验失败，请刷新页面重试"}), 400
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """登录页：4 角色选择 + 工号密码（原型演示，密码任意）。
+    """登录页：工号 + 密码认证。
 
-    对应 design.md §11 认证授权架构、§17 前端架构设计。
+    [S-001] 密码使用 PBKDF2 哈希校验，不再接受任意密码。
+    [S-002] 仅允许预注册账号登录，移除未知工号回退逻辑。
+    [S-007] 表单提交需携带 CSRF token。
     """
     if request.method == "POST":
+        # ── CSRF 校验 ──
+        session_token = session.get("_csrf_token")
+        submitted_token = request.form.get("_csrf_token", "")
+        if not session_token or submitted_token != session_token:
+            return render_template("login.html", error="会话已过期，请刷新页面重试"), 400
+
         account = request.form.get("account", "").strip()
         password = request.form.get("password", "").strip()
-        role = request.form.get("role", "employee")
         if not account or not password:
-            return render_template("login.html", error="请输入工号和密码", selected_role=role)
-        # 原型演示：密码任意。角色以工号映射为准，避免下拉框误选导致越权或失权。
+            return render_template("login.html", error="请输入工号和密码")
+
+        # [S-002] 仅允许预注册账号登录；角色由服务端映射决定，忽略前端 role 参数
         info = DEMO_ACCOUNTS.get(account)
-        if info is None:
-            # 未知工号：原型演示允许任意账号，角色回退到表单所选
-            info = {"name": account, "role": role}
+        if info is None or not check_password_hash(info["password_hash"], password):
+            # 记录登录失败审计
+            try:
+                admin_store.add_audit_log(
+                    account or "未知", "—", "LOGIN_FAILED",
+                    account or "—", "失败", request.remote_addr,
+                )
+            except Exception:
+                pass
+            return render_template("login.html", error="工号或密码错误")
+
         session["account"] = account
         session["role"] = info["role"]
         session["name"] = info["name"]
         logger.info("用户登录 account=%s role=%s", account, info["role"])
+
+        # 登录成功审计
+        try:
+            admin_store.add_audit_log(
+                info["name"], info["role"], "LOGIN",
+                account, "成功", request.remote_addr,
+            )
+        except Exception:
+            pass
+
         # 按角色跳转到默认工作台
         target = {
             "approver": "approve_page",
@@ -148,6 +235,11 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    # [S-003] 登录校验：未登录用户不可上传文件或触发 AI 校验
+    err = _require_login()
+    if err:
+        return err
+
     # ── 参数校验 ──
     if "file" not in request.files:
         return jsonify({"status": "错误", "summary": "未检测到上传文件"}), 400
@@ -184,6 +276,7 @@ def upload():
     # 提交人取登录账号（前端未传 employee_id 时回退到 session）
     employee_id = request.form.get("employee_id", "").strip() or session.get("account", "unknown")
 
+    result: dict[str, Any]
     try:
         result = run_reimbursement_skill(
             pdf_path=str(save_path),
@@ -201,6 +294,7 @@ def upload():
 
     # ── 补充表单信息到结果（方便结果页展示） ──
     result["_form"] = {
+        "报销单号": request_id,
         "apply_amount": apply_amount,
         "apply_date": apply_date or "",
         "reason": reason,
@@ -215,7 +309,7 @@ def upload():
     try:
         if "account" in session:
             amt_str = f"¥{apply_amount:.2f}" if apply_amount is not None else ""
-            target = f"{request_id} · {amt_str}" if amt_str else request_id
+            target = amt_str if amt_str else "—"
             admin_store.add_audit_log(
                 session.get("name", "员工"),
                 session.get("role", "员工"),
@@ -223,9 +317,15 @@ def upload():
                 target,
                 "成功",
                 request.remote_addr,
+                request_id=request_id,
             )
     except Exception:
         pass
+
+    # ── 敏感数据脱敏（数据库保留完整数据，仅 API 返回时脱敏）──
+    _ocr = result.get("ocr_result")
+    if isinstance(_ocr, dict):
+        result["ocr_result"] = mask_ocr_result(_ocr)
 
     # ── 清理临时文件 ──
     try:
@@ -366,12 +466,15 @@ def api_approve():
     # 审计日志：APPROVE / REJECT / TRANSFER
     try:
         audit_action = {"通过": "APPROVE", "驳回": "REJECT", "转审": "TRANSFER"}.get(action, action or "")
+        amt = result.get("apply_amount") if isinstance(result, dict) else None
+        amt_str = f" ¥{amt:.2f}" if isinstance(amt, (int, float)) else ""
         admin_store.add_audit_log(
             session.get("name", "审批领导"), session.get("role", "审批领导"),
-            audit_action, f"{request_id} · ¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
+            audit_action, f"{request_id}{amt_str}", "成功", request.remote_addr or "",
+            request_id=request_id or "",
         )
     except Exception:
-        pass
+        logger.exception("审批审计日志写入失败 request_id=%s action=%s", request_id, action)
     return jsonify({"status": "ok", "data": result})
 
 
@@ -417,7 +520,8 @@ def api_finance():
         audit_action = {"归档": "ARCHIVE", "打款": "PAYMENT_INIT"}.get(action, action or "")
         admin_store.add_audit_log(
             session.get("name", "财务人员"), session.get("role", "财务人员"),
-            audit_action, f"{request_id} · ¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
+            audit_action, f"¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
+            request_id=request_id,
         )
     except Exception:
         pass

@@ -17,6 +17,7 @@ from typing import Any
 
 from .database import ApprovalRecord, get_session, utcnow
 from .tools.tool_approval_routing import determine_approval_route
+from .utils.mask_sensitive import mask_ocr_result
 from .utils.db_store import (
     get_ai_results_for_request,
     get_invoices_for_request,
@@ -235,7 +236,7 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
             {
                 "check_type": ar.check_type,
                 "status": ar.status,
-                "detail": ar.detail,
+                "detail": mask_ocr_result(ar.detail) if isinstance(ar.detail, dict) else ar.detail,
                 "check_time": ar.check_time.isoformat() if ar.check_time else None,
             }
             for ar in ai_results
@@ -265,11 +266,11 @@ def submit_approval(
 
     r = get_reimbursement(request_id)
     if not r:
-        raise ValueError(f"报销单 {request_id} 不存在")
+        raise ValueError(f"报销单（报销单号：{request_id}）不存在")
     if r.workflow_status == WS_REJECTED:
-        raise ValueError(f"报销单 {request_id} 已驳回，不可重复审批")
+        raise ValueError(f"报销单（报销单号：{request_id}）已驳回，不可重复审批")
     if r.workflow_status in TERMINAL_STATUSES:
-        raise ValueError(f"报销单 {request_id} 当前状态「{r.workflow_status}」不可审批")
+        raise ValueError(f"报销单（报销单号：{request_id}）当前状态「{r.workflow_status}」不可审批")
 
     route = compute_route(r.apply_amount)
     node = route.get("审批人", "审批领导")
@@ -319,12 +320,12 @@ def submit_finance(
 
     r = get_reimbursement(request_id)
     if not r:
-        raise ValueError(f"报销单 {request_id} 不存在")
+        raise ValueError(f"报销单（报销单号：{request_id}）不存在")
 
     if action == "归档":
         if r.workflow_status != WS_APPROVED:
             raise ValueError(
-                f"报销单 {request_id} 当前状态「{r.workflow_status}」不可归档，需先审批通过"
+                f"报销单（报销单号：{request_id}）当前状态「{r.workflow_status}」不可归档，需先审批通过"
             )
         save_approval_record(
             request_id=request_id,
@@ -338,7 +339,7 @@ def submit_finance(
         logger.info("财务归档 %s", request_id)
     else:  # 打款
         if r.workflow_status != WS_ARCHIVED:
-            raise ValueError(f"报销单 {request_id} 尚未归档，请先确认归档再打款")
+            raise ValueError(f"报销单（报销单号：{request_id}）尚未归档，请先确认归档再打款")
         save_approval_record(
             request_id=request_id,
             approver_id=finance_id,

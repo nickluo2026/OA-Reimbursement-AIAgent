@@ -72,7 +72,7 @@
 
         return '<div class="reimburse-item">' +
             '<div class="reimburse-item-head">' +
-                '<div><div class="reimburse-item-id">' + esc(it.request_id) + '</div>' +
+                '<div><div class="reimburse-item-id">报销单号：' + esc(it.request_id) + '</div>' +
                 '<div>' + esc(it.reason) + '</div></div>' +
                 '<div class="reimburse-item-amount">' + money(it.apply_amount) + '</div>' +
             '</div>' +
@@ -150,8 +150,8 @@
     window.openAction = function (requestId, action) {
         pendingAction = { requestId: requestId, action: action };
         var hint = {
-            '归档': '确认归档报销单 ' + requestId + '？归档后方可发起打款。',
-            '打款': '确认打款报销单 ' + requestId + '（金额 ' + '）？打款后费用将发放给员工。',
+            '归档': '确认归档报销单（报销单号：' + requestId + '）？归档后方可发起打款。',
+            '打款': '确认打款报销单（报销单号：' + requestId + '）？打款后费用将发放给员工。',
         }[action] || '';
         document.getElementById('actionTitle').textContent = '财务 · ' + action;
         document.getElementById('actionHint').textContent = hint;
@@ -165,9 +165,11 @@
         var comment = document.getElementById('actionComment').value.trim();
         var btn = this;
         btn.disabled = true;
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var csrfToken = csrfMeta ? csrfMeta.content : '';
         fetch('/api/finance', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
             body: JSON.stringify({ request_id: pendingAction.requestId, action: pendingAction.action, comment: comment }),
         }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {

@@ -8,6 +8,11 @@
     --teal: #0d9488;
 }
 
+/* ── 管理后台专用宽容器（覆盖 style.css 默认 800px）── */
+body.admin-page .container {
+    max-width: 1200px;
+}
+
 /* ── Tab 导航 ── */
 .tab-nav {
     display: flex;
@@ -88,8 +93,21 @@
 .action-bar { display: flex; gap: 12px; margin-top: 20px; }
 
 /* ── 审计日志 ── */
-.audit-table th, .audit-table td { padding: 10px 12px; font-size: 13px; }
+.audit-table { table-layout: fixed; }
+.audit-table th, .audit-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    word-break: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .audit-user { font-weight: 600; }
+.audit-time { font-size: 12.5px; }
+.audit-role { font-size: 12px; color: var(--text-light); }
+.audit-req-id { font-family: monospace; font-size: 12px; }
+.audit-target { font-size: 13px; }
+.audit-ip { font-family: monospace; font-size: 12px; color: var(--text-light); }
 .audit-action {
     display: inline-block;
     background: var(--primary-light);

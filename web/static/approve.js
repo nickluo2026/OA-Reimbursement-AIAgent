@@ -83,7 +83,7 @@
 
         return '<div class="reimburse-item">' +
             '<div class="reimburse-item-head">' +
-                '<div><div class="reimburse-item-id">' + esc(it.request_id) + '</div>' +
+                '<div><div class="reimburse-item-id">报销单号：' + esc(it.request_id) + '</div>' +
                 '<div>' + esc(it.reason) + '</div></div>' +
                 '<div class="reimburse-item-amount">' + money(it.apply_amount) + '</div>' +
             '</div>' +
@@ -166,9 +166,9 @@
     window.openAction = function (requestId, action) {
         pendingAction = { requestId: requestId, action: action };
         var hint = {
-            '通过': '确认通过报销单 ' + requestId + '？',
-            '驳回': '确认驳回报销单 ' + requestId + '？请填写驳回意见。',
-            '转审': '确认将报销单 ' + requestId + ' 转交上级审批？请填写转审说明。',
+            '通过': '确认通过报销单（报销单号：' + requestId + '）？',
+            '驳回': '确认驳回报销单（报销单号：' + requestId + '）？请填写驳回意见。',
+            '转审': '确认将报销单（报销单号：' + requestId + '）转交上级审批？请填写转审说明。',
         }[action] || '';
         document.getElementById('actionTitle').textContent = '审批 · ' + action;
         document.getElementById('actionHint').textContent = hint;
@@ -186,9 +186,11 @@
         }
         var btn = this;
         btn.disabled = true;
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var csrfToken = csrfMeta ? csrfMeta.content : '';
         fetch('/api/approve', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
             body: JSON.stringify({ request_id: pendingAction.requestId, action: pendingAction.action, comment: comment }),
         }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {

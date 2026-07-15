@@ -86,11 +86,16 @@ function collectConfig() {
     return items;
 }
 
+function getCsrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
 function saveConfig() {
     var items = collectConfig();
     fetch('/api/admin/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
         body: JSON.stringify({ items: items }),
     })
         .then(function (r) { return r.json(); })
@@ -108,7 +113,7 @@ function saveConfig() {
 
 function resetConfig() {
     if (!confirm('确认恢复所有配置为默认值？')) return;
-    fetch('/api/admin/config/reset', { method: 'POST' })
+    fetch('/api/admin/config/reset', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.status === 'ok') {
@@ -154,13 +159,13 @@ function renderAuditLog(items) {
             : '<span class="status-pill error">' + r.result + '</span>';
         var actionLabel = AUDIT_ACTION_LABELS[r.action] || r.action;
         html += '<tr>' +
-            '<td style="white-space:nowrap;font-size:12.5px;">' + r.time + '</td>' +
+            '<td class="audit-time">' + r.time + '</td>' +
             '<td class="audit-user">' + r.user + '</td>' +
-            '<td><span style="font-size:12px;color:var(--text-light);">' + r.role + '</span></td>' +
+            '<td class="audit-role">' + r.role + '</td>' +
             '<td><span class="audit-action">' + actionLabel + '</span></td>' +
-            '<td style="font-size:13px;">' + r.target + '</td>' +
+            '<td class="audit-target" title="' + r.target + '">' + r.target + '</td>' +
             '<td>' + resultPill + '</td>' +
-            '<td style="font-family:monospace;font-size:12px;color:var(--text-light);">' + r.ip + '</td>' +
+            '<td class="audit-ip">' + r.ip + '</td>' +
         '</tr>';
     });
     if (!items.length) {

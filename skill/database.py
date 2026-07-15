@@ -215,6 +215,7 @@ class AuditLog(Base):
     role = Column(String(32), comment="角色")
     action = Column(String(32), comment="操作类型")
     target = Column(String(512), comment="操作对象")
+    request_id = Column(String(64), default="", comment="报销单号")
     result = Column(String(16), default="成功", comment="结果: 成功/失败")
     ip = Column(String(64), comment="来源 IP")
     created_at = Column(DateTime, default=utcnow)
@@ -256,3 +257,12 @@ def init_db() -> None:
     """
     _engine.dispose()
     Base.metadata.create_all(_engine, checkfirst=True)
+
+    # 迁移：为已有 audit_log 表补充 request_id 列（报销单号）
+    from sqlalchemy import inspect, text
+    _insp = inspect(_engine)
+    if "audit_log" in _insp.get_table_names():
+        cols = [c["name"] for c in _insp.get_columns("audit_log")]
+        if "request_id" not in cols:
+            with _engine.begin() as conn:
+                conn.execute(text("ALTER TABLE audit_log ADD COLUMN request_id VARCHAR(64) DEFAULT ''"))

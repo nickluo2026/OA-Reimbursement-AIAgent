@@ -12,6 +12,7 @@ from typing import Any
 
 from ..database import ApiUsage, AuditLog, SystemConfig, get_session, utcnow
 from ..utils.structured_log import get_request_id
+from .mask_sensitive import mask_ip
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,7 @@ def add_audit_log(
     target: str,
     result: str = "成功",
     ip: str = "",
+    request_id: str = "",
 ) -> None:
     """追加一条审计日志（仅追加，不可删）。失败仅记录日志。"""
     try:
@@ -170,6 +172,7 @@ def add_audit_log(
                     target=target,
                     result=result,
                     ip=ip or "",
+                    request_id=request_id or "",
                 )
             )
             s.commit()
@@ -200,8 +203,9 @@ def _audit_to_dict(r: AuditLog) -> dict[str, Any]:
         "role": r.role,
         "action": r.action,
         "target": r.target,
+        "request_id": r.request_id or "",
         "result": r.result,
-        "ip": r.ip,
+        "ip": mask_ip(r.ip or ""),
     }
 
 

@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>系统管理后台 — 报销智能化系统</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/workbench.css">
     <link rel="stylesheet" href="/static/admin.css">
 </head>
-<body>
+<body class="admin-page">
 
 <div class="header">
     <div class="header-user">
@@ -71,6 +72,15 @@
             <p class="card-desc">所有用户操作、AI 校验、系统配置变更的完整记录。支持追溯与合规审查。</p>
             <div class="table-wrap">
                 <table class="data-table audit-table">
+                    <colgroup>
+                        <col style="width:150px">
+                        <col style="width:80px">
+                        <col style="width:85px">
+                        <col style="width:120px">
+                        <col>
+                        <col style="width:70px">
+                        <col style="width:140px">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>时间</th>

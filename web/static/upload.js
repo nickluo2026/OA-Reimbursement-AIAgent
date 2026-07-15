@@ -304,7 +304,9 @@
             var promises = selectedFiles.map(function (file) {
                 var formData = new FormData(uploadForm);
                 formData.set('file', file);
-                return fetch('/upload', { method: 'POST', body: formData })
+                var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                var csrfToken = csrfMeta ? csrfMeta.content : '';
+                return fetch('/upload', { method: 'POST', body: formData, headers: { 'X-CSRF-Token': csrfToken } })
                     .then(function (resp) {
                         return resp.json().then(function (d) {
                             if (!resp.ok) { throw new Error(d.summary || '请求失败'); }
@@ -746,7 +748,7 @@
                     '已驳回': 'status-rejected', '已归档': 'status-archived', '已发放': 'status-paid',
                 }[it.workflow_status] || '';
                 return '<div class="my-item">' +
-                    '<div><div class="my-id">' + escHtml(it.request_id) + '</div>' +
+                    '<div><div class="my-id">报销单号：' + escHtml(it.request_id) + '</div>' +
                     '<div class="my-reason">' + escHtml(it.reason || '—') + '</div>' +
                     '<span class="tag ' + wsCls + '" style="margin-top:6px;">' + wsText + '</span></div>' +
                     '<div class="my-amount">' + money(it.apply_amount) + '</div>' +

@@ -20,6 +20,7 @@
         {% endif %}
 
         <form method="POST" action="/login">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
             <div class="form-section">
                 <label class="form-label" for="loginRole">选择身份（4 角色）</label>
                 <select id="loginRole" name="role" class="form-input" onchange="fillDemoAccount(this.value)">
@@ -49,7 +50,7 @@
             <strong>演示账号：</strong><br>
             普通员工 <code>EMP-2026</code> · 审批领导 <code>APR-001</code><br>
             财务人员 <code>FIN-001</code> · 系统管理员 <code>ADM-001</code><br>
-            （密码任意，原型演示无需校验）
+            （密码：123456）
         </div>
     </div>
 </div>
