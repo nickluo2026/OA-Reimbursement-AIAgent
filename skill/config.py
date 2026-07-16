@@ -34,17 +34,46 @@ def _load_yaml(filename: str) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+def get_system_config_overrides() -> dict[str, Any]:
+    """读取管理员配置覆盖值（从 system_config 表）。
+
+    失败时返回空字典，不影响主流程（YAML 默认值生效）。
+    """
+    try:
+        from .utils.admin_store import get_system_config
+
+        return get_system_config()
+    except Exception:
+        return {}
+
+
 def get_category_limits() -> dict[str, float]:
-    """获取费用分类限额字典，如 {"餐饮": 300, "交通": 500, ...}"""
+    """获取费用分类限额字典（YAML 默认 + 管理员覆盖）"""
     data = _load_yaml("category_limits.yaml")
-    return data.get("category_limits", {})
+    limits = dict(data.get("category_limits", {}))
+    admin = get_system_config_overrides()
+    # 管理员配置覆盖餐饮单笔上限
+    if "limit_meal_single" in admin:
+        limits["餐饮"] = float(admin["limit_meal_single"])
+    return limits
 
 
 def get_anomaly_rules() -> dict[str, Any]:
-    """获取异常检测规则配置"""
-    return _load_yaml("anomaly_rules.yaml")
+    """获取异常检测规则配置（YAML 默认 + 管理员覆盖）"""
+    rules = _load_yaml("anomaly_rules.yaml")
+    admin = get_system_config_overrides()
+    # 行程单单笔金额阈值覆盖
+    if "limit_itinerary_single" in admin:
+        rules["itinerary_single_amount_threshold"] = float(
+            admin["limit_itinerary_single"]
+        )
+    # 规则开关（默认 True，管理员可关闭）
+    rules["enable_dup_check"] = admin.get("rule_dup", True)
+    rules["enable_amount_check"] = admin.get("rule_amount", True)
+    rules["enable_deepseek_semantic"] = admin.get("rule_deepseek_semantic", True)
+    return rules
 
 
 def get_itinerary_rules() -> dict[str, Any]:
     """获取行程单校验规则配置（与异常规则同文件，按 key 隔离）"""
-    return _load_yaml("anomaly_rules.yaml")
+    return get_anomaly_rules()

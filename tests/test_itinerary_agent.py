@@ -15,9 +15,9 @@ from skill.orchestrator.graph import route_by_ticket_type
 from skill.orchestrator.state import CheckStatus
 
 
-@patch("skill.orchestrator.nodes.itinerary_node.verify_itinerary")
-@patch("skill.orchestrator.nodes.itinerary_node.detect_itinerary_anomaly")
-@patch("skill.orchestrator.nodes.itinerary_node.ocr_extract_itinerary")
+@patch("skill.agents.itinerary_agent.verify_itinerary")
+@patch("skill.agents.itinerary_agent.detect_itinerary_anomaly")
+@patch("skill.agents.itinerary_agent.ocr_extract_itinerary")
 class TestItineraryAgent:
     """行程单 Agent 编排测试"""
 
@@ -101,10 +101,10 @@ class TestItineraryAgent:
         assert result["status"] == "预警"
         assert result["itinerary_result"]["校验结论"] == "预警"
 
-    @patch("skill.orchestrator.nodes.itinerary_node.update_ai_status")
-    @patch("skill.orchestrator.nodes.itinerary_node.save_ai_check_result")
-    @patch("skill.orchestrator.nodes.itinerary_node.save_invoice")
-    @patch("skill.orchestrator.nodes.itinerary_node.save_reimbursement")
+    @patch("skill.agents.itinerary_agent.update_ai_status")
+    @patch("skill.agents.itinerary_agent.save_ai_check_result")
+    @patch("skill.agents.itinerary_agent.save_invoice")
+    @patch("skill.agents.itinerary_agent.save_reimbursement")
     def test_persistence_on_request_id(
         self, mock_reimb, mock_invoice, mock_save, mock_update,
         mock_ocr, mock_anomaly, mock_verify,

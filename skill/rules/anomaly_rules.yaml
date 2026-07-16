@@ -24,10 +24,9 @@ invoice_number_max_length: 20
 # 日期格式校验
 date_format: YYYY-MM-DD
 
-# 历史发票记录（Mock，用于重复报销检测）
-# 实际使用时应替换为真实数据库查询
-history_invoices:
-  # - "12345678"  # 示例：已报销过的发票号码
+# 历史发票记录（已废弃 V1.5 — 重复报销检测改为数据库查询 invoice_history / invoice_record 表）
+# 保留此字段仅为向后兼容，实际不再被 _rule_based_check 读取
+history_invoices: []
 
 # ============ 行程单规则配置 ============
 
@@ -40,7 +39,8 @@ itinerary_required_fields:
   - 行程详情
 
 # 行程单单笔金额异常阈值（元）：单行程金额超过此值标记为异常
-itinerary_single_amount_threshold: 200
+# 与 admin_store.DEFAULT_CONFIG.limit_itinerary_single 对齐
+itinerary_single_amount_threshold: 500
 
 # 行程单总金额异常阈值（元）：总金额超过此值标记为异常
 itinerary_total_amount_threshold: 2000

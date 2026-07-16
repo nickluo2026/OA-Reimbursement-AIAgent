@@ -526,7 +526,7 @@
         });
         // 商品明细（如果有）
         if (ocr['商品明细'] && Array.isArray(ocr['商品明细']) && ocr['商品明细'].length > 0) {
-            tbody += '<tr><td class="key-col">商品明细</td><td>' + JSON.stringify(ocr['商品明细'], null, 2).replace(/\n/g, '<br>') + '</td></tr>';
+            tbody += '<tr><td class="key-col">商品明细</td><td>' + escHtml(JSON.stringify(ocr['商品明细'], null, 2)).replace(/\n/g, '<br>') + '</td></tr>';
         }
         document.getElementById('ocrTable').innerHTML = '<table class="data-table">' + tbody + '</table>';
     }
@@ -539,7 +539,7 @@
             }
         });
         if (ocr['商品明细'] && Array.isArray(ocr['商品明细']) && ocr['商品明细'].length > 0) {
-            rows += '<tr><td class="key-col">商品明细</td><td>' + JSON.stringify(ocr['商品明细'], null, 2).replace(/\n/g, '<br>') + '</td></tr>';
+            rows += '<tr><td class="key-col">商品明细</td><td>' + escHtml(JSON.stringify(ocr['商品明细'], null, 2)).replace(/\n/g, '<br>') + '</td></tr>';
         }
         var raw = JSON.stringify(ocr, null, 2);
         return '<div class="card"><div class="card-header"><span class="card-icon">🔍</span><h3>OCR 提取结果</h3></div>' +

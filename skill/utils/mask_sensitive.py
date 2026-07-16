@@ -35,10 +35,10 @@ def mask_ip(ip: str) -> str:
 
 
 # 需要脱敏的字段名 → 对应的脱敏函数
+# 注：税号（购买方/销售方）为企业统一社会信用代码，非个人隐私，
+# 按 design.md §15.2 要求完整展示，不脱敏。
 _MASK_RULES = {
     "手机号": mask_phone,
-    "购买方税号": mask_tax_id,
-    "销售方税号": mask_tax_id,
 }
 
 

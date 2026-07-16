@@ -30,7 +30,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # 费用限额
     "limit_travel_transport": 3000,
     "limit_travel_hotel": 5000,
-    "limit_meal_single": 200,
+    "limit_meal_single": 1000,
     "limit_itinerary_single": 500,
     # 异常检测规则开关
     "rule_dup": True,

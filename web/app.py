@@ -83,9 +83,11 @@ if not _flask_secret:
 app.secret_key = _flask_secret
 
 # ── Session Cookie 安全属性 ──
+# [S-006] SESSION_COOKIE_SECURE：生产环境（HTTPS）启用，防止 Cookie 在 HTTP 连接中被截获
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("OA_ENV") == "production",
 )
 
 # ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
@@ -533,10 +535,20 @@ def api_finance():
 # ═══════════════════════════════════════════════
 @app.route("/api/reimbursement/<request_id>")
 def api_reimbursement_detail(request_id):
-    """报销单完整明细（发票 / AI 校验 / 审批记录 / 路由）。"""
+    """报销单完整明细（发票 / AI 校验 / 审批记录 / 路由）。
+
+    [S-004] 数据归属校验：普通员工仅可查看本人提交的报销单；
+            审批领导 / 财务 / 管理员可查看全部（职责范围内）。
+    """
     err = _require_login()
     if err:
         return err
+    # 普通员工越权防护：只能查看自己的报销单
+    role = session.get("role", "employee")
+    if role == "employee":
+        reb = wf.get_reimbursement(request_id)
+        if not reb or reb.employee_id != session["account"]:
+            return jsonify({"error": "无权查看此报销单"}), 403
     detail = wf.get_detail(request_id)
     if not detail:
         return jsonify({"error": "报销单不存在"}), 404

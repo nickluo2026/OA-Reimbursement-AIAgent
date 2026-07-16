@@ -1,5 +1,7 @@
 /* 系统管理员工作台逻辑：系统配置 / 审计日志 / 用量统计
  * 数据全部来自后端 API（/api/admin/*），与原型 MOCK 解耦。
+ *
+ * [S-003] 所有动态数据拼接 innerHTML 前必须经 esc() 转义，防存储型 XSS。
  */
 
 // ── Tab 切换 ──
@@ -32,6 +34,16 @@ function fmtInt(n) {
     return Number(n || 0).toLocaleString();
 }
 
+// [S-003] HTML 转义函数：防止存储型 XSS
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 // ═══════════════════════════════════════════════
 // 系统配置
 // ═══════════════════════════════════════════════
@@ -53,14 +65,14 @@ function renderConfig() {
     var wrap = document.getElementById('configSections');
     var html = '';
     CONFIG_SCHEMA.forEach(function (grp) {
-        html += '<div class="config-section"><h4>' + grp.group + '</h4>';
+        html += '<div class="config-section"><h4>' + esc(grp.group) + '</h4>';
         grp.items.forEach(function (item) {
             var val = CONFIG_VALUES[item.key];
-            html += '<div class="config-row" data-key="' + item.key + '" data-type="' + item.type + '">';
-            html += '<div class="cfg-label">' + item.label + '</div>';
+            html += '<div class="config-row" data-key="' + esc(item.key) + '" data-type="' + esc(item.type) + '">';
+            html += '<div class="cfg-label">' + esc(item.label) + '</div>';
             if (item.type === 'number') {
-                html += '<input type="number" class="cfg-input" value="' + (val != null ? val : '') + '">';
-                if (item.unit) html += '<span class="cfg-suffix">' + item.unit + '</span>';
+                html += '<input type="number" class="cfg-input" value="' + (val != null ? esc(val) : '') + '">';
+                if (item.unit) html += '<span class="cfg-suffix">' + esc(item.unit) + '</span>';
             } else if (item.type === 'toggle') {
                 var on = val ? ' on' : '';
                 html += '<div class="cfg-toggle' + on + '" onclick="this.classList.toggle(\'on\')"></div>';
@@ -155,17 +167,17 @@ function renderAuditLog(items) {
     var html = '';
     items.forEach(function (r) {
         var resultPill = r.result === '成功'
-            ? '<span class="status-pill success">' + r.result + '</span>'
-            : '<span class="status-pill error">' + r.result + '</span>';
-        var actionLabel = AUDIT_ACTION_LABELS[r.action] || r.action;
+            ? '<span class="status-pill success">' + esc(r.result) + '</span>'
+            : '<span class="status-pill error">' + esc(r.result) + '</span>';
+        var actionLabel = AUDIT_ACTION_LABELS[r.action] || esc(r.action);
         html += '<tr>' +
-            '<td class="audit-time">' + r.time + '</td>' +
-            '<td class="audit-user">' + r.user + '</td>' +
-            '<td class="audit-role">' + r.role + '</td>' +
+            '<td class="audit-time">' + esc(r.time) + '</td>' +
+            '<td class="audit-user">' + esc(r.user) + '</td>' +
+            '<td class="audit-role">' + esc(r.role) + '</td>' +
             '<td><span class="audit-action">' + actionLabel + '</span></td>' +
-            '<td class="audit-target" title="' + r.target + '">' + r.target + '</td>' +
+            '<td class="audit-target" title="' + esc(r.target) + '">' + esc(r.target) + '</td>' +
             '<td>' + resultPill + '</td>' +
-            '<td class="audit-ip">' + r.ip + '</td>' +
+            '<td class="audit-ip">' + esc(r.ip) + '</td>' +
         '</tr>';
     });
     if (!items.length) {
@@ -199,21 +211,21 @@ function renderUsageOverview(o) {
     var successCount = o.total_calls - o.error_count;
     var html = '';
     html += '<div class="metric-card"><div class="metric-icon">📋</div>' +
-        '<div class="metric-value blue">' + fmtInt(o.total_calls) + '</div>' +
+        '<div class="metric-value blue">' + esc(fmtInt(o.total_calls)) + '</div>' +
         '<div class="metric-label">总调用次数</div>' +
-        '<div class="metric-sub">成功 ' + fmtInt(successCount) + ' · 失败 ' + (o.error_count || 0) + '</div></div>';
+        '<div class="metric-sub">成功 ' + esc(fmtInt(successCount)) + ' · 失败 ' + esc(String(o.error_count || 0)) + '</div></div>';
     html += '<div class="metric-card"><div class="metric-icon">🔢</div>' +
-        '<div class="metric-value purple">' + formatTokens(o.total_tokens || 0) + '</div>' +
+        '<div class="metric-value purple">' + esc(formatTokens(o.total_tokens || 0)) + '</div>' +
         '<div class="metric-label">Token 总量</div>' +
-        '<div class="metric-sub">输入 ' + formatTokens(o.total_prompt_tokens || 0) + ' · 输出 ' + formatTokens(o.total_completion_tokens || 0) + '</div></div>';
+        '<div class="metric-sub">输入 ' + esc(formatTokens(o.total_prompt_tokens || 0)) + ' · 输出 ' + esc(formatTokens(o.total_completion_tokens || 0)) + '</div></div>';
     html += '<div class="metric-card"><div class="metric-icon">💰</div>' +
-        '<div class="metric-value green">¥' + (o.estimated_cost_cny || 0).toFixed(2) + '</div>' +
+        '<div class="metric-value green">¥' + esc((o.estimated_cost_cny || 0).toFixed(2)) + '</div>' +
         '<div class="metric-label">预估费用 (CNY)</div>' +
         '<div class="metric-sub">按 DeepSeek-V4-Flash 定价</div></div>';
     html += '<div class="metric-card"><div class="metric-icon">⚡</div>' +
-        '<div class="metric-value orange">' + ((o.avg_latency_ms || 0) / 1000).toFixed(1) + 's</div>' +
+        '<div class="metric-value orange">' + esc(((o.avg_latency_ms || 0) / 1000).toFixed(1)) + 's</div>' +
         '<div class="metric-label">平均延迟</div>' +
-        '<div class="metric-sub">成功率 ' + (o.success_rate || 0) + '%</div></div>';
+        '<div class="metric-sub">成功率 ' + esc(String(o.success_rate || 0)) + '%</div></div>';
     document.getElementById('usageOverview').innerHTML = html;
 }
 
@@ -226,10 +238,10 @@ function renderUsageDaily() {
         var heightPct = Math.max(4, (d.tokens / maxTokens * 100));
         barsHtml += '<div class="chart-bar-wrap">' +
             '<div class="chart-bar" style="height:' + heightPct.toFixed(0) + '%;">' +
-                '<span class="bar-calls">' + d.calls + '</span>' +
-                '<span class="bar-tip">' + d.date + ' · ' + d.calls + ' 次调用 · ' + formatTokens(d.tokens) + ' tokens</span>' +
+                '<span class="bar-calls">' + esc(String(d.calls)) + '</span>' +
+                '<span class="bar-tip">' + esc(d.date) + ' · ' + esc(String(d.calls)) + ' 次调用 · ' + esc(formatTokens(d.tokens)) + ' tokens</span>' +
             '</div></div>';
-        labelsHtml += '<span>' + d.date + '</span>';
+        labelsHtml += '<span>' + esc(d.date) + '</span>';
     });
     document.getElementById('usageDailyBars').innerHTML = barsHtml || '<div style="color:var(--text-light);">暂无数据</div>';
     document.getElementById('usageDailyLabels').innerHTML = labelsHtml;
@@ -244,11 +256,11 @@ function renderUsageByType() {
         var pct = (t.tokens / totalTokens * 100).toFixed(1);
         html += '<div class="type-row">' +
             '<div class="type-row-head">' +
-                '<span class="type-name">' + t.type + '</span>' +
-                '<span class="type-stats">' + t.calls + ' 次 · 输入 ' + formatTokens(t.prompt_tokens) +
-                ' · 输出 ' + formatTokens(t.completion_tokens) + ' · ¥' + (t.cost || 0).toFixed(2) + ' · ' + pct + '%</span>' +
+                '<span class="type-name">' + esc(t.type) + '</span>' +
+                '<span class="type-stats">' + esc(String(t.calls)) + ' 次 · 输入 ' + esc(formatTokens(t.prompt_tokens)) +
+                ' · 输出 ' + esc(formatTokens(t.completion_tokens)) + ' · ¥' + esc((t.cost || 0).toFixed(2)) + ' · ' + esc(pct) + '%</span>' +
             '</div>' +
-            '<div class="type-bar-track"><div class="type-bar-fill" style="width:' + pct + '%; background:' + colors[i % colors.length] + ';"></div></div>' +
+            '<div class="type-bar-track"><div class="type-bar-fill" style="width:' + esc(pct) + '%; background:' + colors[i % colors.length] + ';"></div></div>' +
             '</div>';
     });
     document.getElementById('usageByType').innerHTML = html || '<div style="color:var(--text-light);">暂无数据</div>';
@@ -295,16 +307,16 @@ function renderUsageRecords() {
         var statusCls = r.status === '成功' ? 'success' : 'error';
         var latency = r.latency_ms === 0 ? '—' : (r.latency_ms + 'ms');
         html += '<tr>' +
-            '<td style="white-space:nowrap;">' + r.time + '</td>' +
-            '<td style="font-family:monospace;font-size:12px;">' + r.request_id + '</td>' +
-            '<td>' + r.call_type + '</td>' +
-            '<td>' + r.model + '</td>' +
-            '<td>' + fmtInt(r.prompt_tokens) + '</td>' +
-            '<td>' + fmtInt(r.completion_tokens) + '</td>' +
-            '<td>' + fmtInt(r.total_tokens) + '</td>' +
-            '<td>' + latency + '</td>' +
-            '<td><span class="status-pill ' + statusCls + '">' + r.status + '</span></td>' +
-            '<td style="font-weight:600;color:var(--green);">¥' + cost.toFixed(4) + '</td>' +
+            '<td style="white-space:nowrap;">' + esc(r.time) + '</td>' +
+            '<td style="font-family:monospace;font-size:12px;">' + esc(r.request_id) + '</td>' +
+            '<td>' + esc(r.call_type) + '</td>' +
+            '<td>' + esc(r.model) + '</td>' +
+            '<td>' + esc(fmtInt(r.prompt_tokens)) + '</td>' +
+            '<td>' + esc(fmtInt(r.completion_tokens)) + '</td>' +
+            '<td>' + esc(fmtInt(r.total_tokens)) + '</td>' +
+            '<td>' + esc(latency) + '</td>' +
+            '<td><span class="status-pill ' + statusCls + '">' + esc(r.status) + '</span></td>' +
+            '<td style="font-weight:600;color:var(--green);">¥' + esc(cost.toFixed(4)) + '</td>' +
             '</tr>';
     });
     html += '</tbody></table>';

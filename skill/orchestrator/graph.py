@@ -21,6 +21,7 @@ except ImportError:  # 旧版无 START，回退到 set_conditional_entry_point
     _HAS_START = False
 
 from ..config import SMALL_AMOUNT_THRESHOLD
+from ..agents import ItineraryAgent  # noqa: F401 — 触发 @register_agent 注册
 from .nodes.anomaly_node import anomaly_node
 from .nodes.classify_node import classify_node
 from .nodes.itinerary_node import itinerary_node

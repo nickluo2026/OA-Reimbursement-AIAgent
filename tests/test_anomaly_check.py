@@ -122,17 +122,11 @@ class TestRuleBasedCheck:
             "销售方名称": "XX公司",
             "购买方名称": "YY公司",
         }
-        # Mock the anomaly rules to include DUP001 in history
-        with patch("skill.tools.tool_anomaly_check.get_anomaly_rules") as mock_rules:
-            mock_rules.return_value = {
-                "max_invoice_age_days": 180,
-                "duplicate_check_window_days": 30,
-                "amount_anomaly_threshold": 10000,
-                "required_fields": ["发票号码", "开票日期", "发票金额", "销售方名称", "购买方名称"],
-                "invoice_number_min_length": 8,
-                "invoice_number_max_length": 20,
-                "history_invoices": ["DUP001"],
-            }
+        # F3: 重复报销检测改为数据库查重，mock check_duplicate_invoice 返回 True
+        with patch(
+            "skill.tools.tool_anomaly_check.check_duplicate_invoice",
+            return_value=True,
+        ):
             anomalies = _rule_based_check(invoice)
             types = [a["异常类型"] for a in anomalies]
             assert "重复报销" in types

@@ -13,6 +13,7 @@ from typing import Any
 
 from ..config import get_anomaly_rules
 from ..schemas.anomaly_schema import ANOMALY_CHECK_TOOL
+from ..utils.db_store import check_duplicate_invoice
 from ..utils.http_client import call_deepseek_function
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ def _rule_based_check(
 
     # --- 金额异常检查（高额阈值）---
     amount = invoice.get("发票金额", 0)
-    if isinstance(amount, (int, float)) and amount > 0:
+    if isinstance(amount, (int, float)) and amount > 0 and rules.get("enable_amount_check", True):
         threshold = rules.get("amount_anomaly_threshold", 10000)
         if amount > threshold:
             anomalies.append({
@@ -135,16 +136,18 @@ def _rule_based_check(
                 "严重程度": "严重",
             })
 
-    # --- 重复报销检查 ---
-    if invoice_no:
-        history = rules.get("history_invoices", []) or []
-        if invoice_no in history:
-            window = rules.get("duplicate_check_window_days", 30)
-            anomalies.append({
-                "异常类型": "重复报销",
-                "异常描述": f"发票号码 {invoice_no} 在 {window} 天内已存在报销记录",
-                "严重程度": "严重",
-            })
+    # --- 重复报销检查（数据库查重，替代 YAML history_invoices）---
+    if invoice_no and rules.get("enable_dup_check", True):
+        window = rules.get("duplicate_check_window_days", 30)
+        try:
+            if check_duplicate_invoice(invoice_no, window):
+                anomalies.append({
+                    "异常类型": "重复报销",
+                    "异常描述": f"发票号码 {invoice_no} 在 {window} 天内已存在报销记录",
+                    "严重程度": "严重",
+                })
+        except Exception as e:
+            logger.warning("重复报销数据库查询失败，跳过检查: %s", e)
 
     return anomalies
 
@@ -195,6 +198,16 @@ def detect_anomaly(
         }
 
     # ② 交给 DeepSeek 做语义补充检查（检测规则未覆盖的隐性异常）
+    # F5: 管理员可通过 rule_deepseek_semantic 关闭语义检查
+    rules = get_anomaly_rules()
+    if not rules.get("enable_deepseek_semantic", True):
+        logger.info("DeepSeek 语义检查已被管理员关闭，仅使用规则引擎结果")
+        return {
+            "总体结论": conclusion,
+            "异常明细": rule_anomalies,
+            "检查摘要": f"[规则引擎] {summary}",
+        }
+
     import json
 
     invoice_json = json.dumps(invoice, ensure_ascii=False, indent=2)

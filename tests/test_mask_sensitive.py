@@ -80,7 +80,8 @@ class TestMaskIp:
 
 
 class TestMaskOcrResult:
-    def test_invoice_tax_ids_masked(self):
+    def test_invoice_tax_ids_not_masked(self):
+        """税号为企业信息，按 design.md §15.2 完整展示，不脱敏"""
         ocr = {
             "发票号码": "12345678",
             "购买方名称": "XX科技有限公司",
@@ -90,9 +91,9 @@ class TestMaskOcrResult:
             "发票金额": 300.00,
         }
         masked = mask_ocr_result(ocr)
-        # 17 位税号：保留前4后4，中间 9 个星（总长不变）
-        assert masked["购买方税号"] == "9111*********XXXX"
-        assert masked["销售方税号"] == "9111*********YYYY"
+        # 税号完整展示（非脱敏）
+        assert masked["购买方税号"] == "91110108MA01XXXXX"
+        assert masked["销售方税号"] == "91110108MA02YYYYY"
         # 非敏感字段保持原值
         assert masked["发票号码"] == "12345678"
         assert masked["购买方名称"] == "XX科技有限公司"
@@ -135,8 +136,7 @@ class TestMaskOcrResult:
 
     def test_non_string_sensitive_field_ignored(self):
         """敏感字段非字符串时不报错（跳过）"""
-        ocr = {"手机号": 13812345678, "购买方税号": None}
+        ocr = {"手机号": 13812345678}
         masked = mask_ocr_result(ocr)
         # 非字符串值保持原样
         assert masked["手机号"] == 13812345678
-        assert masked["购买方税号"] is None
