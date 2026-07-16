@@ -77,7 +77,6 @@ class TestAdminConfig:
         assert "schema" in data and "config" in data
         # 默认值生效
         assert data["config"]["limit_travel_hotel"] == 5000
-        assert data["config"]["rule_dup"] is True
         # schema 分组完整
         groups = [g["group"] for g in data["schema"]]
         assert "💰 费用限额配置" in groups
@@ -89,11 +88,10 @@ class TestAdminConfig:
         # 修改住宿限额
         resp = client.post(
             "/api/admin/config",
-            json={"items": {"limit_travel_hotel": 6000, "rule_dup": False}},
+            json={"items": {"limit_travel_hotel": 6000}},
         )
         assert resp.status_code == 200
         assert resp.get_json()["config"]["limit_travel_hotel"] == 6000
-        assert resp.get_json()["config"]["rule_dup"] is False
 
         # 再次读取应反映已保存值
         resp2 = client.get("/api/admin/config")

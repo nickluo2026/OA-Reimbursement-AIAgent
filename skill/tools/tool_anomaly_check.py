@@ -1,7 +1,7 @@
 """功能3：异常输入检查（前置拦截）
 
 流程：规则引擎本地检查 + DeepSeek Function Call 语义检查
-检测类型：字段缺失 / 格式错误 / 重复报销 / 票据过期 / 金额异常 / 日期异常
+检测类型：字段缺失 / 格式错误 / 票据过期 / 金额异常 / 日期异常
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from typing import Any
 
 from ..config import get_anomaly_rules
 from ..schemas.anomaly_schema import ANOMALY_CHECK_TOOL
-from ..utils.db_store import check_duplicate_invoice
 from ..utils.http_client import call_deepseek_function
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,6 @@ SYSTEM_PROMPT = (
     "1. 审查用户提供的发票数据，检测以下异常：\n"
     "   - 字段缺失：必填字段（发票号码/开票日期/发票金额/销售方名称/购买方名称）为空\n"
     "   - 格式错误：发票号码长度不符、日期格式错误\n"
-    "   - 重复报销：同一发票号码在规定天数内已报销\n"
     "   - 票据过期：开票日期距申请日超过规定天数\n"
     "   - 金额异常：发票金额超过异常阈值\n"
     "   - 日期异常：开票日期晚于当前日期等逻辑错误\n"
@@ -135,19 +133,6 @@ def _rule_based_check(
                 "异常描述": f"发票金额 {amount} 元超过申请金额 {apply_amount} 元，超出 {diff} 元，需修改申请金额或核实票据",
                 "严重程度": "严重",
             })
-
-    # --- 重复报销检查（数据库查重，替代 YAML history_invoices）---
-    if invoice_no and rules.get("enable_dup_check", True):
-        window = rules.get("duplicate_check_window_days", 30)
-        try:
-            if check_duplicate_invoice(invoice_no, window):
-                anomalies.append({
-                    "异常类型": "重复报销",
-                    "异常描述": f"发票号码 {invoice_no} 在 {window} 天内已存在报销记录",
-                    "严重程度": "严重",
-                })
-        except Exception as e:
-            logger.warning("重复报销数据库查询失败，跳过检查: %s", e)
 
     return anomalies
 

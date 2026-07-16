@@ -68,7 +68,6 @@ def get_anomaly_rules() -> dict[str, Any]:
             admin["limit_itinerary_single"]
         )
     # 规则开关（默认 True，管理员可关闭）
-    rules["enable_dup_check"] = admin.get("rule_dup", True)
     rules["enable_amount_check"] = admin.get("rule_amount", True)
     rules["enable_deepseek_semantic"] = admin.get("rule_deepseek_semantic", True)
     return rules

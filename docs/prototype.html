@@ -497,6 +497,36 @@ select.form-input { appearance: auto; }
 .audit-action { font-family: monospace; font-size: 12px; padding: 2px 8px; background: var(--code-bg); border-radius: 4px; color: var(--primary-dark); }
 .audit-user { font-weight: 600; }
 
+/* ── 弹窗（通用，桌面端同样生效） ── */
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
+}
+.modal-overlay.visible { display: flex; }
+.modal-box {
+    background: var(--card-bg); border-radius: 16px; max-width: 560px; width: 100%;
+    max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.35); animation: loginFadeIn 0.3s ease;
+}
+.modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+}
+.modal-head h3 { font-size: 17px; }
+.modal-close { background: none; border: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--text-light); }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 20px 24px; }
+
+/* ── 流水线弹窗 ── */
+.pipeline-modal-box { max-width: 640px; }
+.pipeline-modal-box .pipeline {
+    background: transparent; border: none; box-shadow: none; padding: 0; margin-bottom: 0; display: block;
+}
+.pipeline-modal-box .result-status { margin-top: 18px; }
+.pipeline-modal-box .action-bar { margin-top: 14px; }
+
+/* ── 转审标签 ── */
+.tag.status-transferred { background: #fef3c7; color: #b45309; }
+
 /* ── 响应式 ── */
 @media (max-width: 600px) {
     .form-row { flex-direction: column; gap: 16px; }
@@ -511,28 +541,6 @@ select.form-input { appearance: auto; }
     .tab-nav-btn { padding: 10px 12px; font-size: 13px; }
     .role-guide table { font-size: 12px; }
     .role-guide th, .role-guide td { padding: 8px 10px; }
-
-    /* ── 详情弹窗 ── */
-    .modal-overlay {
-        position: fixed; inset: 0; background: rgba(15,23,42,0.55);
-        display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
-    }
-    .modal-overlay.visible { display: flex; }
-    .modal-box {
-        background: var(--card-bg); border-radius: 16px; max-width: 560px; width: 100%;
-        max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.35); animation: loginFadeIn 0.3s ease;
-    }
-    .modal-head {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 18px 24px; border-bottom: 1px solid var(--border);
-    }
-    .modal-head h3 { font-size: 17px; }
-    .modal-close { background: none; border: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--text-light); }
-    .modal-close:hover { color: var(--text); }
-    .modal-body { padding: 20px 24px; }
-
-    /* ── 转审标签 ── */
-    .tag.status-transferred { background: #fef3c7; color: #b45309; }
 }
 </style>
 </head>
@@ -729,7 +737,7 @@ select.form-input { appearance: auto; }
             </div>
         </div>
 
-        <button type="button" class="btn-submit" id="submitBtn" onclick="runPrototype()">
+        <button type="button" class="btn-submit" id="submitBtn" data-mode="check" onclick="onSubmitClick()">
             <span class="btn-text">🚀 提交校验</span>
             <span class="btn-loading" style="display:none;">
                 <span class="spinner"></span> AI 智能体校验中...
@@ -737,24 +745,6 @@ select.form-input { appearance: auto; }
         </button>
     </div>
 
-    <div class="pipeline" id="pipeline">
-        <div class="pipeline-title">
-            <span id="pipelineAgentIcon">🤖</span>
-            <span id="pipelineTitle">智能体执行流水线</span>
-            <span class="pipeline-agent-badge" id="pipelineAgentBadge">发票智能体</span>
-        </div>
-        <div class="pipeline-steps" id="pipelineSteps"></div>
-    </div>
-
-    <div class="result-status" id="resultStatus">
-        <div class="status-icon" id="statusIcon">✅</div>
-        <div>
-            <div class="status-label" id="statusLabel">校验通过</div>
-            <div class="status-summary" id="statusSummary"></div>
-        </div>
-    </div>
-
-    <div id="resultContainer"></div>
     </div><!-- /tab-reimburse -->
 
     <!-- ========== Tab: 我的报销（普通员工） ========== -->
@@ -1003,6 +993,36 @@ select.form-input { appearance: auto; }
     </div>
 </div>
 
+<!-- ========== 智能体执行流水线弹窗 ========== -->
+<div class="modal-overlay" id="pipelineModal" onclick="if(event.target===this) userClosePipelineModal()">
+    <div class="modal-box pipeline-modal-box">
+        <div class="modal-head">
+            <h3 id="pipelineModalTitle">智能体执行流水线</h3>
+            <button class="modal-close" type="button" onclick="userClosePipelineModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="pipeline" id="pipeline">
+                <div class="pipeline-title">
+                    <span id="pipelineAgentIcon">🤖</span>
+                    <span id="pipelineTitle">智能体执行流水线</span>
+                    <span class="pipeline-agent-badge" id="pipelineAgentBadge">发票智能体</span>
+                </div>
+                <div class="pipeline-steps" id="pipelineSteps"></div>
+            </div>
+
+            <div class="result-status" id="resultStatus">
+                <div class="status-icon" id="statusIcon">✅</div>
+                <div>
+                    <div class="status-label" id="statusLabel">校验通过</div>
+                    <div class="status-summary" id="statusSummary"></div>
+                </div>
+            </div>
+
+            <div id="resultContainer"></div>
+        </div>
+    </div>
+</div>
+
 <script>
 /* ============================================
    原型交互脚本 — 模拟双智能体协同处理
@@ -1010,6 +1030,7 @@ select.form-input { appearance: auto; }
 
 var currentTicketType = '发票';
 var currentRole = 'employee';
+var lastCheckPassed = false;   // 记录最近一次校验是否通过（用于关闭弹窗后切换按钮）
 
 /* 计数与状态（用于实时统计） */
 var approveDoneTotal = 42;   // 审批领导本月已审（累计）
@@ -1157,9 +1178,42 @@ document.getElementById('uploadZone').addEventListener('click', function() {
 
 /* ── 重置结果 ── */
 function resetResults() {
+    closePipelineModal();
     document.getElementById('pipeline').classList.remove('visible');
     document.getElementById('resultStatus').classList.remove('visible');
     document.getElementById('resultContainer').innerHTML = '';
+}
+
+/* ── 流水线弹窗控制 ── */
+function openPipelineModal() {
+    document.getElementById('pipelineModal').classList.add('visible');
+}
+function closePipelineModal() {
+    document.getElementById('pipelineModal').classList.remove('visible');
+}
+/* 用户主动关闭弹窗：若本次校验通过，把提交按钮切换为「提交审批」 */
+function userClosePipelineModal() {
+    closePipelineModal();
+    if (lastCheckPassed) {
+        setSubmitMode('approve');
+        lastCheckPassed = false;
+    }
+}
+/* 提交按钮模式：check=提交校验 / approve=提交审批 */
+function setSubmitMode(mode) {
+    var btn = document.getElementById('submitBtn');
+    btn.querySelector('.btn-text').textContent = mode === 'approve' ? '✅ 提交审批' : '🚀 提交校验';
+    btn.setAttribute('data-mode', mode);
+}
+/* 提交按钮点击分发 */
+function onSubmitClick() {
+    var btn = document.getElementById('submitBtn');
+    if (btn.getAttribute('data-mode') === 'approve') {
+        handleAction('通过');
+        setSubmitMode('check');
+    } else {
+        runPrototype();
+    }
 }
 
 /* ── 操作按钮点击 ── */
@@ -1307,6 +1361,7 @@ function runPrototype() {
     });
     document.getElementById('pipelineSteps').innerHTML = stepsHtml;
     document.getElementById('pipeline').classList.add('visible');
+    openPipelineModal();
 
     var stepElems = document.querySelectorAll('.pipeline-step');
     var currentStep = 0;
@@ -1320,10 +1375,13 @@ function runPrototype() {
         }
 
         if (currentStep >= steps.length) {
-            showResult(isItinerary);
-            submitBtn.disabled = false;
-            submitBtn.querySelector('.btn-text').style.display = 'inline';
-            submitBtn.querySelector('.btn-loading').style.display = 'none';
+            // 保留片刻让用户看到全部完成，再在弹窗内展示校验结果状态与操作按钮
+            setTimeout(function() {
+                showResult(isItinerary);
+                submitBtn.disabled = false;
+                submitBtn.querySelector('.btn-text').style.display = 'inline';
+                submitBtn.querySelector('.btn-loading').style.display = 'none';
+            }, 600);
             return;
         }
 
@@ -1342,6 +1400,13 @@ function runPrototype() {
 /* ── 显示结果 ── */
 function showResult(isItinerary) {
     var data = isItinerary ? MOCK_ITINERARY : MOCK_INVOICE;
+    // 调试开关：URL 带 #fail 时模拟校验失败，便于测试失败分支（不影响默认演示）
+    if (location.hash.indexOf('fail') >= 0) {
+        data = {
+            status: '拦截',
+            summary: '校验未通过：检测到异常项（金额超出限额 / 发票查验不一致），请核对后重新提交。'
+        };
+    }
     var statusMap = {
         '通过': { icon: '✅', label: '校验通过', cls: 'pass' },
         '预警': { icon: '⚠️', label: '校验预警', cls: 'warning' },
@@ -1356,24 +1421,15 @@ function showResult(isItinerary) {
     document.getElementById('statusLabel').textContent = meta.label;
     document.getElementById('statusSummary').textContent = data.summary;
 
-    var html = '';
-    var agentTag = isItinerary
-        ? '<span class="agent-tag itinerary">行程单智能体</span>'
-        : '<span class="agent-tag invoice">发票智能体</span>';
+    // 弹窗内仅展示校验结果状态+摘要，不显示按钮；通过后由用户关闭弹窗触发「提交审批」
+    lastCheckPassed = data.status === '通过';
+    document.getElementById('resultContainer').innerHTML = '';
 
-    if (data.ocr_result) html += buildOcrCard(data.ocr_result, isItinerary, agentTag);
-    if (data.anomaly_result) html += buildAnomalyCard(data.anomaly_result, isItinerary, agentTag);
-    if (data.classify_result) html += buildClassifyCard(data.classify_result, agentTag);
-    if (data.itinerary_result) html += buildItineraryVerifyCard(data.itinerary_result, agentTag);
-
-    var actionBtnText = data.status === '通过' ? '提交审批' : '人工审核';
-    html += '<div class="action-bar"><button class="btn-secondary" onclick="handleAction(\'' + data.status + '\');">' + actionBtnText + '</button></div>';
-
-    document.getElementById('resultContainer').innerHTML = html;
-
+    // 弹窗内滚动到底部，确保状态可见
     setTimeout(function() {
-        document.getElementById('resultStatus').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+        var box = document.querySelector('#pipelineModal .modal-box');
+        if (box) box.scrollTop = box.scrollHeight;
+    }, 50);
 }
 
 /* ── OCR 卡片 ── */
@@ -1739,11 +1795,6 @@ function viewDetail(id) {
     html += infoItem('报销事由', item.reason || '—');
     html += infoItem('当前状态', statusText);
     html += '</div>';
-
-    if (item.aiSummary) {
-        html += '<div style="margin-top:14px;padding:12px 14px;background:var(--bg);border-radius:8px;font-size:13.5px;">🤖 <strong>AI 校验：</strong>' + escHtml(item.aiSummary) + '</div>';
-    }
-    html += '<p style="margin-top:14px;font-size:12.5px;color:var(--text-light);">（原型演示：此处应展示完整 OCR 识别内容与 AI 校验明细）</p>';
 
     document.getElementById('detailModalTitle').textContent = '报销单详情 · ' + id;
     document.getElementById('detailModalBody').innerHTML = html;

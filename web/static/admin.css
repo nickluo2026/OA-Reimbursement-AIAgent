@@ -261,8 +261,33 @@ body.admin-page .container {
 /* ── 用量统计：明细筛选 ── */
 .usage-filters { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .filter-group { display: flex; flex-direction: column; gap: 4px; }
-.usage-records-wrap { overflow-x: auto; }
+.usage-records-wrap {
+    max-height: 60vh;          /* 视口高度的 60%，数据多时内部滚动 */
+    overflow: auto;            /* 同时支持横向与纵向滚动 */
+    scroll-behavior: smooth;
+}
 .usage-empty { text-align: center; padding: 36px 20px; color: var(--text-light); }
+
+/* ── 审计日志表格（数据多时内部滚动） ── */
+#tab-audit .table-wrap {
+    max-height: 60vh;          /* 视口高度的 60%，自适应不同屏幕 */
+    overflow-y: auto;          /* 超出时显示纵向滚动条，横向沿用全局 overflow-x */
+    overflow-x: auto;
+    scroll-behavior: smooth;
+}
+
+/* 自定义滚动条（WebKit 内核：Chrome / Safari / Edge） */
+.usage-records-wrap::-webkit-scrollbar,
+#tab-audit .table-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+.usage-records-wrap::-webkit-scrollbar-track,
+#tab-audit .table-wrap::-webkit-scrollbar-track { background: transparent; }
+.usage-records-wrap::-webkit-scrollbar-thumb,
+#tab-audit .table-wrap::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+.usage-records-wrap::-webkit-scrollbar-thumb:hover,
+#tab-audit .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
 
 /* ── 响应式 ── */
 @media (max-width: 640px) {

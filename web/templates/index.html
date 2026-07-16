@@ -19,7 +19,6 @@
         <a href="/logout" class="btn-logout">退出登录</a>
     </div>
     <h1>报销智能化系统</h1>
-    <div class="subtitle">DeepSeek AI Agent 智能发票校验</div>
         <div class="role-banner">
             <span class="rb-name">{{ user_role }}</span>
             <span class="rb-sep">·</span>
@@ -45,10 +44,18 @@
 
 
 <main class="container">
+    <!-- Tab 导航：报销申请 / 我的报销 -->
+    <div class="tab-nav" id="tabNav">
+        <button type="button" class="tab-nav-btn active" data-tab="apply" onclick="switchTab('apply')">📝 报销申请</button>
+        <button type="button" class="tab-nav-btn" data-tab="my" onclick="switchTab('my')">📂 我的报销</button>
+    </div>
+
+    <!-- Tab: 报销申请 -->
+    <div id="tab-apply" class="tab-panel active">
     <div class="card">
         <div class="card-header">
             <span class="card-icon">📄</span>
-            <h2>发票上传与报销申请</h2>
+            <h2>报销申请</h2>
         </div>
         <p class="card-desc">上传发票文件，填写报销信息，AI 自动完成 OCR 识别、异常检测与分类限额校验。</p>
 
@@ -119,30 +126,19 @@
                 </div>
             </div>
 
-            <!-- 提交按钮 -->
-            <button type="submit" class="btn-submit" id="submitBtn">
-                <span class="btn-text">提交校验</span>
+            <!-- 提交按钮（状态机：check / approve） -->
+            <button type="button" class="btn-submit" id="submitBtn" data-mode="check" onclick="onSubmitClick()">
+                <span class="btn-text">提交</span>
                 <span class="btn-loading" style="display:none;">
                     <span class="spinner"></span> AI 校验中...
                 </span>
             </button>
         </form>
     </div>
+    </div><!-- /tab-apply -->
 
-        <!-- 智能体执行流水线 -->
-    <div class="pipeline" id="pipeline" style="display:none;">
-        <div class="pipeline-header">
-            <span class="pipeline-title-icon" id="pipelineAgentIcon">🤖</span>
-            <span class="pipeline-title-text" id="pipelineTitle">智能体执行流水线</span>
-            <span class="pipeline-agent-badge" id="pipelineAgentBadge">发票智能体</span>
-        </div>
-        <div class="pipeline-steps" id="pipelineSteps"></div>
-    </div>
-
-    <!-- 结果区域 -->
-    <div id="resultContainer" style="display:none;"></div>
-
-    <!-- 我的报销：跟踪提交后的审批/财务进度 -->
+    <!-- Tab: 我的报销（跟踪提交后的审批/财务进度） -->
+    <div id="tab-my" class="tab-panel">
     <div class="card">
         <div class="card-title-row">
             <h2><span class="card-icon">📂</span> 我的报销</h2>
@@ -153,7 +149,32 @@
         <p class="card-desc">您提交的报销单及当前审批 / 财务进度。提交后由 AI 预校验，进入审批领导与财务流程。</p>
         <div class="my-list" id="myList"></div>
     </div>
+    </div><!-- /tab-my -->
 </main>
+
+<!-- 智能体执行流水线弹窗 -->
+<div class="modal-mask" id="pipelineModal" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="pipeline-title-icon" id="pipelineAgentIcon">🤖</span>
+                <h3 id="pipelineTitle">智能体执行流水线</h3>
+                <span class="pipeline-agent-badge" id="pipelineAgentBadge">发票智能体</span>
+            </div>
+            <button class="modal-close" type="button" onclick="closePipelineModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="pipeline" id="pipeline"><div class="pipeline-steps" id="pipelineSteps"></div></div>
+            <div class="result-status" id="pipelineResultStatus" style="display:none;margin-top:18px;">
+                <div class="status-icon" id="pipelineStatusIcon">✅</div>
+                <div>
+                    <div class="status-label" id="pipelineStatusLabel">—</div>
+                    <div class="status-summary" id="pipelineStatusSummary">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="/static/upload.js"></script>
 </body>

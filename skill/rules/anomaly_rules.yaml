@@ -3,9 +3,6 @@
 # 票据有效期（天）：开票日期距申请日不得超过此天数
 max_invoice_age_days: 180
 
-# 重复报销检查窗口（天）：同一发票号码在此天数内不可重复报销
-duplicate_check_window_days: 30
-
 # 金额异常阈值（元）：单张发票金额超过此值标记为"金额异常"预警
 amount_anomaly_threshold: 10000
 

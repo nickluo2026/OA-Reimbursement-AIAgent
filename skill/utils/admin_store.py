@@ -33,7 +33,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "limit_meal_single": 1000,
     "limit_itinerary_single": 500,
     # 异常检测规则开关
-    "rule_dup": True,
     "rule_amount": True,
     "rule_invoice_auth": True,
     "rule_itinerary_field": True,
@@ -58,7 +57,6 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
         "group": "🚨 异常检测规则",
         "items": [
-            {"key": "rule_dup", "label": "检测重复报销", "type": "toggle"},
             {"key": "rule_amount", "label": "检测金额异常（与申请不一致）", "type": "toggle"},
             {"key": "rule_invoice_auth", "label": "检测发票真伪（国税查验）", "type": "toggle"},
             {"key": "rule_itinerary_field", "label": "行程单字段完整性检查", "type": "toggle"},

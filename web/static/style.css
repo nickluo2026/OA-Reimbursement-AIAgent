@@ -49,6 +49,38 @@ body {
     padding: 32px 20px 60px;
 }
 
+/* ── Tab 切换 ── */
+.tab-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    overflow-x: auto;
+}
+.tab-nav-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.25s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.tab-nav-btn:hover { background: var(--primary-light); color: var(--primary); }
+.tab-nav-btn.active { background: var(--primary); color: #fff; }
+.tab-panel { display: none; animation: fadeIn 0.3s ease; }
+.tab-panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
 /* ── 卡片 ── */
 .card {
     background: var(--card-bg);
@@ -68,6 +100,46 @@ body {
 .card-header h3 { font-size: 17px; font-weight: 600; }
 .card-icon { font-size: 22px; }
 .card-desc { color: var(--text-light); font-size: 14px; margin-bottom: 24px; }
+
+/* ── 我的报销列表（数据多时内部滚动） ── */
+.my-list {
+    max-height: 60vh;          /* 视口高度的 60%，自适应不同屏幕 */
+    overflow-y: auto;          /* 超出时显示纵向滚动条 */
+    overflow-x: hidden;
+    padding-right: 6px;        /* 给滚动条留出间距，避免内容贴边 */
+    scroll-behavior: smooth;
+}
+/* 空列表时不留多余滚动空间 */
+.my-list:empty { max-height: none; padding-right: 0; }
+
+/* 自定义滚动条（WebKit 内核：Chrome / Safari / Edge） */
+.my-list::-webkit-scrollbar { width: 8px; }
+.my-list::-webkit-scrollbar-track { background: transparent; }
+.my-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+.my-list::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+/* ── 待审报销列表（数据多时内部滚动） ── */
+.reimburse-list {
+    max-height: 60vh;          /* 视口高度的 60%，自适应不同屏幕 */
+    overflow-y: auto;          /* 超出时显示纵向滚动条 */
+    overflow-x: hidden;
+    padding-right: 6px;        /* 给滚动条留出间距，避免内容贴边 */
+    scroll-behavior: smooth;
+}
+/* 空列表时不留多余滚动空间 */
+.reimburse-list:empty { max-height: none; padding-right: 0; }
+
+/* 自定义滚动条（WebKit 内核：Chrome / Safari / Edge） */
+.reimburse-list::-webkit-scrollbar { width: 8px; }
+.reimburse-list::-webkit-scrollbar-track { background: transparent; }
+.reimburse-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+.reimburse-list::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
 
 /* ── 上传区域 ── */
 .upload-zone {
@@ -249,6 +321,71 @@ select.form-input { appearance: auto; }
 .result-status.block .status-label { color: var(--red); }
 .result-status.error .status-label { color: var(--red); }
 .status-summary { font-size: 14px; color: var(--text); margin-top: 4px; }
+
+/* ============================================
+   弹窗（智能体执行流水线）
+   ============================================ */
+.modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+}
+.modal-box {
+    background: var(--card-bg);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 88vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+    animation: modalIn 0.22s ease;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+}
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+}
+.modal-head h3 { font-size: 17px; font-weight: 600; }
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-light);
+    padding: 2px 8px;
+    border-radius: 6px;
+    transition: 0.2s;
+}
+.modal-close:hover { background: var(--red-bg); color: var(--red); }
+.modal-body { padding: 20px 22px; overflow-y: auto; }
+
+/* 弹窗内的流水线：去卡片化 */
+#pipelineModal .pipeline {
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    animation: none;
+}
+#pipelineModal .pipeline-header {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 14px;
+}
 
 /* ── 返回链接 ── */
 .back-link {

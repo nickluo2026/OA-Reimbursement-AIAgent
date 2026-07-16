@@ -99,7 +99,12 @@
                 '</div>';
         });
         pipelineStepsEl.innerHTML = html;
-        pipelineEl.style.display = 'block';
+
+        // 打开弹窗并重置结果区
+        var rs = document.getElementById('pipelineResultStatus');
+        if (rs) rs.style.display = 'none';
+        var modal = document.getElementById('pipelineModal');
+        if (modal) modal.style.display = 'flex';
         pipelineCurrentIdx = 0;
 
         advancePipeline();
@@ -275,70 +280,142 @@
     var submitBtn = document.getElementById('submitBtn');
     var resultContainer = document.getElementById('resultContainer');
 
-    if (uploadForm) {
-        uploadForm.addEventListener('submit', function (e) {
-            e.preventDefault();
+    /* ========================================
+       提交按钮状态机：check（提交校验）/ approve（提交审批）
+       ======================================== */
+    var lastCheckPassed = false;
+    var lastRequestIds = [];
 
-            // 表单校验
-            if (selectedFiles.length === 0) {
-                alert(currentTicketType === '行程单' ? '请先选择行程单文件' : '请先选择发票文件');
-                return;
-            }
-            var amt = document.getElementById('apply_amount').value.trim();
-            if (!amt) { alert('请填写申请金额'); return; }
-            var dt = document.getElementById('apply_date').value.trim();
-            if (!dt) { alert('请选择申请日期'); return; }
-            var reason = document.getElementById('reason').value.trim();
-            if (!reason) { alert('请填写报销事由'); return; }
+    function setSubmitMode(mode) {
+        submitBtn.setAttribute('data-mode', mode);
+        var txt = submitBtn.querySelector('.btn-text');
+        if (txt) { txt.textContent = mode === 'approve' ? '✅ 提交审批' : '提交'; }
+    }
 
-            // 按钮加载态
-            submitBtn.disabled = true;
-            submitBtn.querySelector('.btn-text').style.display = 'none';
-            submitBtn.querySelector('.btn-loading').style.display = 'flex';
+    window.onSubmitClick = function () {
+        if (submitBtn.getAttribute('data-mode') === 'approve') {
+            submitApproval();
+        } else {
+            runCheck();
+        }
+    };
 
-            // 隐藏之前的结果，启动流水线动画
-            if (resultContainer) { resultContainer.style.display = 'none'; resultContainer.innerHTML = ''; }
-            startPipeline(currentTicketType);
+    window.closePipelineModal = function () {
+        var modal = document.getElementById('pipelineModal');
+        if (modal) { modal.style.display = 'none'; }
+        // 校验通过 → 主按钮变为「提交审批」
+        if (lastCheckPassed) { setSubmitMode('approve'); }
+    };
 
-            // 多文件：每个文件单独发送请求
-            var promises = selectedFiles.map(function (file) {
-                var formData = new FormData(uploadForm);
-                formData.set('file', file);
-                var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                var csrfToken = csrfMeta ? csrfMeta.content : '';
-                return fetch('/upload', { method: 'POST', body: formData, headers: { 'X-CSRF-Token': csrfToken } })
-                    .then(function (resp) {
-                        return resp.json().then(function (d) {
-                            if (!resp.ok) { throw new Error(d.summary || '请求失败'); }
-                            return d;
-                        });
+    // 点击遮罩层关闭弹窗
+    var pipelineMask = document.getElementById('pipelineModal');
+    if (pipelineMask) {
+        pipelineMask.addEventListener('click', function (e) {
+            if (e.target === pipelineMask) { window.closePipelineModal(); }
+        });
+    }
+
+    function submitApproval() {
+        var rid = (lastRequestIds && lastRequestIds[0]) ? lastRequestIds[0] : '（未知）';
+        alert('✅ 已提交审批\n报销单号：' + rid + '\n审批人将在审批工作台处理');
+        setSubmitMode('check');
+        lastCheckPassed = false;
+        lastRequestIds = [];
+        loadMyList();
+        // 提交后自动切到「我的报销」查看进度
+        if (typeof window.switchTab === 'function') { window.switchTab('my'); }
+    }
+
+    function runCheck() {
+        // 表单校验
+        if (selectedFiles.length === 0) {
+            alert(currentTicketType === '行程单' ? '请先选择行程单文件' : '请先选择发票文件');
+            return;
+        }
+        var amt = document.getElementById('apply_amount').value.trim();
+        if (!amt) { alert('请填写申请金额'); return; }
+        var dt = document.getElementById('apply_date').value.trim();
+        if (!dt) { alert('请选择申请日期'); return; }
+        var reason = document.getElementById('reason').value.trim();
+        if (!reason) { alert('请填写报销事由'); return; }
+
+        // 按钮加载态
+        submitBtn.disabled = true;
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-loading').style.display = 'flex';
+
+        // 启动流水线动画（弹窗）
+        startPipeline(currentTicketType);
+
+        // 多文件：每个文件单独发送请求
+        var promises = selectedFiles.map(function (file) {
+            var formData = new FormData(uploadForm);
+            formData.set('file', file);
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var csrfToken = csrfMeta ? csrfMeta.content : '';
+            return fetch('/upload', { method: 'POST', body: formData, headers: { 'X-CSRF-Token': csrfToken } })
+                .then(function (resp) {
+                    return resp.json().then(function (d) {
+                        if (!resp.ok) { throw new Error(d.summary || '请求失败'); }
+                        return d;
                     });
-            });
-
-            Promise.all(promises)
-                .then(function (results) {
-                    finishPipeline();
-                    setTimeout(function () {
-                        if (results.length === 1) {
-                            renderResult(results[0]);
-                        } else {
-                            renderMultiResult(results);
-                        }
-                        window.scrollTo({ top: resultContainer.offsetTop - 20, behavior: 'smooth' });
-                    }, 400);
-                })
-                .catch(function (err) {
-                    finishPipeline();
-                    setTimeout(function () {
-                        renderResult({ status: '错误', summary: err.message || '请求失败，请重试' });
-                    }, 400);
-                })
-                .finally(function () {
-                    submitBtn.disabled = false;
-                    submitBtn.querySelector('.btn-text').style.display = 'inline';
-                    submitBtn.querySelector('.btn-loading').style.display = 'none';
                 });
         });
+
+        Promise.all(promises)
+            .then(function (results) {
+                finishPipeline();
+                setTimeout(function () { showPipelineResult(results); }, 400);
+            })
+            .catch(function (err) {
+                finishPipeline();
+                setTimeout(function () {
+                    showPipelineResult([{ status: '错误', summary: err.message || '请求失败，请重试' }]);
+                }, 400);
+            })
+            .finally(function () {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('.btn-text').style.display = 'inline';
+                submitBtn.querySelector('.btn-loading').style.display = 'none';
+            });
+    }
+
+    /* ========================================
+       弹窗内显示校验结果（状态 + 摘要，无按钮）
+       ======================================== */
+    function showPipelineResult(results) {
+        // 汇总状态：取最严重
+        var worstStatus = '通过';
+        var priority = { '通过': 0, '预警': 1, '拦截': 2, '错误': 3 };
+        results.forEach(function (r) {
+            var s = r.status || '错误';
+            if (priority[s] > priority[worstStatus]) { worstStatus = s; }
+        });
+
+        // #fail 调试开关：强制拦截
+        if (window.location.hash === '#fail') { worstStatus = '拦截'; }
+
+        var meta = STATUS_MAP[worstStatus] || { icon: '❌', label: worstStatus, cls: 'error' };
+
+        // 拼接摘要
+        var summaryText = results.map(function (r) {
+            return r.summary || (STATUS_MAP[r.status] ? STATUS_MAP[r.status].label : r.status) || '';
+        }).filter(Boolean).join('；') || meta.label;
+
+        lastCheckPassed = (worstStatus === '通过');
+        lastRequestIds = results.map(function (r) { return r._request_id; }).filter(Boolean);
+
+        var rs = document.getElementById('pipelineResultStatus');
+        if (rs) {
+            rs.className = 'result-status ' + meta.cls;
+            rs.style.display = 'flex';
+            document.getElementById('pipelineStatusIcon').textContent = meta.icon;
+            document.getElementById('pipelineStatusLabel').textContent = meta.label;
+            document.getElementById('pipelineStatusSummary').textContent = summaryText;
+        }
+        // 滚动弹窗内容到底部
+        var body = document.querySelector('#pipelineModal .modal-body');
+        if (body) { body.scrollTop = body.scrollHeight; }
     }
 
     /* ========================================
@@ -764,6 +841,21 @@
 
     window.loadMyList = loadMyList;
     if (document.getElementById('myList')) { loadMyList(); }
+
+    /* ========================================
+       Tab 切换：报销申请 / 我的报销
+       ======================================== */
+    window.switchTab = function (tabName) {
+        document.querySelectorAll('.tab-nav-btn').forEach(function (btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+        });
+        document.querySelectorAll('.tab-panel').forEach(function (panel) {
+            panel.classList.toggle('active', panel.id === 'tab-' + tabName);
+        });
+        // 切到「我的报销」时刷新最新进度
+        if (tabName === 'my') { loadMyList(); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     /* ========================================
        初始化：独立结果页数据加载

@@ -106,7 +106,6 @@
             infoItem('申请金额', money(d.apply_amount)) +
             infoItem('费用类型', d.expense_category || '—') +
             infoItem('提交人', d.employee_name) +
-            infoItem('AI 状态', d.ai_status) +
             infoItem('工作流状态', d.workflow_status) +
             infoItem('审批层级', (route['审批人'] || '—') + (route['需要会签'] ? '（需会签）' : '')) +
         '</div>';
@@ -117,15 +116,6 @@
                 html += infoItem('发票号 ' + esc(inv.invoice_number), money(inv.invoice_amount) + ' · ' + esc(inv.seller_name || ''));
             });
             html += '</div>';
-        }
-
-        if (d.ai_results && d.ai_results.length) {
-            html += '<h3 style="margin:18px 0 8px;font-size:15px;">🤖 AI 校验结果</h3>';
-            d.ai_results.forEach(function (ar) {
-                html += '<div style="margin-bottom:10px;"><span class="tag ' +
-                    ((AI_MAP[ar.status] || {}).cls || '') + '">' + esc(ar.check_type) + ' · ' + esc(ar.status) + '</span>' +
-                    '<pre class="raw-json" style="margin-top:6px;">' + esc(JSON.stringify(ar.detail, null, 2)) + '</pre></div>';
-            });
         }
 
         if (d.approval_records && d.approval_records.length) {

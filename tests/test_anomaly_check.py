@@ -113,24 +113,6 @@ class TestRuleBasedCheck:
                          if "超过申请金额" in a.get("异常描述", "")]
         assert len(amount_checks) == 0
 
-    def test_duplicate_invoice(self):
-        """重复发票号码应检测"""
-        invoice = {
-            "发票号码": "DUP001",
-            "开票日期": "2026-06-01",
-            "发票金额": 100,
-            "销售方名称": "XX公司",
-            "购买方名称": "YY公司",
-        }
-        # F3: 重复报销检测改为数据库查重，mock check_duplicate_invoice 返回 True
-        with patch(
-            "skill.tools.tool_anomaly_check.check_duplicate_invoice",
-            return_value=True,
-        ):
-            anomalies = _rule_based_check(invoice)
-            types = [a["异常类型"] for a in anomalies]
-            assert "重复报销" in types
-
 
 class TestSummarize:
     """异常结论判定测试"""

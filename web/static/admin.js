@@ -325,5 +325,6 @@ function renderUsageRecords() {
 
 // ── 初始化 ──
 document.addEventListener('DOMContentLoaded', function () {
+    switchTab('tab-admin');  // 建立默认标签页（含面板 active 状态）
     loadConfig();
 });
