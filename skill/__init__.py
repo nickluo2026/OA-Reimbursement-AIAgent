@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """DeepSeek AI Agent Skill — 发票报销智能校验
 
 三功能架构：

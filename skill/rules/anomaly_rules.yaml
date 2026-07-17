@@ -44,3 +44,9 @@ itinerary_total_amount_threshold: 2000
 
 # 行程单行程数上限：行程详情条数超过此值标记为异常
 itinerary_max_count: 50
+
+# ============ 发票查验配置 ============
+# 查验为假票（查无此票/红冲/作废）时是否阻断报销
+verify_block_on_fake: true
+# 查验平台调用异常（网络/超时）时是否阻断（false=仅预警放行）
+verify_block_on_error: false

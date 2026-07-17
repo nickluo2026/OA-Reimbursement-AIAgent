@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """全局配置：从环境变量与 YAML 规则文件加载"""
 
 import os
@@ -33,6 +34,12 @@ PRICE_OUTPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_OUTPUT_PER_1K", "0.
 
 # ============ 业务配置 ============
 SMALL_AMOUNT_THRESHOLD: float = 100.0  # 小额免审阈值（元）
+
+# ============ 发票查验平台配置 ============
+# 查验 Provider：mock（默认）/ 预留真实平台扩展点
+INVOICE_VERIFY_PROVIDER: str = os.getenv("INVOICE_VERIFY_PROVIDER", "mock")
+# 查验平台调用超时（秒），供真实 Provider 使用
+INVOICE_VERIFY_TIMEOUT: int = int(os.getenv("INVOICE_VERIFY_TIMEOUT", "30"))
 
 # 即将退役的旧模型名（2026-07-24 15:59 UTC 停服），用于启动自检拦截
 _LEGACY_MODELS = {"deepseek-chat", "deepseek-reasoner"}
@@ -114,3 +121,16 @@ def get_anomaly_rules() -> dict[str, Any]:
 def get_itinerary_rules() -> dict[str, Any]:
     """获取行程单校验规则配置（与异常规则同文件，按 key 隔离）"""
     return get_anomaly_rules()
+
+
+def get_verify_rules() -> dict[str, Any]:
+    """获取发票查验配置（YAML 默认 + 管理员覆盖）"""
+    rules = _load_yaml("anomaly_rules.yaml")
+    admin = get_system_config_overrides()
+    rules["verify_block_on_fake"] = admin.get(
+        "verify_block_on_fake", rules.get("verify_block_on_fake", True)
+    )
+    rules["verify_block_on_error"] = admin.get(
+        "verify_block_on_error", rules.get("verify_block_on_error", False)
+    )
+    return rules

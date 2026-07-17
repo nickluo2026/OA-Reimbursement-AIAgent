@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """全局状态定义（StateGraph State）
 
 LangGraph 通过 ``TypedDict`` 定义全局共享状态，节点间传参由框架自动管理，

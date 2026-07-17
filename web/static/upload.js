@@ -53,7 +53,7 @@
             { icon: '🔍', name: 'OCR 提取发票字段', node: 'ocr_node', tool: 'DeepSeek Vision API', detail: '提取发票类型/号码/金额/商品明细等字段' },
             { icon: '⚠️', name: '异常检测', node: 'anomaly_node', tool: '规则引擎', detail: '校验字段完整性、金额逻辑、重复发票等' },
             { icon: '💰', name: '分类限额校验', node: 'classify_node', tool: 'DeepSeek + 限额规则', detail: '识别费用类型并校验是否超限' },
-            { icon: '✅', name: '发票查验', node: 'verify_node', tool: 'P1 占位', detail: '发票真伪查验（P1 待接入）' },
+            { icon: '✅', name: '发票查验', node: 'verify_node', tool: 'Mock Provider', detail: '发票真伪查验（Provider 抽象，默认 Mock 模式）' },
         ],
         '行程单': [
             { icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为行程单，路由到【行程单智能体】' },
