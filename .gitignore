@@ -26,6 +26,7 @@ uploads/
 # 数据库文件
 *.db
 *.sqlite3
+# oa_agent.db 由 *.db 覆盖，切勿手动 git add
 
 # pytest
 .pytest_cache/
