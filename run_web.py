@@ -8,8 +8,15 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from web.app import app
+from skill.config import self_check_model_config
 
 if __name__ == "__main__":
+    # 启动期模型配置自检（不发起网络请求），异常仅告警不阻断
+    _check = self_check_model_config()
+    if _check["ok"]:
+        print(f"[自检] DeepSeek 模型配置正常：{_check['model']} @ {_check['base_url']}")
+    else:
+        print(f"[自检] ⚠ DeepSeek 模型配置异常：{_check['issues']}")
     # [S-014/S-022] 生产环境必须关闭 debug 模式：
     #   - Werkzeug debugger 可执行任意 Python 代码（严重 RCE 风险）
     #   - debug 模式暴露完整堆栈跟踪和源代码路径

@@ -1857,7 +1857,7 @@ skill/
 | 行程单OCR提取 | 行程单智能体 OCR 调用 |
 | 异常检测 | 规则引擎 + DeepSeek 语义检查 |
 | 分类限额 | 费用分类与限额校验 |
-| Vision API | 票据图片识别（`deepseek-vl`） |
+| Vision API | 票据图片识别（复用 `deepseek-v4-flash` 多模态能力） |
 
 ### 18.5 明细记录表
 

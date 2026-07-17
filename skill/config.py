@@ -19,12 +19,50 @@ DEEPSEEK_BASE_URL: str = os.getenv(
     "DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions"
 )
 DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+# 视觉调用复用同一模型（V4-Flash 原生多模态）；
+# 保留独立常量，便于未来切换专用视觉模型。
+DEEPSEEK_VISION_MODEL: str = os.getenv("DEEPSEEK_VISION_MODEL", DEEPSEEK_MODEL)
 TEMPERATURE: float = 0.0
 MAX_TOKENS: int = 4096
 REQUEST_TIMEOUT: int = 120
 
+# ============ DeepSeek-V4-Flash 定价（CNY / 千 token）============
+# 与官方价（≈$0.14/M 输入 · $0.28/M 输出）换算一致，可经环境变量覆盖。
+PRICE_INPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_INPUT_PER_1K", "0.001"))
+PRICE_OUTPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_OUTPUT_PER_1K", "0.002"))
+
 # ============ 业务配置 ============
 SMALL_AMOUNT_THRESHOLD: float = 100.0  # 小额免审阈值（元）
+
+# 即将退役的旧模型名（2026-07-24 15:59 UTC 停服），用于启动自检拦截
+_LEGACY_MODELS = {"deepseek-chat", "deepseek-reasoner"}
+
+
+def self_check_model_config() -> dict[str, Any]:
+    """启动期模型配置自检。
+
+    不发起真实网络请求（避免启动阻塞/计费），仅校验配置完整性与命名有效性。
+    返回各检查项状态，供 run_web 与 CLI 调用。
+    """
+    issues: list[str] = []
+    if not DEEPSEEK_API_KEY:
+        issues.append("DEEPSEEK_API_KEY 未配置")
+    if not DEEPSEEK_BASE_URL.startswith("https://"):
+        issues.append("DEEPSEEK_BASE_URL 非 https")
+    if DEEPSEEK_MODEL in _LEGACY_MODELS or DEEPSEEK_VISION_MODEL in _LEGACY_MODELS:
+        issues.append(
+            f"检测到即将退役的旧模型名（{sorted(_LEGACY_MODELS)}），"
+            f"将于 2026-07-24 15:59 UTC 停服，请改用 deepseek-v4-flash"
+        )
+    return {
+        "ok": not issues,
+        "model": DEEPSEEK_MODEL,
+        "vision_model": DEEPSEEK_VISION_MODEL,
+        "base_url": DEEPSEEK_BASE_URL,
+        "price_input_per_1k": PRICE_INPUT_PER_1K,
+        "price_output_per_1k": PRICE_OUTPUT_PER_1K,
+        "issues": issues,
+    }
 
 
 def _load_yaml(filename: str) -> dict[str, Any]:

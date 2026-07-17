@@ -38,6 +38,7 @@ dependencies:
 # 配置
 config:
   deepseek_model: deepseek-v4-flash
+  deepseek_vision_model: deepseek-v4-flash  # V4-Flash 原生多模态，视觉复用同一模型
   temperature: 0.0
   max_tokens: 4096
   small_amount_threshold: 100  # 小额免审阈值（元）

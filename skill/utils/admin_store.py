@@ -11,14 +11,19 @@ from datetime import datetime
 from typing import Any
 
 from ..database import ApiUsage, AuditLog, SystemConfig, get_session, utcnow
+from ..config import (
+    DEEPSEEK_MODEL,
+    DEEPSEEK_VISION_MODEL,
+    PRICE_INPUT_PER_1K,
+    PRICE_OUTPUT_PER_1K,
+)
 from ..utils.structured_log import get_request_id
 from .mask_sensitive import mask_ip
 
 logger = logging.getLogger(__name__)
 
-# ── DeepSeek-V4-Flash 定价（与原型一致）──
-PRICE_INPUT_PER_1K = 0.001
-PRICE_OUTPUT_PER_1K = 0.002
+# 定价统一来源于 skill.config（PRICE_INPUT_PER_1K / PRICE_OUTPUT_PER_1K），
+# 可通过环境变量 DEEPSEEK_PRICE_INPUT_PER_1K / DEEPSEEK_PRICE_OUTPUT_PER_1K 覆盖。
 
 CONFIG_KEY = "system"
 
@@ -431,7 +436,7 @@ _SEED_USAGE_RECORDS = [
     ("2026-07-14 14:28:33", "c1d5a8e3b2f7", "行程单OCR提取", "deepseek-v4-flash", 3100, 1650, 2350, "成功"),
     ("2026-07-14 14:25:51", "d9f3c7b1e6a2", "分类限额", "deepseek-v4-flash", 520, 380, 900, "成功"),
     ("2026-07-14 14:20:17", "e2a6b9d4c8f1", "发票OCR提取", "deepseek-v4-flash", 2800, 1500, 1980, "成功"),
-    ("2026-07-14 14:10:05", "a4b7e2d9c6f3", "Vision API", "deepseek-vl", 480, 420, 3200, "成功"),
+    ("2026-07-14 14:10:05", "a4b7e2d9c6f3", "Vision API", DEEPSEEK_VISION_MODEL, 480, 420, 3200, "成功"),
     ("2026-07-13 17:45:22", "f2c7e5b8a1d4", "发票OCR提取", "deepseek-v4-flash", 3100, 0, 0, "失败"),
     ("2026-07-13 16:30:08", "a8b3f6c1e9d2", "分类限额", "deepseek-v4-flash", 540, 0, 600, "失败"),
 ]
@@ -486,7 +491,7 @@ def _seed_usage_demo() -> None:
         for ctype, calls, pt_total, ct_total, avg_latency in _SEED_USAGE_BY_TYPE:
             avg_pt = pt_total // max(calls, 1)
             avg_ct = ct_total // max(calls, 1)
-            model = "deepseek-v4-flash" if ctype != "Vision API" else "deepseek-vl"
+            model = DEEPSEEK_MODEL if ctype != "Vision API" else DEEPSEEK_VISION_MODEL
             for _ in range(calls):
                 day = day_cycle[idx % len(day_cycle)]
                 idx += 1

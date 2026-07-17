@@ -111,8 +111,8 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
 
 def _ocr_extract_image(image_path: str) -> dict[str, Any]:
     """图片 OCR：通过 DeepSeek Vision API 识别行程单图片"""
-    from ..utils.http_client import _get_headers
-    from ..config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, MAX_TOKENS, TEMPERATURE, REQUEST_TIMEOUT
+    from ..utils.http_client import _get_headers, _now_ms
+    from ..config import DEEPSEEK_BASE_URL, DEEPSEEK_VISION_MODEL, MAX_TOKENS, REQUEST_TIMEOUT, TEMPERATURE
 
     import requests
 
@@ -126,7 +126,7 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
         return {"_error": f"图片编码失败: {e}"}
 
     payload = {
-        "model": DEEPSEEK_MODEL,
+        "model": DEEPSEEK_VISION_MODEL,
         "messages": [
             {"role": "system", "content": VISION_SYSTEM_PROMPT},
             {
@@ -149,6 +149,7 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
         "temperature": TEMPERATURE,
     }
 
+    start = _now_ms()
     try:
         headers = _get_headers()
         resp = requests.post(
@@ -166,37 +167,40 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
             tool_call = message["tool_calls"][0]
             func_args_str = tool_call["function"]["arguments"]
             logger.info("Vision API 成功提取行程单数据")
-            _record_vision_usage(data, "成功")
+            _record_vision_usage(data, "成功", start)
             return json.loads(func_args_str)
 
         # 兜底
         content = message.get("content", "").strip()
-        _record_vision_usage(data, "成功")
+        _record_vision_usage(data, "成功", start)
         return {"_warning": "Vision API 未调用工具函数", "_raw": content}
 
     except json.JSONDecodeError:
-        _record_vision_usage(None, "失败")
+        _record_vision_usage(None, "失败", start)
         return {"_error": "Vision API 返回的 JSON 解析失败"}
     except requests.exceptions.Timeout:
-        _record_vision_usage(None, "失败")
+        _record_vision_usage(None, "失败", start)
         return {"_error": "Vision API 调用超时"}
     except Exception as e:
         logger.error("Vision API 调用异常: %s", e)
-        _record_vision_usage(None, "失败")
+        _record_vision_usage(None, "失败", start)
         return {"_error": f"Vision API 调用失败: {e}"}
 
 
-def _record_vision_usage(data: dict | None, status: str) -> None:
+def _record_vision_usage(data: dict | None, status: str, start: int) -> None:
     """记录 Vision API 图片识别的用量（尽力而为）。"""
     try:
+        from ..config import DEEPSEEK_VISION_MODEL
         from ..utils.admin_store import record_api_usage
+        from ..utils.http_client import _now_ms
 
         usage = (data or {}).get("usage", {}) or {}
         record_api_usage(
             call_type="Vision API",
-            model=DEEPSEEK_MODEL,
+            model=DEEPSEEK_VISION_MODEL,
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
+            latency_ms=_now_ms() - start,
             status=status,
         )
     except Exception:  # pragma: no cover
