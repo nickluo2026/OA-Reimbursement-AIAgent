@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # 通过 FLASK_DEBUG 环境变量控制，默认关闭。
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     print("=" * 50)
-    print("  报销智能化系统 — Web 服务")
+    print("  企业报销智能化系统 — Web 服务")
     print(f"  访问地址: http://127.0.0.1:5001  (debug={debug})")
     print("=" * 50)
     app.run(debug=debug, host="127.0.0.1", port=5001)

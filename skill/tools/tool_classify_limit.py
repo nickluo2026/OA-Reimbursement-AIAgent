@@ -16,6 +16,9 @@ from ..utils.http_client import call_deepseek_function
 
 logger = logging.getLogger(__name__)
 
+# 「其他」分类的兜底限额（仅在 YAML 未配置「其他」时使用，避免魔法数字散落）
+DEFAULT_OTHER_LIMIT = 200.0
+
 SYSTEM_PROMPT = (
     "你是费用分类助手。\n"
     "\n"
@@ -43,6 +46,9 @@ def classify_and_check_limit(
     amount = invoice.get("发票金额", 0)
     if not isinstance(amount, (int, float)):
         amount = 0
+
+    limits = get_category_limits()
+    other_limit = limits.get("其他", DEFAULT_OTHER_LIMIT)
 
     # 小额免审：金额 ≤ 100 元跳过分类限额校验
     if amount <= SMALL_AMOUNT_THRESHOLD:
@@ -73,16 +79,15 @@ def classify_and_check_limit(
             "费用分类": "其他",
             "分类依据": "AI 分类失败，默认归为其他",
             "发票金额": amount,
-            "分类限额": get_category_limits().get("其他", 200),
-            "是否超限": amount > get_category_limits().get("其他", 200),
+            "分类限额": other_limit,
+            "是否超限": amount > other_limit,
             "校验结果": f"AI 分类失败，发票金额 {amount} 元，按'其他'类限额校验",
             **result,
         }
 
     # ② 本地规则引擎校验限额（确保确定性，不依赖模型判断金额）
     category = result.get("费用分类", "其他")
-    limits = get_category_limits()
-    limit = limits.get(category, limits.get("其他", 200))
+    limit = limits.get(category, other_limit)
 
     result["发票金额"] = amount
     result["分类限额"] = limit

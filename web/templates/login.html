@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OA 报销智能化系统 — 登录</title>
+    <title>企业报销智能化系统 — 登录</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
 <div class="login-screen">
     <div class="login-card">
         <div class="login-logo">
-            <h2>OA 报销智能化系统</h2>
+            <h2>企业报销智能化系统</h2>
             <div class="login-sub">V1.5 多角色和多智能体协同工作台</div>
         </div>
 
@@ -24,10 +24,10 @@
             <div class="form-section">
                 <label class="form-label" for="loginRole">选择身份（4 角色）</label>
                 <select id="loginRole" name="role" class="form-input" onchange="fillDemoAccount(this.value)">
-                    <option value="employee" {% if selected_role == 'employee' %}selected{% endif %}>👤 普通员工（提交报销申请）</option>
-                    <option value="approver" {% if selected_role == 'approver' %}selected{% endif %}>👔 审批领导（审核下属报销）</option>
-                    <option value="finance"  {% if selected_role == 'finance'  %}selected{% endif %}>💼 财务人员（终审与打款）</option>
-                    <option value="admin"    {% if selected_role == 'admin'    %}selected{% endif %}>⚙️ 系统管理员（维护制度规则）</option>
+                    <option value="employee" {% if selected_role == 'employee' %}selected{% endif %}>👤 普通员工</option>
+                    <option value="approver" {% if selected_role == 'approver' %}selected{% endif %}>👔 审批领导</option>
+                    <option value="finance"  {% if selected_role == 'finance'  %}selected{% endif %}>💼 财务人员</option>
+                    <option value="admin"    {% if selected_role == 'admin'    %}selected{% endif %}>⚙️ 系统管理员</option>
                 </select>
             </div>
 
