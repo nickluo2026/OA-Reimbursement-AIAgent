@@ -2159,6 +2159,51 @@ var MOCK_RECORDS = [
     { time: '2026-07-13 15:12:33', request_id: 'c5f1b8e3a7d6', call_type: 'Vision API', model: 'deepseek-v4-flash', prompt_tokens: 460, completion_tokens: 400, latency_ms: 3100, status: '成功' }
 ];
 
+/* ───────────────────────────────────────────────
+   时间基准：将演示数据的时间锚定到访问者电脑的
+   系统时间（本地时区），使审计日志与用量统计显示
+   的时间与系统当前日期保持一致。
+   原数据以 2026-07-14 为「今天」、2026-07-13 为「昨天」。
+   ─────────────────────────────────────────────── */
+var PROTO_NOW = new Date();
+function _p2(n) { return n < 10 ? '0' + n : '' + n; }
+function _protoFmtDateTime(d) {
+    return d.getFullYear() + '-' + _p2(d.getMonth() + 1) + '-' + _p2(d.getDate()) + ' ' +
+           _p2(d.getHours()) + ':' + _p2(d.getMinutes()) + ':' + _p2(d.getSeconds());
+}
+function _protoFmtMMdd(d) { return _p2(d.getMonth() + 1) + '-' + _p2(d.getDate()); }
+function _protoRebase(origStr) {
+    var sp = origStr.split(' ');
+    var d = new Date(sp[0].replace(/-/g, '/'));
+    var tp = sp[1].split(':');
+    var dayDiff = Math.round((new Date('2026/07/14') - d) / 86400000); // 0=今天, 1=昨天
+    var target = new Date(PROTO_NOW.getTime() - dayDiff * 86400000);
+    return _protoFmtDateTime(new Date(target.getFullYear(), target.getMonth(), target.getDate(),
+        parseInt(tp[0], 10), parseInt(tp[1], 10), parseInt(tp[2], 10)));
+}
+MOCK_AUDIT_LOG.forEach(function (r) { r.time = _protoRebase(r.time); });
+MOCK_RECORDS.forEach(function (r) { r.time = _protoRebase(r.time); });
+
+/* 每日调用趋势：最近 7 天（含今天），按原数据顺序（远→近）对应 */
+var _protoDailyDates = [];
+for (var _i = 6; _i >= 0; _i--) {
+    _protoDailyDates.push(_protoFmtMMdd(new Date(PROTO_NOW.getTime() - _i * 86400000)));
+}
+MOCK_DAILY.forEach(function (day, idx) { day.date = _protoDailyDates[idx]; });
+
+/* 日期筛选下拉：动态生成最近 7 天（今天排在最前） */
+(function () {
+    var sel = document.getElementById('filterDateRange');
+    if (!sel) return;
+    var opts = '<option value="all">全部</option>';
+    for (var _k = _protoDailyDates.length - 1; _k >= 0; _k--) {
+        var _mmdd = _protoDailyDates[_k];
+        var _label = (_k === _protoDailyDates.length - 1) ? _mmdd + '（今天）' : _mmdd;
+        opts += '<option value="' + _mmdd + '">' + _label + '</option>';
+    }
+    sel.innerHTML = opts;
+})();
+
 function renderUsageOverview() {
     var o = MOCK_OVERVIEW;
     var successCount = o.total_calls - o.error_count;
