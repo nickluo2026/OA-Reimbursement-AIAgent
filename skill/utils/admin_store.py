@@ -63,11 +63,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "deepseek_api_key": "",
     "deepseek_base_url": "https://api.deepseek.com/chat/completions",
     "deepseek_model": "deepseek-v4-flash",
-    # 费用限额
-    "limit_travel_transport": 3000,
-    "limit_travel_hotel": 5000,
+    # 费用限额（与 rules/category_limits.yaml 业务默认值对齐）
+    "limit_travel_transport": 600,
+    "limit_travel_hotel": 1000,
     "limit_meal_single": 1000,
-    "limit_itinerary_single": 500,
+    "limit_office": 200,
+    "limit_other": 200,
     # 异常检测规则开关
     "rule_amount": True,
     "rule_invoice_auth": True,
@@ -106,7 +107,8 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
             {"key": "limit_travel_transport", "label": "差旅-交通 月度限额", "type": "number", "unit": "元"},
             {"key": "limit_travel_hotel", "label": "差旅-住宿 月度限额", "type": "number", "unit": "元"},
             {"key": "limit_meal_single", "label": "餐饮 月度限额", "type": "number", "unit": "元"},
-            {"key": "limit_itinerary_single", "label": "行程单 单笔金额阈值", "type": "number", "unit": "元"},
+            {"key": "limit_office", "label": "办公 月度限额", "type": "number", "unit": "元"},
+            {"key": "limit_other", "label": "其他 月度限额", "type": "number", "unit": "元"},
         ],
     },
     {

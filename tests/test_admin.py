@@ -76,12 +76,19 @@ class TestAdminConfig:
         data = resp.get_json()
         assert "schema" in data and "config" in data
         # 默认值生效
-        assert data["config"]["limit_travel_hotel"] == 5000
+        assert data["config"]["limit_travel_hotel"] == 1000
+        assert data["config"]["limit_office"] == 200
+        assert data["config"]["limit_other"] == 200
         # schema 分组完整
         groups = [g["group"] for g in data["schema"]]
         assert "💰 费用限额配置" in groups
         assert "🚨 异常检测规则" in groups
         assert "👥 审批权限分配" in groups
+        # 费用限额分组含办公/其他
+        limit_group = next(g for g in data["schema"] if g["group"] == "💰 费用限额配置")
+        limit_keys = {it["key"] for it in limit_group["items"]}
+        assert "limit_office" in limit_keys
+        assert "limit_other" in limit_keys
 
     def test_config_save_persists_and_audits(self, client, fresh_db):
         _login(client, "ADM-001", "admin", "赵管理")
@@ -106,7 +113,7 @@ class TestAdminConfig:
         client.post("/api/admin/config", json={"items": {"limit_travel_hotel": 9999}})
         resp = client.post("/api/admin/config/reset")
         assert resp.status_code == 200
-        assert resp.get_json()["config"]["limit_travel_hotel"] == 5000
+        assert resp.get_json()["config"]["limit_travel_hotel"] == 1000
 
 
 # ── 审计日志 ──

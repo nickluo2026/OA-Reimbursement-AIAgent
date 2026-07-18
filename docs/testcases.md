@@ -305,9 +305,9 @@
 |---|---------|---------|---------|
 | 102 | test_config_requires_login | 配置 API 未登录 → 401 | `status_code == 401` |
 | 103 | test_config_forbidden_for_employee | 员工无权访问配置 → 403 | `status_code == 403` |
-| 104 | test_config_returns_schema_and_defaults | 配置 GET 返回 schema + 默认值 | 含 schema/config，`limit_travel_hotel == 5000`，3 个分组 |
+| 104 | test_config_returns_schema_and_defaults | 配置 GET 返回 schema + 默认值 | 含 schema/config，`limit_travel_hotel == 1000`，3 个分组 |
 | 105 | test_config_save_persists_and_audits | 配置 POST 持久化并写审计日志 | 配置更新成功，审计日志含 `CONFIG_UPDATE` |
-| 106 | test_config_reset | 配置重置为默认值 | `limit_travel_hotel == 5000`（恢复默认） |
+| 106 | test_config_reset | 配置重置为默认值 | `limit_travel_hotel == 1000`（恢复默认） |
 
 #### TestAdminAudit（审计日志 · 4 项）
 

@@ -115,7 +115,7 @@
             d.invoices.forEach(function (inv) {
                 var invNo = inv.invoice_number;
                 var invLabel = invNo ? '发票号 ' + esc(invNo) : '发票号：缺失';
-                html += infoItem(invLabel, money(inv.invoice_amount) + ' · ' + esc(inv.seller_name || ''));
+                html += infoItem(invLabel, money(inv.invoice_amount));
             });
             html += '</div>';
         }

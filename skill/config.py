@@ -126,9 +126,17 @@ def get_category_limits() -> dict[str, float]:
     data = _load_yaml("category_limits.yaml")
     limits = dict(data.get("category_limits", {}))
     admin = get_system_config_overrides()
-    # 管理员配置覆盖餐饮单笔上限
+    # 管理员配置覆盖各分类限额（与 DEFAULT_CONFIG 键对齐）
+    if "limit_travel_transport" in admin:
+        limits["交通"] = float(admin["limit_travel_transport"])
+    if "limit_travel_hotel" in admin:
+        limits["住宿"] = float(admin["limit_travel_hotel"])
     if "limit_meal_single" in admin:
         limits["餐饮"] = float(admin["limit_meal_single"])
+    if "limit_office" in admin:
+        limits["办公"] = float(admin["limit_office"])
+    if "limit_other" in admin:
+        limits["其他"] = float(admin["limit_other"])
     return limits
 
 
@@ -136,11 +144,6 @@ def get_anomaly_rules() -> dict[str, Any]:
     """获取异常检测规则配置（YAML 默认 + 管理员覆盖）"""
     rules = _load_yaml("anomaly_rules.yaml")
     admin = get_system_config_overrides()
-    # 行程单单笔金额阈值覆盖
-    if "limit_itinerary_single" in admin:
-        rules["itinerary_single_amount_threshold"] = float(
-            admin["limit_itinerary_single"]
-        )
     # 规则开关（默认 True，管理员可关闭）
     rules["enable_amount_check"] = admin.get("rule_amount", True)
     rules["enable_deepseek_semantic"] = admin.get("rule_deepseek_semantic", True)

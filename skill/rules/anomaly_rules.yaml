@@ -35,8 +35,7 @@ itinerary_required_fields:
   - 总金额_元
   - 行程详情
 
-# 行程单单笔金额异常阈值（元）：单行程金额超过此值标记为异常
-# 与 admin_store.DEFAULT_CONFIG.limit_itinerary_single 对齐
+# 行程单单笔金额异常阈值（元）：单行程金额超过此值标记为异常（业务默认值）
 itinerary_single_amount_threshold: 500
 
 # 行程单总金额异常阈值（元）：总金额超过此值标记为异常

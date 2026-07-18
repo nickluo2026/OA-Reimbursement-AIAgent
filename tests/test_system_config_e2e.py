@@ -22,6 +22,7 @@ def client():
 
 from skill.config import (
     get_anomaly_rules,
+    get_category_limits,
     get_deepseek_settings,
     get_itinerary_rules,
     get_verify_rules,
@@ -226,3 +227,35 @@ class TestAdminApiE2E:
         # 再次 GET 应反映已保存
         resp2 = cfg_client.get("/api/admin/config")
         assert resp2.get_json()["config"]["ds_enabled"] is False
+
+
+class TestCategoryLimitOverride:
+    def test_office_limit_overrides_yaml(self, fresh_db):
+        # 默认 YAML 办公限额
+        assert get_category_limits()["办公"] == 200.0
+        # 管理员保存新限额后，覆盖应生效
+        admin_store.save_system_config({"limit_office": 500}, operator="赵管理")
+        assert get_category_limits()["办公"] == 500.0
+
+    def test_other_limit_overrides_yaml(self, fresh_db):
+        assert get_category_limits()["其他"] == 200.0
+        admin_store.save_system_config({"limit_other": 800}, operator="赵管理")
+        assert get_category_limits()["其他"] == 800.0
+
+    def test_all_category_limits_override(self, fresh_db):
+        admin_store.save_system_config(
+            {
+                "limit_travel_transport": 300,
+                "limit_travel_hotel": 700,
+                "limit_meal_single": 400,
+                "limit_office": 150,
+                "limit_other": 250,
+            },
+            operator="赵管理",
+        )
+        limits = get_category_limits()
+        assert limits["交通"] == 300.0
+        assert limits["住宿"] == 700.0
+        assert limits["餐饮"] == 400.0
+        assert limits["办公"] == 150.0
+        assert limits["其他"] == 250.0
