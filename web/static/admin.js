@@ -69,19 +69,41 @@ function renderConfig() {
         grp.items.forEach(function (item) {
             var val = CONFIG_VALUES[item.key];
             html += '<div class="config-row" data-key="' + esc(item.key) + '" data-type="' + esc(item.type) + '">';
-            html += '<div class="cfg-label">' + esc(item.label) + '</div>';
+            var labelHtml = '<div class="cfg-label">' + esc(item.label);
+            if (item.env) labelHtml += ' <span class="cfg-env">' + esc(item.env) + '</span>';
+            labelHtml += '</div>';
+            html += labelHtml;
             if (item.type === 'number') {
                 html += '<input type="number" class="cfg-input" value="' + (val != null ? esc(val) : '') + '">';
                 if (item.unit) html += '<span class="cfg-suffix">' + esc(item.unit) + '</span>';
             } else if (item.type === 'toggle') {
                 var on = val ? ' on' : '';
                 html += '<div class="cfg-toggle' + on + '" onclick="this.classList.toggle(\'on\')"></div>';
+            } else if (item.type === 'secret') {
+                html += '<div class="cfg-secret-wrap">';
+                html += '<input type="password" class="cfg-input wide cfg-secret" value="' + (val != null ? esc(val) : '') + '" placeholder="留空则使用环境变量默认值">';
+                html += '<button type="button" class="cfg-secret-btn" onclick="toggleSecretVis(this)" title="显示/隐藏">👁</button>';
+                html += '</div>';
+            } else if (item.type === 'text') {
+                html += '<input type="text" class="cfg-input wide" value="' + (val != null ? esc(val) : '') + '">';
             }
             html += '</div>';
         });
         html += '</div>';
     });
     wrap.innerHTML = html;
+}
+
+function toggleSecretVis(btn) {
+    var inp = btn.parentNode.querySelector('.cfg-secret');
+    if (!inp) return;
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        btn.textContent = '🙈';
+    } else {
+        inp.type = 'password';
+        btn.textContent = '👁';
+    }
 }
 
 function collectConfig() {
@@ -93,6 +115,9 @@ function collectConfig() {
             items[key] = inp.value === '' ? null : Number(inp.value);
         } else if (row.dataset.type === 'toggle') {
             items[key] = row.querySelector('.cfg-toggle').classList.contains('on');
+        } else if (row.dataset.type === 'text' || row.dataset.type === 'secret') {
+            var t = row.querySelector('.cfg-input');
+            items[key] = t ? t.value : '';
         }
     });
     return items;

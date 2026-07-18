@@ -46,7 +46,7 @@ def _mock_tool_calls_response(func_name: str, args: str) -> MagicMock:
 @patch("skill.utils.http_client._get_headers", return_value={"Authorization": "Bearer x"})
 @patch("requests.post")
 def test_invoice_vision_uses_vision_model_and_records_latency(
-    mock_post, mock_headers, mock_record, tmp_path
+    mock_post, mock_headers, mock_record, tmp_path, fresh_db
 ):
     img = _make_image(tmp_path)
     mock_post.return_value = _mock_tool_calls_response(
@@ -76,7 +76,7 @@ def test_invoice_vision_uses_vision_model_and_records_latency(
 @patch("skill.utils.http_client._get_headers", return_value={"Authorization": "Bearer x"})
 @patch("requests.post")
 def test_itinerary_vision_uses_vision_model_and_records_latency(
-    mock_post, mock_headers, mock_record, tmp_path
+    mock_post, mock_headers, mock_record, tmp_path, fresh_db
 ):
     img = _make_image(tmp_path)
     mock_post.return_value = _mock_tool_calls_response(

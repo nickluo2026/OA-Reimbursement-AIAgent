@@ -54,6 +54,18 @@ body.admin-page .container {
     background: var(--bg);
 }
 .cfg-label { font-size: 14px; color: var(--text); }
+.cfg-label .cfg-env {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-light);
+    background: var(--code-bg, #f1f5f9);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
 .cfg-input {
     width: 130px;
     padding: 8px 10px;
@@ -65,6 +77,24 @@ body.admin-page .container {
     background: #fff;
 }
 .cfg-input:focus { outline: none; border-color: var(--primary); }
+.cfg-input.wide {
+    width: 360px;
+    max-width: 60%;
+    text-align: left;
+    flex: 1;
+}
+.cfg-secret-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+.cfg-secret-btn {
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 7px 12px;
+    font-size: 14px;
+    line-height: 1;
+}
+.cfg-secret-btn:hover { background: var(--primary-light, #dbeafe); }
 .cfg-suffix { font-size: 13px; color: var(--text-light); margin-left: 6px; }
 .cfg-toggle {
     width: 44px;

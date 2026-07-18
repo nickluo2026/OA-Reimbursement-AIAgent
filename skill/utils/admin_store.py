@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from ..database import ApiUsage, AuditLog, SystemConfig, get_session, utcnow
+from ..database import ApiUsage, AuditLog, SystemConfig, get_session
 from ..config import (
     DEEPSEEK_MODEL,
     DEEPSEEK_VISION_MODEL,
@@ -26,12 +26,43 @@ logger = logging.getLogger(__name__)
 # 可通过环境变量 DEEPSEEK_PRICE_INPUT_PER_1K / DEEPSEEK_PRICE_OUTPUT_PER_1K 覆盖。
 
 CONFIG_KEY = "system"
+_TZ_MIGRATION_FLAG = "tz_seed_normalized"  # 时区迁移幂等标记
+
+# ═══════════════════════════════════════════════
+# 时区处理：数据库统一以 UTC（naive）存储，展示/种子写入时与本地时区互转，
+# 保证管理员页面显示的时间与电脑系统时间一致。
+# ═══════════════════════════════════════════════
+def _utc_to_local(dt: datetime | None) -> datetime | None:
+    """将库内 naive-UTC 时间转换为本地时区（去掉 tzinfo 便于 strftime）。"""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+
+
+def _local_to_utc(dt: datetime | None) -> datetime | None:
+    """将「本地时间」字面量转换为 naive-UTC 以便统一存储。"""
+    if dt is None:
+        return None
+    # 对 naive datetime 调用 astimezone 时，Python 视其为本地时间再转换到 UTC。
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _fmt_local(dt: datetime | None, fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """按本地时区格式化时间字符串。"""
+    local = _utc_to_local(dt)
+    return local.strftime(fmt) if local else ""
 
 
 # ═══════════════════════════════════════════════
 # 默认系统配置（与原型 + 现有 YAML 对齐）
 # ═══════════════════════════════════════════════
 DEFAULT_CONFIG: dict[str, Any] = {
+    # ── DeepSeek 大模型（启用/停用 + 运行时凭据）──
+    # 与原型「启用/停用Deepseek大模型」分组对齐；凭据留空时回退到环境变量/默认值。
+    "ds_enabled": True,
+    "deepseek_api_key": "",
+    "deepseek_base_url": "https://api.deepseek.com/chat/completions",
+    "deepseek_model": "deepseek-v4-flash",
     # 费用限额
     "limit_travel_transport": 3000,
     "limit_travel_hotel": 5000,
@@ -49,14 +80,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 # 配置项元数据：用于前端渲染分组 / 标签 / 控件类型
+# type 取值：number / toggle / text / secret
 CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
-        "group": "💰 费用限额配置",
+        "group": "🤖 启用/停用Deepseek大模型",
         "items": [
-            {"key": "limit_travel_transport", "label": "差旅-交通 月度限额", "type": "number", "unit": "元"},
-            {"key": "limit_travel_hotel", "label": "差旅-住宿 月度限额", "type": "number", "unit": "元"},
-            {"key": "limit_meal_single", "label": "餐饮 单笔上限", "type": "number", "unit": "元"},
-            {"key": "limit_itinerary_single", "label": "行程单 单笔金额阈值", "type": "number", "unit": "元"},
+            {"key": "ds_enabled", "label": "启用/停用 DeepSeek 大模型（AI 校验）", "type": "toggle"},
+            {"key": "deepseek_api_key", "label": "API 密钥", "type": "secret", "env": "DEEPSEEK_API_KEY"},
+            {"key": "deepseek_base_url", "label": "API 地址", "type": "text", "env": "DEEPSEEK_BASE_URL"},
+            {"key": "deepseek_model", "label": "模型名称", "type": "text", "env": "DEEPSEEK_MODEL"},
         ],
     },
     {
@@ -66,6 +98,15 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
             {"key": "rule_invoice_auth", "label": "检测发票真伪（国税查验）", "type": "toggle"},
             {"key": "rule_itinerary_field", "label": "行程单字段完整性检查", "type": "toggle"},
             {"key": "rule_deepseek_semantic", "label": "DeepSeek 语义复核", "type": "toggle"},
+        ],
+    },
+    {
+        "group": "💰 费用限额配置",
+        "items": [
+            {"key": "limit_travel_transport", "label": "差旅-交通 月度限额", "type": "number", "unit": "元"},
+            {"key": "limit_travel_hotel", "label": "差旅-住宿 月度限额", "type": "number", "unit": "元"},
+            {"key": "limit_meal_single", "label": "餐饮 月度限额", "type": "number", "unit": "元"},
+            {"key": "limit_itinerary_single", "label": "行程单 单笔金额阈值", "type": "number", "unit": "元"},
         ],
     },
     {
@@ -201,7 +242,7 @@ def list_audit_log(limit: int = 200) -> list[dict[str, Any]]:
 
 def _audit_to_dict(r: AuditLog) -> dict[str, Any]:
     return {
-        "time": r.time.strftime("%Y-%m-%d %H:%M:%S") if r.time else "",
+        "time": _fmt_local(r.time),
         "user": r.user,
         "role": r.role,
         "action": r.action,
@@ -303,7 +344,7 @@ def get_usage_daily(days: int = 7) -> list[dict[str, Any]]:
             rows = s.query(ApiUsage).all()
             buckets: dict[str, dict[str, Any]] = {}
             for r in rows:
-                day = r.time.strftime("%m-%d") if r.time else "unknown"
+                day = _fmt_local(r.time, "%m-%d") if r.time else "unknown"
                 b = buckets.setdefault(day, {"date": day, "calls": 0, "tokens": 0})
                 b["calls"] += 1
                 b["tokens"] += r.prompt_tokens + r.completion_tokens
@@ -374,7 +415,7 @@ def list_usage_records(
 
 def _usage_to_dict(r: ApiUsage) -> dict[str, Any]:
     return {
-        "time": r.time.strftime("%Y-%m-%d %H:%M:%S") if r.time else "",
+        "time": _fmt_local(r.time),
         "request_id": r.request_id,
         "call_type": r.call_type,
         "model": r.model,
@@ -455,7 +496,7 @@ def _seed_audit_demo() -> None:
                     target=target,
                     result=result,
                     ip=ip,
-                    time=datetime.strptime(tstr, "%Y-%m-%d %H:%M:%S"),
+                    time=_local_to_utc(datetime.strptime(tstr, "%Y-%m-%d %H:%M:%S")),
                 )
             )
         s.commit()
@@ -476,7 +517,7 @@ def _seed_usage_demo() -> None:
                     completion_tokens=ct,
                     latency_ms=lat,
                     status=status,
-                    time=datetime.strptime(tstr, "%Y-%m-%d %H:%M:%S"),
+                    time=_local_to_utc(datetime.strptime(tstr, "%Y-%m-%d %H:%M:%S")),
                 )
             )
         s.commit()
@@ -504,15 +545,39 @@ def _seed_usage_demo() -> None:
                         completion_tokens=avg_ct,
                         latency_ms=avg_latency,
                         status="成功",
-                        time=datetime(2026, 7, int(day.split("-")[1]), 12, 0, 0),
+                        time=_local_to_utc(datetime(2026, 7, int(day.split("-")[1]), 12, 0, 0)),
                     )
                 )
         s.commit()
 
 
+def _normalize_seed_times() -> None:
+    """一次性迁移：旧版本将演示种子数据以「本地时间」写入（秒级、微秒为 0），
+    而运行数据以「UTC」写入（含微秒）。统一以 UTC 存储后，仅把本地写入的
+    种子行转换为 UTC，避免显示时再叠加本地时区偏移。幂等（标记行存在即跳过）。
+
+    判定依据：种子行由 ``datetime.strptime`` 生成，微秒恒为 0；运行数据由
+    ``utcnow()`` 生成，几乎都带微秒，二者可可靠区分。
+    """
+    try:
+        with get_session() as s:
+            flag = s.query(SystemConfig).filter_by(key=_TZ_MIGRATION_FLAG).first()
+            if flag is not None:
+                return
+            for model in (AuditLog, ApiUsage):
+                for r in s.query(model).all():
+                    if r.time is not None and r.time.microsecond == 0:
+                        r.time = _local_to_utc(r.time)
+            s.add(SystemConfig(key=_TZ_MIGRATION_FLAG, value={"done": True}))
+            s.commit()
+    except Exception as e:  # pragma: no cover
+        logger.warning("时区迁移失败（可忽略，下次启动重试）: %s", e)
+
+
 def ensure_seeded() -> None:
     """首次为空时预置演示数据（审计日志 + 用量统计）。"""
     try:
+        _normalize_seed_times()
         _seed_audit_demo()
         _seed_usage_demo()
     except Exception as e:  # pragma: no cover

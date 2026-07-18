@@ -37,6 +37,17 @@ def ocr_node(state: ReimbursementState) -> dict[str, Any]:
             "errors": [ocr_result["_error"]],
         }
 
+    # DeepSeek 大模型已停用：无法执行 OCR/校验，给出明确提示
+    if ocr_result.get("_disabled"):
+        msg = "DeepSeek 大模型已停用（系统配置），无法执行发票 OCR 与 AI 校验，请在系统配置中启用 DeepSeek 大模型"
+        logger.warning("✗ 功能1 不可用: %s", msg)
+        return {
+            "ocr_result": ocr_result,
+            "final_status": CheckStatus.ERROR,
+            "summary": msg,
+            "errors": [msg],
+        }
+
     invoice_amount = ocr_result.get("发票金额", 0)
     logger.info("✓ 功能1 完成, 发票金额: %s", invoice_amount)
 

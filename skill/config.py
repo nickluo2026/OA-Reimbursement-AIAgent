@@ -92,6 +92,35 @@ def get_system_config_overrides() -> dict[str, Any]:
         return {}
 
 
+def get_deepseek_settings() -> dict[str, Any]:
+    """返回 DeepSeek 运行时设置（管理员配置覆盖优先，环境变量兜底）。
+
+    对应原型「启用/停用Deepseek大模型」分组：
+        - ds_enabled: 是否启用 AI 校验（默认 True）
+        - deepseek_api_key / base_url / model: 留空时回退到环境变量（config 模块常量）
+
+    关闭 ds_enabled 时，http_client 将跳过真实模型调用，返回「已停用」标记，
+    由各工具降级处理（规则引擎兜底 / 提示用户启用）。
+    """
+    admin = get_system_config_overrides()
+    return {
+        "enabled": bool(admin.get("ds_enabled", True)),
+        "api_key": (admin.get("deepseek_api_key") or DEEPSEEK_API_KEY),
+        "base_url": (admin.get("deepseek_base_url") or DEEPSEEK_BASE_URL),
+        "model": (admin.get("deepseek_model") or DEEPSEEK_MODEL),
+    }
+
+
+def get_deepseek_enabled() -> bool:
+    """是否启用 DeepSeek 大模型（AI 校验）。"""
+    return bool(get_system_config_overrides().get("ds_enabled", True))
+
+
+def get_deepseek_base_url() -> str:
+    """DeepSeek API 地址（管理员覆盖优先）。"""
+    return get_deepseek_settings()["base_url"]
+
+
 def get_category_limits() -> dict[str, float]:
     """获取费用分类限额字典（YAML 默认 + 管理员覆盖）"""
     data = _load_yaml("category_limits.yaml")
@@ -115,6 +144,7 @@ def get_anomaly_rules() -> dict[str, Any]:
     # 规则开关（默认 True，管理员可关闭）
     rules["enable_amount_check"] = admin.get("rule_amount", True)
     rules["enable_deepseek_semantic"] = admin.get("rule_deepseek_semantic", True)
+    rules["enable_itinerary_field"] = admin.get("rule_itinerary_field", True)
     return rules
 
 
@@ -133,4 +163,6 @@ def get_verify_rules() -> dict[str, Any]:
     rules["verify_block_on_error"] = admin.get(
         "verify_block_on_error", rules.get("verify_block_on_error", False)
     )
+    # 管理员可通过 rule_invoice_auth 关闭「检测发票真伪（国税查验）」
+    rules["enable_invoice_auth"] = admin.get("rule_invoice_auth", True)
     return rules

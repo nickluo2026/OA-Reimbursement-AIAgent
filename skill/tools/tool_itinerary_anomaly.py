@@ -48,15 +48,16 @@ def _rule_based_check(
     rules = get_itinerary_rules()
     anomalies: list[dict[str, str]] = []
 
-    # --- 字段缺失检查 ---
-    for field in rules.get("itinerary_required_fields", []):
-        val = itinerary.get(field)
-        if val is None or val == "" or val == 0 or val == []:
-            anomalies.append({
-                "异常类型": "字段缺失",
-                "异常描述": f"必填字段「{field}」缺失或为空",
-                "严重程度": "严重",
-            })
+    # --- 字段缺失检查（可由系统配置 rule_itinerary_field 关闭）---
+    if rules.get("enable_itinerary_field", True):
+        for field in rules.get("itinerary_required_fields", []):
+            val = itinerary.get(field)
+            if val is None or val == "" or val == 0 or val == []:
+                anomalies.append({
+                    "异常类型": "字段缺失",
+                    "异常描述": f"必填字段「{field}」缺失或为空",
+                    "严重程度": "严重",
+                })
 
     # --- 日期格式与逻辑检查 ---
     start_str = str(itinerary.get("行程开始日期", "")).strip()

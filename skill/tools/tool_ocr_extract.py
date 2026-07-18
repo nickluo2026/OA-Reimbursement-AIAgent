@@ -114,11 +114,25 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
 def _ocr_extract_image(image_path: str) -> dict[str, Any]:
     """图片 OCR：通过 DeepSeek Vision API 识别发票图片"""
     from ..utils.http_client import _get_headers, _now_ms
-    from ..config import DEEPSEEK_BASE_URL, DEEPSEEK_VISION_MODEL, MAX_TOKENS, REQUEST_TIMEOUT, TEMPERATURE
+    from ..config import (
+        DEEPSEEK_VISION_MODEL,
+        MAX_TOKENS,
+        REQUEST_TIMEOUT,
+        TEMPERATURE,
+        get_deepseek_settings,
+    )
 
     import requests
 
     logger.info("调用 DeepSeek Vision API 识别图片: %s", image_path)
+
+    # DeepSeek 大模型已停用（系统配置）→ 无法执行图片 OCR
+    settings = get_deepseek_settings()
+    if not settings["enabled"]:
+        return {
+            "_disabled": True,
+            "_warning": "DeepSeek 大模型已停用（系统配置），无法执行图片 OCR 识别",
+        }
 
     try:
         img_data_uri = _encode_image_base64(image_path)
@@ -153,9 +167,9 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
 
     start = _now_ms()
     try:
-        headers = _get_headers()
+        headers = _get_headers(settings["api_key"])
         resp = requests.post(
-            DEEPSEEK_BASE_URL,
+            settings["base_url"],
             headers=headers,
             json=payload,
             timeout=REQUEST_TIMEOUT,

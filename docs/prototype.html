@@ -473,8 +473,18 @@ select.form-input { appearance: auto; }
 .config-section:last-child { margin-bottom: 0; }
 .config-section h4 {
     font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text);
-    display: flex; align-items: center; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px; padding-bottom: 8px; padding-right: 12px; border-bottom: 1px solid var(--border);
 }
+.config-section h4 .cfg-toggle {
+    position: relative; width: 40px; height: 22px; background: #cbd5e1; border-radius: 11px;
+    cursor: pointer; transition: background 0.2s; flex-shrink: 0; margin-left: auto;
+}
+.config-section h4 .cfg-toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.config-section h4 .cfg-toggle.on { background: var(--green); }
+.config-section h4 .cfg-toggle.on::after { transform: translateX(18px); }
 .config-row { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; padding: 10px 12px; background: var(--bg); border-radius: 8px; }
 .config-row .cfg-label { flex: 1; font-size: 14px; }
 .config-row .cfg-input { width: 140px; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
@@ -490,6 +500,17 @@ select.form-input { appearance: auto; }
 }
 .config-row .cfg-toggle.on { background: var(--green); }
 .config-row .cfg-toggle.on::after { transform: translateX(18px); }
+.config-row .cfg-input.wide { width: 300px; }
+.config-row .cfg-env {
+    font-family: monospace; font-size: 11px; color: var(--text-light);
+    background: var(--code-bg); padding: 1px 6px; border-radius: 4px; margin-left: 6px;
+}
+.config-row .cfg-secret-btn {
+    border: 1.5px solid var(--border); background: var(--card-bg); border-radius: 6px;
+    width: 32px; height: 30px; cursor: pointer; font-size: 13px; flex-shrink: 0;
+}
+.config-row .cfg-secret-btn:hover { border-color: var(--primary); }
+.config-row .cfg-secret-btn.revealed { border-color: var(--primary); background: var(--primary-light); }
 
 /* ── 审计日志表格 ── */
 .audit-table { font-size: 13px; }
@@ -797,29 +818,22 @@ select.form-input { appearance: auto; }
                 <span class="card-icon">⚙️</span>
                 <h2>系统配置</h2>
             </div>
-            <p class="card-desc">维护费用限额、异常规则、审批权限。所有变更会进入审计日志并立即生效。</p>
+            <p class="card-desc">启动/停用DeepSeek大模型、异常规则、费用限额、审批权限。所有变更会进入审计日志并立即生效。</p>
 
             <div class="config-section">
-                <h4>💰 费用限额配置</h4>
+                <h4>🤖 启用/停用Deepseek大模型<div class="cfg-toggle on" id="ds-enabled" onclick="toggleDeepSeek(this)" title="启用/停用 AI 校验"></div></h4>
                 <div class="config-row">
-                    <div class="cfg-label">差旅-交通 月度限额</div>
-                    <input type="number" class="cfg-input" value="3000">
-                    <span class="cfg-suffix">元</span>
+                    <div class="cfg-label">API 密钥<span class="cfg-env">DEEPSEEK_API_KEY</span></div>
+                    <input type="password" class="cfg-input wide cfg-secret" value="" placeholder="your_api_key_here" data-default="">
+                    <button class="cfg-secret-btn" onclick="toggleSecret(this)" title="显示/隐藏">👁</button>
                 </div>
                 <div class="config-row">
-                    <div class="cfg-label">差旅-住宿 月度限额</div>
-                    <input type="number" class="cfg-input" value="5000">
-                    <span class="cfg-suffix">元</span>
+                    <div class="cfg-label">API 地址<span class="cfg-env">DEEPSEEK_BASE_URL</span></div>
+                    <input type="text" class="cfg-input wide" value="https://api.deepseek.com/chat/completions" data-default="https://api.deepseek.com/chat/completions">
                 </div>
                 <div class="config-row">
-                    <div class="cfg-label">餐饮 单笔上限</div>
-                    <input type="number" class="cfg-input" value="200">
-                    <span class="cfg-suffix">元</span>
-                </div>
-                <div class="config-row">
-                    <div class="cfg-label">行程单 单笔金额阈值</div>
-                    <input type="number" class="cfg-input" value="500">
-                    <span class="cfg-suffix">元</span>
+                    <div class="cfg-label">模型名称<span class="cfg-env">DEEPSEEK_MODEL</span></div>
+                    <input type="text" class="cfg-input wide" value="deepseek-v4-flash" data-default="deepseek-v4-flash">
                 </div>
             </div>
 
@@ -844,6 +858,30 @@ select.form-input { appearance: auto; }
                 <div class="config-row">
                     <div class="cfg-label">DeepSeek 语义复核</div>
                     <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h4>💰 费用限额配置</h4>
+                <div class="config-row">
+                    <div class="cfg-label">差旅-交通 月度限额</div>
+                    <input type="number" class="cfg-input" value="1000">
+                    <span class="cfg-suffix">元</span>
+                </div>
+                <div class="config-row">
+                    <div class="cfg-label">差旅-住宿 月度限额</div>
+                    <input type="number" class="cfg-input" value="1000">
+                    <span class="cfg-suffix">元</span>
+                </div>
+                <div class="config-row">
+                    <div class="cfg-label">餐饮 月度限额</div>
+                    <input type="number" class="cfg-input" value="1000">
+                    <span class="cfg-suffix">元</span>
+                </div>
+                <div class="config-row">
+                    <div class="cfg-label">行程单 单笔金额阈值</div>
+                    <input type="number" class="cfg-input" value="200">
+                    <span class="cfg-suffix">元</span>
                 </div>
             </div>
 
@@ -2018,6 +2056,20 @@ function renderAuditLog() {
 }
 
 /* ── 系统配置保存 / 恢复 ── */
+function toggleSecret(btn) {
+    var inp = btn.parentElement.querySelector('.cfg-secret');
+    if (!inp) return;
+    if (inp.type === 'password') { inp.type = 'text'; btn.classList.add('revealed'); }
+    else { inp.type = 'password'; btn.classList.remove('revealed'); }
+}
+
+function toggleDeepSeek(el) {
+    el.classList.toggle('on');
+    var enabled = el.classList.contains('on');
+    var section = el.closest('.config-section');
+    section.querySelectorAll('.cfg-input').forEach(function(inp) { inp.disabled = !enabled; });
+}
+
 function saveConfig() {
     var rows = document.querySelectorAll('#tab-admin .config-row');
     var vals = [];
@@ -2025,11 +2077,14 @@ function saveConfig() {
         var label = row.querySelector('.cfg-label');
         var input = row.querySelector('.cfg-input');
         var toggle = row.querySelector('.cfg-toggle');
-        var name = label ? label.textContent : '';
-        if (input) vals.push(name + ' = ' + input.value);
-        else if (toggle) vals.push(name + ' = ' + (toggle.classList.contains('on') ? '启用' : '停用'));
+        var name = label ? label.textContent.trim() : '';
+        if (input) {
+            var display = input.classList.contains('cfg-secret') && input.value
+                ? '******（已隐藏）' : input.value;
+            vals.push(name + ' = ' + display);
+        } else if (toggle) vals.push(name + ' = ' + (toggle.classList.contains('on') ? '启用' : '停用'));
     });
-    addAuditLog('CONFIG_UPDATE', '费用限额 / 异常规则 / 审批权限 已保存（' + vals.length + ' 项）', '成功');
+    addAuditLog('CONFIG_UPDATE', '费用限额 / 异常规则 / 审批权限 / 环境变量 已保存（' + vals.length + ' 项）', '成功');
     alert('配置已保存（原型演示）\n\n共 ' + vals.length + ' 项：\n' + vals.join('\n'));
 }
 
@@ -2038,7 +2093,10 @@ function resetConfig() {
     document.querySelectorAll('#tab-admin .cfg-input').forEach(function(inp) {
         if (inp.value) inp.value = inp.defaultValue;
     });
-    document.querySelectorAll('#tab-admin .cfg-toggle').forEach(function(t) { t.classList.add('on'); });
+    document.querySelectorAll('#tab-admin .cfg-toggle').forEach(function(t) {
+        if (t.dataset.default === 'off') t.classList.remove('on');
+        else t.classList.add('on');
+    });
     alert('已恢复默认值（原型演示）');
 }
 

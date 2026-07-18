@@ -12,22 +12,20 @@ from typing import Any
 import requests
 
 from ..config import (
-    DEEPSEEK_API_KEY,
-    DEEPSEEK_BASE_URL,
-    DEEPSEEK_MODEL,
     MAX_TOKENS,
     REQUEST_TIMEOUT,
     TEMPERATURE,
+    get_deepseek_settings,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def _get_headers() -> dict[str, str]:
-    if not DEEPSEEK_API_KEY:
-        raise RuntimeError("DEEPSEEK_API_KEY 未配置，请在 .env 中设置")
+def _get_headers(api_key: str) -> dict[str, str]:
+    if not api_key:
+        raise RuntimeError("DEEPSEEK_API_KEY 未配置，请在 .env 或系统配置中设置")
     return {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
@@ -51,10 +49,25 @@ def call_deepseek_function(
     Returns:
         模型通过 tool_calls 返回的结构化参数字典；
         若模型未调用工具，返回 {"_warning": ..., "_raw": ...}；
-        若调用失败，返回 {"_error": ...}。
+        若调用失败，返回 {"_error": ...}；
+        若 DeepSeek 大模型被系统配置停用，返回 {"_disabled": True, "_warning": ...}，
+        由各调用方降级处理（规则引擎兜底 / 提示用户启用）。
     """
+    # 运行时凭据与开关来自系统配置（管理员可覆盖环境变量）
+    settings = get_deepseek_settings()
+    if not settings["enabled"]:
+        logger.info("DeepSeek 大模型已停用（系统配置 ds_enabled=False），跳过本次调用: %s", call_type)
+        return {
+            "_disabled": True,
+            "_warning": "DeepSeek 大模型已停用（系统配置已关闭 AI 校验），本次调用跳过",
+        }
+
+    api_key = settings["api_key"]
+    base_url = settings["base_url"]
+    model = settings["model"]
+
     payload = {
-        "model": DEEPSEEK_MODEL,
+        "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content},
@@ -68,8 +81,8 @@ def call_deepseek_function(
     start = _now_ms()
     try:
         resp = requests.post(
-            DEEPSEEK_BASE_URL,
-            headers=_get_headers(),
+            base_url,
+            headers=_get_headers(api_key),
             json=payload,
             timeout=REQUEST_TIMEOUT,
         )
@@ -82,7 +95,7 @@ def call_deepseek_function(
         usage = data.get("usage", {}) or {}
         _record_usage(
             call_type,
-            DEEPSEEK_MODEL,
+            model,
             usage.get("prompt_tokens", 0),
             usage.get("completion_tokens", 0),
             _now_ms() - start,
@@ -107,15 +120,15 @@ def call_deepseek_function(
 
     except json.JSONDecodeError:
         logger.error("工具参数 JSON 解析失败")
-        _record_usage(call_type, DEEPSEEK_MODEL, 0, 0, _now_ms() - start, "失败")
+        _record_usage(call_type, model, 0, 0, _now_ms() - start, "失败")
         return {"_error": "工具参数 JSON 解析失败"}
     except requests.exceptions.Timeout:
         logger.error("DeepSeek API 调用超时")
-        _record_usage(call_type, DEEPSEEK_MODEL, 0, 0, _now_ms() - start, "失败")
+        _record_usage(call_type, model, 0, 0, _now_ms() - start, "失败")
         return {"_error": "DeepSeek API 调用超时"}
     except Exception as e:
         logger.error("DeepSeek API 调用异常: %s", e)
-        _record_usage(call_type, DEEPSEEK_MODEL, 0, 0, _now_ms() - start, "失败")
+        _record_usage(call_type, model, 0, 0, _now_ms() - start, "失败")
         return {"_error": str(e)}
 
 

@@ -23,6 +23,20 @@ def verify_node(state: ReimbursementState) -> dict[str, Any]:
     logger.info("▶ 功能5: 发票查验")
 
     rules = get_verify_rules()
+
+    # 管理员可通过 rule_invoice_auth 关闭「检测发票真伪（国税查验）」
+    if not rules.get("enable_invoice_auth", True):
+        logger.info("发票真伪检测已被管理员关闭（rule_invoice_auth=False），跳过查验")
+        return {
+            "verify_result": {
+                "查验平台": "—",
+                "查验状态": "正常",
+                "总体结论": "通过",
+                "查验明细": {},
+                "查验摘要": "发票真伪检测已停用（系统配置），本次报销跳过国税查验",
+            }
+        }
+
     result = verify_invoice(
         invoice=ocr_result,
         block_on_fake=rules.get("verify_block_on_fake", True),

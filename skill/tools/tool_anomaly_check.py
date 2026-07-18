@@ -211,7 +211,8 @@ def detect_anomaly(
     )
 
     # ③ 合并规则引擎结果
-    if "_error" in result or "_warning" in result:
+    # DeepSeek 被停用（_disabled）或调用失败/兜底时，使用规则引擎结果
+    if "_error" in result or "_warning" in result or result.get("_disabled"):
         # DeepSeek 调用失败，使用规则引擎结果
         logger.warning("DeepSeek 异常检查失败，使用规则引擎结果")
         return {
