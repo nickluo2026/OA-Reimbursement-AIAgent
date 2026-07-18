@@ -571,17 +571,17 @@ select.form-input { appearance: auto; }
 <div class="login-screen" id="loginScreen">
     <div class="login-card">
         <div class="login-logo">
-            <h2>OA 报销智能化系统</h2>
+            <h2>企业报销智能化系统</h2>
             <div class="login-sub">V1.5 多角色多智能体协同工作台</div>
         </div>
 
         <div class="form-section">
             <label class="form-label" for="loginRole">选择身份（4 角色）</label>
             <select id="loginRole" class="form-input" onchange="selectRole(this.value)">
-                <option value="employee">👤 普通员工（提交报销申请）</option>
-                <option value="approver">👔 审批领导（审核下属报销）</option>
-                <option value="finance">💼 财务人员（终审与打款）</option>
-                <option value="admin">⚙️ 系统管理员（维护制度规则）</option>
+                <option value="employee">👤 普通员工</option>
+                <option value="approver">👔 审批领导</option>
+                <option value="finance">💼 财务人员</option>
+                <option value="admin">⚙️ 系统管理员</option>
             </select>
         </div>
 
@@ -617,8 +617,8 @@ select.form-input { appearance: auto; }
         </div>
         <button class="btn-logout" onclick="logout()">退出登录</button>
     </div>
-    <h1>OA 报销智能化系统 <span class="badge">V1.5 多角色多智能体协同工作台</span></h1>
-    <div class="subtitle">发票智能体 + 行程单智能体 — 统一编排、共享状态、协同工作</div>
+    <h1>企业报销智能化系统</h1>
+    <div class="subtitle">V1.5 多角色多智能体协同工作台</div>
     <div class="role-banner" id="roleBanner">
         <span class="rb-icon" id="rbIcon">👤</span>
         <span class="rb-name" id="rbName">普通员工</span>
@@ -700,8 +700,8 @@ select.form-input { appearance: auto; }
         <div class="form-section">
             <label class="form-label" for="ticket_type_select">票据类型 <span class="required">*</span></label>
             <select id="ticket_type_select" class="form-input">
-                <option value="发票">🧾 发票（发票智能体）</option>
-                <option value="行程单">🚕 行程单（行程单智能体）</option>
+                <option value="发票">🧾 发票</option>
+                <option value="行程单">🚕 行程单</option>
             </select>
         </div>
 
