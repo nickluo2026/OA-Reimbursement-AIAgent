@@ -277,3 +277,5 @@ python3 run_web.py
 ```
 > 如需了解技术架构与开发信息，请参阅`docs/requirement.md`（需求文档）和`docs/design.md`（设计文档）。
 
+## 十三、许可证
+本项目采用 MIT 开源授权许可证。完整的授权说明请查看 [LICENSE](LICENSE) 文件。
