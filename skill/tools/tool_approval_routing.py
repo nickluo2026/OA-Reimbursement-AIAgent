@@ -37,11 +37,17 @@ def determine_approval_route(amount: float) -> dict[str, Any]:
     if selected_level is None:
         selected_level = levels[-1] if levels else {}
 
-    # 会签检查
-    countersign = config.get("countersign", {})
+    # 会签检查（管理员可在「审批权限分配」中通过 countersign_enabled 覆盖开关）
+    from ..config import get_system_config_overrides  # 延迟导入，避免循环依赖
+
+    countersign = dict(config.get("countersign", {}))
+    admin_cs = get_system_config_overrides().get("countersign_enabled", None)
+    if admin_cs is not None:
+        countersign["enabled"] = bool(admin_cs)
+
     needs_countersign = (
         countersign.get("enabled", False)
-        and amount >= countersign.get("threshold", 50000)
+        and amount >= countersign.get("threshold", 10000)
     )
 
     result = {

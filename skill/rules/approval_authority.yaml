@@ -5,33 +5,33 @@
 # 金额单位为「元」，max_amount 为该级别的金额上限（不含）
 approval_levels:
   - level: 1
-    max_amount: 5000
+    max_amount: 3000
     approver: "直属领导"
     auto_pass: false
-    description: "5000 元以下由直属领导审批"
+    description: "3000 元以下由直属领导审批"
 
   - level: 2
-    max_amount: 20000
+    max_amount: 10000
     approver: "部门总监"
     auto_pass: false
-    description: "5000-20000 元需部门总监审批"
+    description: "3000-10000 元需部门总监审批"
 
   - level: 3
-    max_amount: 100000
+    max_amount: 50000
     approver: "VP/分管副总"
     auto_pass: false
-    description: "20000-100000 元需 VP/分管副总审批"
+    description: "10000-50000 元需 VP/分管副总审批"
 
   - level: 4
     max_amount: null  # 无上限
     approver: "CEO"
     auto_pass: false
-    description: "100000 元以上需 CEO 审批"
+    description: "50000 元以上需 CEO 审批"
 
 # 会签规则
 countersign:
   enabled: true
-  threshold: 50000  # 超过此金额需要会签（两人审批）
+  threshold: 10000  # 超过此金额需要会签（两人审批）
   min_signers: 2
 
 # 自动通过规则（小额免审）
@@ -51,17 +51,17 @@ workflow_nodes:
     can_reject: true
 
   - node: "部门总监"
-    condition: "金额 ≥ 5000 或 直属领导转审"
+    condition: "金额 ≥ 3000 或 直属领导转审"
     can_delegate: true
     can_reject: true
 
   - node: "VP/分管副总"
-    condition: "金额 ≥ 20000 或 部门总监转审"
+    condition: "金额 ≥ 10000 或 部门总监转审"
     can_delegate: true
     can_reject: true
 
   - node: "CEO"
-    condition: "金额 ≥ 100000 或 VP转审"
+    condition: "金额 ≥ 50000 或 VP转审"
     can_delegate: false
     can_reject: true
 

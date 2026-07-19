@@ -126,7 +126,7 @@
     <h1>OA-Reimbursement-AIAgent 全量代码评审与测试报告</h1>
     <div class="sub">企业报销智能化系统 — DeepSeek AI Agent · LangGraph 编排 · Flask Web</div>
     <div class="meta-bar">
-      <span class="tag"><span class="dot" style="background:var(--accent)"></span> 报告生成: 2026-07-16</span>
+      <span class="tag"><span class="dot" style="background:var(--accent)"></span> 报告生成: 2026-07-19</span>
       <span class="tag"><span class="dot" style="background:var(--pass)"></span> 版本: v1.0.0</span>
       <span class="tag"><span class="dot" style="background:var(--info)"></span> Python 3.10.4</span>
       <span class="tag"><span class="dot" style="background:var(--warn)"></span> 测试框架: pytest 8.3.4</span>
@@ -153,10 +153,10 @@
 
   <!-- 概览数据 -->
   <div class="stats-grid">
-    <div class="stat-card pass"><div class="num">179</div><div class="lbl">测试用例总数</div></div>
-    <div class="stat-card pass"><div class="num">179</div><div class="lbl">通过 (100%)</div></div>
+    <div class="stat-card pass"><div class="num">215</div><div class="lbl">测试用例总数</div></div>
+    <div class="stat-card pass"><div class="num">215</div><div class="lbl">通过 (100%)</div></div>
     <div class="stat-card fail"><div class="num">0</div><div class="lbl">失败</div></div>
-    <div class="stat-card info"><div class="num">25.88s</div><div class="lbl">执行耗时</div></div>
+    <div class="stat-card info"><div class="num">36.30s</div><div class="lbl">执行耗时</div></div>
     <div class="stat-card info"><div class="num">0</div><div class="lbl">Linter 错误</div></div>
     <div class="stat-card warn"><div class="num">5</div><div class="lbl">优化建议</div></div>
   </div>
@@ -164,7 +164,7 @@
   <!-- 总体结论横幅 -->
   <div class="verdict-banner overall">
     <div class="icon">✅</div>
-    <div class="txt"><b>总体结论：全部 179 项测试用例通过（100%），代码质量优良，安全防护到位，性能达标</b>
+    <div class="txt"><b>总体结论：全部 215 项测试用例通过（100%），代码质量优良，安全防护到位，性能达标</b>
       <small>功能测试、集成测试、端到端全链路测试、安全测试、数据隐私保护测试、性能测试均全部通过；代码评审发现 5 项可优化建议，无阻断性问题。</small>
     </div>
   </div>
@@ -173,7 +173,7 @@
   <section id="overview">
     <h2><span class="idx">1</span>测试总览与执行结果</h2>
     <div class="card">
-      <p style="margin-bottom:12px">本次评审对项目全部源码（<code class="inline">skill/</code> 39 个 .py、<code class="inline">web/</code> 2 个 .py、3 个 YAML 规则）逐行评审，并通过 <code class="inline">pytest</code> 实际执行了全部 12 个测试文件、179 项测试用例。</p>
+      <p style="margin-bottom:12px">本次评审对项目全部源码（<code class="inline">skill/</code> 39 个 .py、<code class="inline">web/</code> 2 个 .py、3 个 YAML 规则）逐行评审，并通过 <code class="inline">pytest</code> 实际执行了全部 16 个测试文件、215 项测试用例（执行命令 <code class="inline">python3 -m pytest tests/ -v --tb=short</code>，耗时 36.30s）。</p>
       <table>
         <thead>
           <tr>
@@ -182,13 +182,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>功能测试（单元 + 工作流逻辑）</td><td class="center">60</td><td class="center">60</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr><td>功能测试（单元 + 工作流逻辑 + 系统配置）</td><td class="center">79</td><td class="center">79</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
           <tr><td>集成测试（Flask API + 管理后台）</td><td class="center">54</td><td class="center">54</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
           <tr><td>端到端全链路测试</td><td class="center">2</td><td class="center">2</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr><td>安全测试（认证/授权/CSRF/注入/RCE）</td><td class="center">22 项</td><td class="center">22</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr><td>数据隐私保护测试（脱敏/权限隔离）</td><td class="center">22 项</td><td class="center">22</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr><td>性能测试（响应时间/并发/批量）</td><td class="center">41</td><td class="center">41</td><td class="center">0</td><td class="center">19.93s</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr style="background:var(--card2);font-weight:600"><td>合计</td><td class="center">179</td><td class="center">179</td><td class="center">0</td><td class="center">25.88s</td><td class="center"><span class="badge b-pass">100% 通过</span></td></tr>
+          <tr><td>数据隐私保护测试（脱敏/权限隔离）</td><td class="center">22</td><td class="center">22</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr><td>性能测试（响应时间/并发/批量）</td><td class="center">41</td><td class="center">41</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr><td>其他（模型配置自检/发票校验/视觉模型接线）</td><td class="center">17</td><td class="center">17</td><td class="center">0</td><td class="center">—</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr style="background:var(--card2);font-weight:600"><td>合计</td><td class="center">215</td><td class="center">215</td><td class="center">0</td><td class="center">36.30s</td><td class="center"><span class="badge b-pass">100% 通过</span></td></tr>
         </tbody>
       </table>
       <div class="progress" style="margin-top:14px"><span style="width:100%"></span></div>
@@ -200,17 +200,21 @@
         <thead><tr><th>测试文件</th><th>测试类型</th><th class="center">用例数</th><th class="center">结果</th><th>覆盖范围</th></tr></thead>
         <tbody>
           <tr><td><code class="inline">test_ocr_extract.py</code></td><td>功能</td><td class="center">4</td><td class="center"><span class="badge b-pass">通过</span></td><td>OCR 文件不存在/正常/异常/DeepSeek失败</td></tr>
-          <tr><td><code class="inline">test_anomaly_check.py</code></td><td>功能</td><td class="center">16</td><td class="center"><span class="badge b-pass">通过</span></td><td>字段缺失/格式/过期/金额/重复报销/规则+AI合并</td></tr>
-          <tr><td><code class="inline">test_classify_limit.py</code></td><td>功能</td><td class="center">3</td><td class="center"><span class="badge b-pass">通过</span></td><td>正常分类/超限/DeepSeek失败兜底</td></tr>
+          <tr><td><code class="inline">test_anomaly_check.py</code></td><td>功能</td><td class="center">15</td><td class="center"><span class="badge b-pass">通过</span></td><td>字段缺失/格式/过期/金额/重复报销/规则+AI合并</td></tr>
+          <tr><td><code class="inline">test_classify_limit.py</code></td><td>功能</td><td class="center">4</td><td class="center"><span class="badge b-pass">通过</span></td><td>正常分类/超限/DeepSeek失败兜底</td></tr>
           <tr><td><code class="inline">test_itinerary_verify.py</code></td><td>功能</td><td class="center">14</td><td class="center"><span class="badge b-pass">通过</span></td><td>行程单异常检测+合理性校验（金额/日期/连续性）</td></tr>
+          <tr><td><code class="inline">test_workflow.py</code></td><td>功能</td><td class="center">23</td><td class="center"><span class="badge b-pass">通过</span></td><td>审批路由/决策/会签/财务/列表/统计</td></tr>
           <tr><td><code class="inline">test_agent.py</code></td><td>集成</td><td class="center">12</td><td class="center"><span class="badge b-pass">通过</span></td><td>StateGraph 编排/路由/持久化/异常非致命</td></tr>
           <tr><td><code class="inline">test_itinerary_agent.py</code></td><td>集成</td><td class="center">8</td><td class="center"><span class="badge b-pass">通过</span></td><td>行程单 Agent 全流程/OCR失败/拦截早退/持久化</td></tr>
-          <tr><td><code class="inline">test_workflow.py</code></td><td>功能</td><td class="center">23</td><td class="center"><span class="badge b-pass">通过</span></td><td>审批路由/决策/会签/财务/列表/统计</td></tr>
-          <tr><td><code class="inline">test_mask_sensitive.py</code></td><td>隐私</td><td class="center">22</td><td class="center"><span class="badge b-pass">通过</span></td><td>手机号/税号/IP脱敏/原始数据不变</td></tr>
           <tr><td><code class="inline">test_api_approve_finance.py</code></td><td>集成</td><td class="center">18</td><td class="center"><span class="badge b-pass">通过</span></td><td>审批/财务API/页面权限/越权防护</td></tr>
           <tr><td><code class="inline">test_admin.py</code></td><td>集成</td><td class="center">16</td><td class="center"><span class="badge b-pass">通过</span></td><td>管理员配置/审计日志/用量统计/权限隔离</td></tr>
+          <tr><td><code class="inline">test_system_config_e2e.py</code></td><td>功能</td><td class="center">19</td><td class="center"><span class="badge b-pass">通过</span></td><td>系统配置覆盖/分类限额/发票鉴权开关/会签开关/DeepSeek开关端到端</td></tr>
           <tr><td><code class="inline">test_e2e.py</code></td><td>端到端</td><td class="center">2</td><td class="center"><span class="badge b-pass">通过</span></td><td>员工提交→审批→归档→打款全链路/驳回流程</td></tr>
+          <tr><td><code class="inline">test_mask_sensitive.py</code></td><td>隐私</td><td class="center">22</td><td class="center"><span class="badge b-pass">通过</span></td><td>手机号/税号/IP脱敏/原始数据不变</td></tr>
           <tr><td><code class="inline">test_performance.py</code></td><td>性能</td><td class="center">41</td><td class="center"><span class="badge b-pass">通过</span></td><td>OCR/异常/分类/行程单/DB CRUD/路由/脱敏/图编排/API/聚合查询/并发</td></tr>
+          <tr><td><code class="inline">test_model_config_selfcheck.py</code></td><td>其他</td><td class="center">9</td><td class="center"><span class="badge b-pass">通过</span></td><td>AI 模型配置/密钥/端点自检测</td></tr>
+          <tr><td><code class="inline">test_verify_invoice.py</code></td><td>其他</td><td class="center">6</td><td class="center"><span class="badge b-pass">通过</span></td><td>发票鉴真（mock 正常/作废/红冲/假票降级）</td></tr>
+          <tr><td><code class="inline">test_vision_model_wiring.py</code></td><td>其他</td><td class="center">2</td><td class="center"><span class="badge b-pass">通过</span></td><td>视觉模型接线（发票/行程单）与延迟记录</td></tr>
         </tbody>
       </table>
     </div>
@@ -285,7 +289,7 @@
   <section id="functional">
     <h2><span class="idx">3</span>功能测试</h2>
     <div class="card">
-      <p>功能测试覆盖三大核心工具（OCR提取/异常检测/分类限额）、行程单工具、审批工作流纯逻辑，共 <b>70 项用例全部通过</b>。</p>
+      <p>功能测试覆盖三大核心工具（OCR提取/异常检测/分类限额）、行程单工具、审批工作流纯逻辑及系统配置端到端，共 <b>79 项用例全部通过</b>。</p>
       <div class="grid-2">
         <div>
           <h3>3.1 OCR 提取（test_ocr_extract.py · 4 项）</h3>
@@ -336,7 +340,7 @@
       <table>
         <thead><tr><th>测试类</th><th class="center">用例数</th><th>覆盖场景</th></tr></thead>
         <tbody>
-          <tr><td>TestComputeRoute</td><td class="center">6</td><td>金额阶梯（5000/20000/100000）+ 会签阈值（≥50000）+ CEO 级别</td></tr>
+          <tr><td>TestComputeRoute</td><td class="center">6</td><td>金额阶梯（3000/10000/50000）+ 会签阈值（≥10000）+ CEO 级别</td></tr>
           <tr><td>TestSubmitApproval</td><td class="center">6</td><td>通过/驳回/转审/驳回后不可再审批/未知动作/单号不存在</td></tr>
           <tr><td>TestCountersign</td><td class="center">2</td><td>会签需两人/单人签核保持审批中</td></tr>
           <tr><td>TestSubmitFinance</td><td class="center">4</td><td>归档需已通过/打款需已归档/归档后打款/重复打款报错</td></tr>
@@ -344,7 +348,15 @@
           <tr><td>TestStats</td><td class="center">2</td><td>本月审批数统计/按状态统计</td></tr>
         </tbody>
       </table>
-      <div class="callout pass"><b>功能测试结论：70/70 通过</b>。三大核心工具、行程单工具、审批工作流逻辑全部验证正确，规则引擎与 DeepSeek 协同机制符合设计。</div>
+      <h3>3.6 系统配置端到端（test_system_config_e2e.py · 19 项）</h3>
+      <ul class="clean">
+        <li class="pass">DeepSeek 启停开关 schema 与默认值校验（ds_enabled/model/api_key/base_url）</li>
+        <li class="pass">配置保存落库 → 运行时 getter 生效（含清空回退环境变量）</li>
+        <li class="pass">发票真伪开关 rule_invoice_auth 控制 verify 节点跳过/执行查验</li>
+        <li class="pass">分类限额（餐饮/交通/住宿/办公/其他）覆盖 YAML 默认</li>
+        <li class="pass">会签开关 countersign_enabled 默认开启，关闭后路由不再要求会签</li>
+      </ul>
+      <div class="callout pass"><b>功能测试结论：79/79 通过</b>。三大核心工具、行程单工具、审批工作流逻辑、系统配置端到端全部验证正确，规则引擎与 DeepSeek 协同机制符合设计。</div>
     </div>
   </section>
 
@@ -352,7 +364,7 @@
   <section id="integration">
     <h2><span class="idx">4</span>集成测试</h2>
     <div class="card">
-      <p>集成测试通过 Flask <code class="inline">test_client</code> 验证 Web 层路由、API、数据库持久化的端到端协同，共 <b>34 项用例全部通过</b>。</p>
+      <p>集成测试通过 Flask <code class="inline">test_client</code> 验证 Web 层路由、API、数据库持久化的端到端协同，共 <b>54 项用例全部通过</b>。</p>
       <div class="grid-2">
         <div>
           <h3>4.1 Agent 编排（test_agent.py · 12 项）</h3>
@@ -407,7 +419,7 @@
           </ul>
         </div>
       </div>
-      <div class="callout pass"><b>集成测试结论：34/34 通过</b>。Web 层与业务层、数据库的协同完全正确，权限隔离（401/403）生效。</div>
+      <div class="callout pass"><b>集成测试结论：54/54 通过</b>。Web 层与业务层、数据库的协同完全正确，权限隔离（401/403）生效，审批路由与配置覆盖端到端验证通过。</div>
     </div>
   </section>
 
@@ -640,27 +652,29 @@ ocr masked 手机号        => 138****5678  | 税号保留 => 91110108MA01ABCD23
       <div class="verdict-banner overall" style="margin-bottom:20px">
         <div class="icon">✅</div>
         <div class="txt"><b>全部测试通过，系统可投产</b>
-          <small>179/179 用例通过（100%），覆盖功能/集成/端到端/安全/隐私/性能六大维度</small>
+          <small>215/215 用例通过（100%），覆盖功能/集成/端到端/数据隐私/性能/其他六大维度</small>
         </div>
       </div>
 
       <table>
         <thead><tr><th>维度</th><th class="center">用例数</th><th class="center">通过率</th><th class="center">结论</th></tr></thead>
         <tbody>
-          <tr><td>功能测试</td><td class="center">60</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr><td>功能测试</td><td class="center">79</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
           <tr><td>集成测试</td><td class="center">54</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
           <tr><td>端到端测试</td><td class="center">2</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr><td>安全测试</td><td class="center">22 项</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr><td>数据隐私测试</td><td class="center">22 项</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr><td>数据隐私测试</td><td class="center">22</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
           <tr><td>性能测试</td><td class="center">41</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
-          <tr style="background:var(--card2);font-weight:600"><td>合计</td><td class="center">179</td><td class="center">100%</td><td class="center"><span class="badge b-pass">全部通过</span></td></tr>
+          <tr><td>其他（自检/校验/视觉模型）</td><td class="center">17</td><td class="center">100%</td><td class="center"><span class="badge b-pass">通过</span></td></tr>
+          <tr style="background:var(--card2);font-weight:600"><td>合计</td><td class="center">215</td><td class="center">100%</td><td class="center"><span class="badge b-pass">全部通过</span></td></tr>
         </tbody>
       </table>
+
+      <div class="callout pass" style="margin-top:16px"><b>本次变更回归（2026-07-19）</b>：审批阶梯阈值对齐 README（3000/10000/50000），会签阈值由 ≥50000 调整为 ≥10000，系统配置「审批权限分配」开关由 3 档改为 4 档（含会签开关）。运行 <code class="inline">python3 -m pytest tests/ -q</code>（pytest 8.3.4 / Python 3.10.4，耗时 36.30s）结果为 <b>215 passed（100%）</b>，无回归；其中审批路由相关 <code class="inline">test_workflow.py</code> 23/23、<code class="inline">test_admin.py</code> 16/16、<code class="inline">test_system_config_e2e.py</code> 19/19 全部通过。</div>
 
       <h3>核心优势</h3>
       <ul class="clean">
         <li class="pass"><b>架构清晰</b>：LangGraph StateGraph 编排，节点解耦，条件边路由（OCR失败早退/异常拦截/小额免审）设计优秀</li>
-        <li class="pass"><b>测试充分</b>：179 项用例覆盖功能/集成/E2E/安全/隐私/性能六大维度，测试代码占比超 40%</li>
+        <li class="pass"><b>测试充分</b>：215 项用例覆盖功能/集成/E2E/数据隐私/性能/其他六大维度，测试代码占比超 40%</li>
         <li class="pass"><b>安全到位</b>：22 项安全检查全部通过，[S-xxx] 标注完整可追溯，无 SQL注入/RCE/XSS/CSRF 风险</li>
         <li class="pass"><b>隐私合规</b>：脱敏函数正确，原始数据完整，权限隔离到位，审计日志不可删</li>
         <li class="pass"><b>性能达标</b>：41 项性能测试全部通过，本地计算/数据库/API/图编排/并发均满足性能基线</li>
@@ -679,8 +693,8 @@ ocr masked 手机号        => 138****5678  | 税号保留 => 91110108MA01ABCD23
   </section>
 
   <div class="footer">
-    <p>OA-Reimbursement-AIAgent 全量代码评审与测试报告 · 生成于 2026-07-16 · pytest 8.3.4 · Python 3.10.4</p>
-    <p style="margin-top:6px">本报告由全量代码评审 + 179 项自动化测试实际执行结果生成，数据真实可复现（<code class="inline">./run_tests.sh</code>）</p>
+    <p>OA-Reimbursement-AIAgent 全量代码评审与测试报告 · 生成于 2026-07-19 · pytest 8.3.4 · Python 3.10.4</p>
+    <p style="margin-top:6px">本报告由全量代码评审 + 215 项自动化测试实际执行结果生成，数据真实可复现（<code class="inline">./run_tests.sh</code>）</p>
   </div>
 
 </div>

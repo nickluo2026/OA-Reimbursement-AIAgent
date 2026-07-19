@@ -229,6 +229,32 @@ class TestAdminApiE2E:
         assert resp2.get_json()["config"]["ds_enabled"] is False
 
 
+class TestCountersignToggle:
+    def test_countersign_toggle_in_schema(self, fresh_db):
+        schema = admin_store.get_config_schema()
+        groups = {g["group"]: g for g in schema}
+        items = {it["key"]: it for it in groups["👥 审批权限分配"]["items"]}
+        assert "countersign_enabled" in items
+        assert items["countersign_enabled"]["type"] == "toggle"
+        assert items["countersign_enabled"]["label"] == \
+            "金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）"
+
+    def test_countersign_default_enabled(self, fresh_db):
+        assert admin_store.get_system_config()["countersign_enabled"] is True
+
+    def test_countersign_off_disables_route(self, fresh_db):
+        from skill.tools.tool_approval_routing import determine_approval_route
+
+        # 默认开启：≥10000 需会签
+        assert determine_approval_route(60000)["需要会签"] is True
+        # 管理员关闭后，路由不再要求会签
+        admin_store.save_system_config({"countersign_enabled": False}, operator="赵管理")
+        assert determine_approval_route(60000)["需要会签"] is False
+        # 重新开启后恢复
+        admin_store.save_system_config({"countersign_enabled": True}, operator="赵管理")
+        assert determine_approval_route(60000)["需要会签"] is True
+
+
 class TestCategoryLimitOverride:
     def test_office_limit_overrides_yaml(self, fresh_db):
         # 默认 YAML 办公限额

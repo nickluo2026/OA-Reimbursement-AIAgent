@@ -74,10 +74,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "rule_invoice_auth": True,
     "rule_itinerary_field": True,
     "rule_deepseek_semantic": True,
-    # 审批权限开关
-    "approval_le_1000": True,
-    "approval_1000_5000": True,
-    "approval_gt_5000": True,
+    # 审批权限开关（4 档，与 approval_authority.yaml 金额阶梯一致）
+    "approval_le_3000": True,
+    "approval_3000_10000": True,
+    "approval_10000_50000": True,
+    "approval_gt_50000": True,
+    # 会签规则（与 approval_authority.yaml countersign 对齐：金额 ≥ 10000 需两人会签）
+    "countersign_enabled": True,
 }
 
 # 配置项元数据：用于前端渲染分组 / 标签 / 控件类型
@@ -114,9 +117,11 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
         "group": "👥 审批权限分配",
         "items": [
-            {"key": "approval_le_1000", "label": "单笔 ≤ 1000 元 — 直属主管审批", "type": "toggle"},
-            {"key": "approval_1000_5000", "label": "1000 < 单笔 ≤ 5000 元 — 部门负责人审批", "type": "toggle"},
-            {"key": "approval_gt_5000", "label": "单笔 > 5000 元 — 分管领导审批", "type": "toggle"},
+            {"key": "approval_le_3000",    "label": "单笔 ≤ 3000 元 — 直属领导审批", "type": "toggle"},
+            {"key": "approval_3000_10000", "label": "3000 < 单笔 ≤ 10000 元 — 部门总监审批", "type": "toggle"},
+            {"key": "approval_10000_50000","label": "10000 < 单笔 ≤ 50000 元 — VP/分管副总审批", "type": "toggle"},
+            {"key": "approval_gt_50000",   "label": "单笔 > 50000 元 — CEO 审批", "type": "toggle"},
+            {"key": "countersign_enabled", "label": "金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）", "type": "toggle"},
         ],
     },
 ]
@@ -446,7 +451,7 @@ _SEED_AUDIT_LOG = [
     ("李总", "审批领导", "LOGIN", "工号 APR-001", "成功", "10.0.1.12", "2026-07-14 11:20:05"),
     ("王会计", "财务人员", "PAYMENT_INIT", "RB-2026-0713-015 · ¥1280.00", "成功", "10.0.1.18", "2026-07-14 10:35:41"),
     ("赵管理", "系统管理员", "PERMISSION_GRANT", "王会计 → 财务终审权限", "成功", "10.0.1.32", "2026-07-14 09:18:33"),
-    ("李总", "审批领导", "TRANSFER", "RB-2026-0713-019 · ¥5800.00 → 分管领导", "成功", "10.0.1.12", "2026-07-13 18:42:09"),
+    ("李总", "审批领导", "TRANSFER", "RB-2026-0713-019 · ¥5800.00 → 部门总监", "成功", "10.0.1.12", "2026-07-13 18:42:09"),
     ("李四", "普通员工", "SUBMIT", "RB-2026-0714-002 · ¥186.50", "成功", "10.0.1.48", "2026-07-13 17:30:21"),
     ("李总", "审批领导", "LOGIN_FAILED", "工号 APR-001 · 密码错误", "失败", "10.0.1.12", "2026-07-13 16:15:48"),
     ("王会计", "财务人员", "LOGIN", "工号 FIN-001", "成功", "10.0.1.18", "2026-07-13 14:22:11"),

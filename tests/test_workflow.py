@@ -25,29 +25,29 @@ def _make(rid, amount, employee="EMP-2026"):
 # ── 审批路由（金额阶梯 + 会签） ──
 class TestComputeRoute:
     def test_small_amount_level1(self):
-        r = wf.compute_route(3000)
+        r = wf.compute_route(2000)
         assert r["审批级别"] == 1
         assert r["审批人"] == "直属领导"
         assert r["需要会签"] is False
 
     def test_mid_amount_level2(self):
-        r = wf.compute_route(15000)
+        r = wf.compute_route(5000)
         assert r["审批级别"] == 2
         assert r["审批人"] == "部门总监"
 
     def test_high_amount_level3(self):
-        r = wf.compute_route(80000)
+        r = wf.compute_route(30000)
         assert r["审批级别"] == 3
         assert r["审批人"] == "VP/分管副总"
 
     def test_countersign_threshold(self):
-        # 恰好 50000：触发会签（>= 阈值）
-        r = wf.compute_route(50000)
+        # 恰好 10000：触发会签（>= 阈值）
+        r = wf.compute_route(10000)
         assert r["需要会签"] is True
         assert r["最少签核人数"] == 2
 
     def test_no_countersign_below_threshold(self):
-        r = wf.compute_route(49999)
+        r = wf.compute_route(9999)
         assert r["需要会签"] is False
 
     def test_ceo_level4(self):
@@ -91,7 +91,7 @@ class TestSubmitApproval:
 class TestCountersign:
     def test_two_signers_required(self, fresh_db):
         rid = "REQ-CS-1"
-        _make(rid, 60000)  # >= 50000 触发会签
+        _make(rid, 60000)  # >= 10000 触发会签
         first = wf.submit_approval(rid, "APR-001", "李总", action="通过")
         assert first["workflow_status"] == wf.WS_IN_REVIEW
         assert first["countersign_passed"] == 1

@@ -746,7 +746,6 @@ select.form-input { appearance: auto; }
                 <label class="form-label" for="expense_category">费用类型（预选）</label>
                 <select id="expense_category" class="form-input">
                     <option value="">— AI 将自动识别 —</option>
-                    <option value="差旅" selected>差旅</option>
                     <option value="交通">交通</option>
                     <option value="住宿">住宿</option>
                     <option value="餐饮">餐饮</option>
@@ -860,12 +859,12 @@ select.form-input { appearance: auto; }
             <div class="config-section">
                 <h4>💰 费用限额配置</h4>
                 <div class="config-row">
-                    <div class="cfg-label">差旅-交通 月度限额</div>
+                    <div class="cfg-label">交通 月度限额</div>
                     <input type="number" class="cfg-input" value="600">
                     <span class="cfg-suffix">元</span>
                 </div>
                 <div class="config-row">
-                    <div class="cfg-label">差旅-住宿 月度限额</div>
+                    <div class="cfg-label">住宿 月度限额</div>
                     <input type="number" class="cfg-input" value="1000">
                     <span class="cfg-suffix">元</span>
                 </div>
@@ -889,16 +888,24 @@ select.form-input { appearance: auto; }
             <div class="config-section">
                 <h4>👥 审批权限分配</h4>
                 <div class="config-row">
-                    <div class="cfg-label">单笔 ≤ 1000 元 — 直属主管审批</div>
+                    <div class="cfg-label">单笔 ≤ 3000 元 — 直属领导审批</div>
                     <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
                 </div>
                 <div class="config-row">
-                    <div class="cfg-label">1000 < 单笔 ≤ 5000 元 — 部门负责人审批</div>
+                    <div class="cfg-label">3000 < 单笔 ≤ 10000 元 — 部门总监审批</div>
                     <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
                 </div>
                 <div class="config-row">
-                    <div class="cfg-label">单笔 > 5000 元 — 分管领导审批</div>
+                    <div class="cfg-label">10000 < 单笔 ≤ 50000 元 — VP/分管副总审批</div>
                     <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="config-row">
+                    <div class="cfg-label">单笔 > 50000 元 — CEO 审批</div>
+                    <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="config-row note-row">
+                    <div class="cfg-label">金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）</div>
+               <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
                 </div>
             </div>
 
@@ -1319,12 +1326,12 @@ var MOCK_INVOICE = {
     classify_result: {
         '费用分类': '住宿',
         '分类置信度': '0.95',
-        '适用限额': '5000.00',
+        '适用限额': '1000.00',
         '本次申请金额': '358.50',
         '限额状态': '未超限',
-        '剩余额度': '4641.50',
-        '审批层级': '直属主管审批',
-        '限额说明': '差旅-住宿类月度限额 5000 元，当前已使用 0 元'
+        '剩余额度': '641.50',
+        '审批层级': '直属领导审批',
+        '限额说明': '住宿类月度限额 1000 元，当前已使用 358.50 元'
     },
     itinerary_result: null,
     status: '通过',
@@ -1675,7 +1682,7 @@ var MOCK_PENDING_LIST = [
         submitter: '张三（EMP-2026）',
         submitTime: '2026-07-14 10:23',
         type: '发票',
-        category: '差旅-住宿',
+        category: '住宿',
         amount: 358.50,
         reason: '北京出差酒店住宿费（6/15-6/17）',
         aiStatus: 'pass',
@@ -1687,7 +1694,7 @@ var MOCK_PENDING_LIST = [
         submitter: '李四（EMP-2024）',
         submitTime: '2026-07-14 11:05',
         type: '行程单',
-        category: '差旅-交通',
+        category: '交通',
         amount: 186.50,
         reason: '上海出差市内网约车',
         aiStatus: 'pass',
@@ -1703,7 +1710,7 @@ var MOCK_PENDING_LIST = [
         amount: 1280.00,
         reason: '部门季度团建聚餐',
         aiStatus: 'warn',
-        aiSummary: '⚠️ 单笔金额超 200 元餐饮上限，建议人工确认',
+        aiSummary: '⚠️ 单笔金额超 1000 元餐饮月度限额，建议人工确认',
         risk: '中'
     },
     {
@@ -1711,11 +1718,11 @@ var MOCK_PENDING_LIST = [
         submitter: '赵六（EMP-2015）',
         submitTime: '2026-07-14 14:18',
         type: '发票',
-        category: '差旅-交通',
+        category: '交通',
         amount: 4520.00,
         reason: '北京-上海往返机票',
         aiStatus: 'pass',
-        aiSummary: '行程合理 · 已超出主管审批权限（≤1000元），需部门负责人审批',
+        aiSummary: '行程合理 · 已超出直属领导审批权限（≤3000元），需部门总监审批',
         risk: '低'
     }
 ];
@@ -1893,7 +1900,7 @@ var MOCK_FINAL_LIST = [
         approver: '李总（已审批通过 07-13 18:20）',
         submitTime: '2026-07-13 16:42',
         type: '发票',
-        category: '差旅-住宿',
+        category: '住宿',
         amount: 680.00,
         reason: '上海客户拜访住宿',
         aiStatus: 'pass',
@@ -1906,7 +1913,7 @@ var MOCK_FINAL_LIST = [
         approver: '李总（已审批通过 07-13 19:05）',
         submitTime: '2026-07-13 17:33',
         type: '行程单',
-        category: '差旅-交通',
+        category: '交通',
         amount: 425.80,
         reason: '北京出差市内交通（3 天）',
         aiStatus: 'pass',
@@ -1919,7 +1926,7 @@ var MOCK_FINAL_LIST = [
         approver: '李总（已审批通过 07-14 09:15）',
         submitTime: '2026-07-13 18:50',
         type: '发票',
-        category: '差旅-交通',
+        category: '交通',
         amount: 2380.00,
         reason: '北京-深圳往返机票',
         aiStatus: 'pass',
@@ -2005,7 +2012,7 @@ function handleFinance(id, action) {
    审计日志（系统管理员）
    ============================================ */
 var MOCK_AUDIT_LOG = [
-    { time: '2026-07-14 14:32:18', user: '赵管理',   role: '系统管理员', action: 'CONFIG_UPDATE',   target: '差旅-住宿 月度限额: 5000 → 6000',  result: '成功', ip: '10.0.1.32' },
+    { time: '2026-07-14 14:32:18', user: '赵管理',   role: '系统管理员', action: 'CONFIG_UPDATE',   target: '住宿 月度限额: 5000 → 6000',  result: '成功', ip: '10.0.1.32' },
     { time: '2026-07-14 14:28:05', user: '王会计',   role: '财务人员',   action: 'PAYMENT_INIT',    target: 'RB-2026-0713-021 · ¥425.80',      result: '成功', ip: '10.0.1.18' },
     { time: '2026-07-14 14:25:42', user: '李总',     role: '审批领导',   action: 'APPROVE',         target: 'RB-2026-0714-004 · ¥4520.00',     result: '成功', ip: '10.0.1.12' },
     { time: '2026-07-14 14:20:11', user: '李总',     role: '审批领导',   action: 'APPROVE',         target: 'RB-2026-0714-002 · ¥186.50',      result: '成功', ip: '10.0.1.12' },
@@ -2016,7 +2023,7 @@ var MOCK_AUDIT_LOG = [
     { time: '2026-07-14 11:20:05', user: '李总',     role: '审批领导',   action: 'LOGIN',           target: '工号 APR-001',                    result: '成功', ip: '10.0.1.12' },
     { time: '2026-07-14 10:35:41', user: '王会计',   role: '财务人员',   action: 'PAYMENT_INIT',    target: 'RB-2026-0713-015 · ¥1280.00',     result: '成功', ip: '10.0.1.18' },
     { time: '2026-07-14 09:18:33', user: '赵管理',   role: '系统管理员', action: 'PERMISSION_GRANT',target: '王会计 → 财务终审权限',            result: '成功', ip: '10.0.1.32' },
-    { time: '2026-07-13 18:42:09', user: '李总',     role: '审批领导',   action: 'TRANSFER',        target: 'RB-2026-0713-019 · ¥5800.00 → 分管领导', result: '成功', ip: '10.0.1.12' },
+    { time: '2026-07-13 18:42:09', user: '李总',     role: '审批领导',   action: 'TRANSFER',        target: 'RB-2026-0713-019 · ¥5800.00 → 部门总监', result: '成功', ip: '10.0.1.12' },
     { time: '2026-07-13 17:30:21', user: '李四',     role: '普通员工',   action: 'SUBMIT',          target: 'RB-2026-0714-002 · ¥186.50',      result: '成功', ip: '10.0.1.48' },
     { time: '2026-07-13 16:15:48', user: '李总',     role: '审批领导',   action: 'LOGIN_FAILED',    target: '工号 APR-001 · 密码错误',          result: '失败', ip: '10.0.1.12' },
     { time: '2026-07-13 14:22:11', user: '王会计',   role: '财务人员',   action: 'LOGIN',           target: '工号 FIN-001',                    result: '成功', ip: '10.0.1.18' }

@@ -2,24 +2,25 @@
 
 | 项目 | OA-Reimbursement-AIAgent（报销 AI 智能体系统） |
 |------|------|
-| 版本 | V1.4 |
+| 版本 | V1.7 |
 | 测试框架 | pytest 8.3.4 |
 | Python 版本 | 3.10.4 |
 | 执行命令 | `python3 -m pytest tests/ -v --tb=short` |
-| 用例总数 | 179 |
+| 用例总数 | 198 |
 
-> 本文档汇总项目全部 12 个测试文件、179 项测试用例，覆盖功能测试、集成测试、端到端全链路测试、安全测试、数据隐私保护测试、性能测试六大维度。
+> 本文档汇总项目全部 13 个测试文件、198 项测试用例，覆盖功能测试、集成测试、端到端全链路测试、安全测试、数据隐私保护测试、性能测试六大维度。
 
 ---
 
 ## 目录
 
-- [一、功能测试用例（60 项）](#一功能测试用例60-项)
+- [一、功能测试用例（79 项）](#一功能测试用例79-项)
   - [1.1 OCR 提取（test_ocr_extract.py · 4 项）](#11-ocr-提取test_ocr_extractpy--4-项)
   - [1.2 异常检测（test_anomaly_check.py · 16 项）](#12-异常检测test_anomaly_checkpy--16-项)
   - [1.3 分类限额（test_classify_limit.py · 3 项）](#13-分类限额test_classify_limitpy--3-项)
   - [1.4 行程单工具（test_itinerary_verify.py · 14 项）](#14-行程单工具test_itinerary_verifypy--14-项)
   - [1.5 审批工作流（test_workflow.py · 23 项）](#15-审批工作流test_workflowpy--23-项)
+  - [1.6 系统配置端到端（test_system_config_e2e.py · 19 项）](#16-系统配置端到端test_system_config_e2epy--19-项)
 - [二、集成测试用例（54 项）](#二集成测试用例54-项)
   - [2.1 Agent 编排（test_agent.py · 12 项）](#21-agent-编排test_agentpy--12-项)
   - [2.2 行程单 Agent（test_itinerary_agent.py · 8 项）](#22-行程单-agenttest_itinerary_agentpy--8-项)
@@ -36,17 +37,17 @@
 
 | 测试类型 | 测试文件 | 用例数 |
 |---------|---------|-------|
-| 功能测试 | test_ocr_extract / test_anomaly_check / test_classify_limit / test_itinerary_verify / test_workflow | 60 |
+| 功能测试 | test_ocr_extract / test_anomaly_check / test_classify_limit / test_itinerary_verify / test_workflow / test_system_config_e2e | 79 |
 | 集成测试 | test_agent / test_itinerary_agent / test_api_approve_finance / test_admin | 54 |
 | 端到端测试 | test_e2e | 2 |
 | 安全测试 | test_admin / test_api_approve_finance（认证授权用例） + 静态检查 | 22 |
 | 数据隐私保护 | test_mask_sensitive | 22 |
 | 性能测试 | test_performance | 41 |
-| **合计** | **12 个文件** | **179** |
+| **合计** | **13 个文件** | **198** |
 
 ---
 
-## 一、功能测试用例（60 项）
+## 一、功能测试用例（79 项）
 
 > 覆盖三大核心工具（OCR提取/异常检测/分类限额）、行程单工具、审批工作流纯逻辑。
 
@@ -142,11 +143,11 @@
 
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
-| 38 | test_small_amount_level1 | 金额3000 → 1级审批（直属领导） | `审批级别 == 1`，`审批人 == "直属领导"`，`需要会签 is False` |
-| 39 | test_mid_amount_level2 | 金额15000 → 2级审批（部门总监） | `审批级别 == 2`，`审批人 == "部门总监"` |
-| 40 | test_high_amount_level3 | 金额80000 → 3级审批（VP/分管副总） | `审批级别 == 3`，`审批人 == "VP/分管副总"` |
-| 41 | test_countersign_threshold | 金额50000（恰好阈值）→ 触发会签 | `需要会签 is True`，`最少签核人数 == 2` |
-| 42 | test_no_countersign_below_threshold | 金额49999（低于阈值）→ 不需会签 | `需要会签 is False` |
+| 38 | test_small_amount_level1 | 金额2000 → 1级审批（直属领导） | `审批级别 == 1`，`审批人 == "直属领导"`，`需要会签 is False` |
+| 39 | test_mid_amount_level2 | 金额5000 → 2级审批（部门总监） | `审批级别 == 2`，`审批人 == "部门总监"` |
+| 40 | test_high_amount_level3 | 金额30000 → 3级审批（VP/分管副总） | `审批级别 == 3`，`审批人 == "VP/分管副总"` |
+| 41 | test_countersign_threshold | 金额10000（恰好阈值）→ 触发会签 | `需要会签 is True`，`最少签核人数 == 2` |
+| 42 | test_no_countersign_below_threshold | 金额9999（低于阈值）→ 不需会签 | `需要会签 is False` |
 | 43 | test_ceo_level4 | 金额120000 → 4级审批（CEO） | `审批级别 == 4`，`审批人 == "CEO"` |
 
 #### TestSubmitApproval（审批决策 · 6 项）
@@ -190,6 +191,68 @@
 |---|---------|---------|---------|
 | 59 | test_count_decisions_this_month | 本月审批数统计 | 审批后 `after == before + 1` |
 | 60 | test_count_by_status | 按状态统计报销单数量 | 待审批1项；审批+归档+打款后已发放1项 |
+
+---
+
+### 1.6 系统配置端到端（test_system_config_e2e.py · 19 项）
+
+**被测模块**：`web/app.py` 管理员配置 API + `skill/utils/admin_store.py` + `skill/config.py` + `skill/orchestrator/nodes/verify_node.py` + `skill/tools/tool_approval_routing.py`
+
+> 覆盖 prototype.html「系统配置」分组新增项与依赖代码：DeepSeek 启停、发票真伪开关、行程单字段完整性开关、分类限额覆盖、会签开关，并验证「配置保存落库 → 运行时 getter 生效 → 工具/节点行为随之改变」。
+
+#### TestSystemConfigSchema（Schema/默认值 · 4 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 202 | test_deepseek_group_present | schema 含「🤖 启用/停用Deepseek大模型」分组，4 个 key | 含 `ds_enabled` / `deepseek_api_key` / `deepseek_base_url` / `deepseek_model` |
+| 203 | test_deepseek_item_types | 各配置项类型正确 | `ds_enabled`=toggle，`api_key`=secret，`base_url`/`model`=text |
+| 204 | test_default_values | 默认值符合预期 | `ds_enabled is True`，`model=="deepseek-v4-flash"`，`rule_invoice_auth is True` |
+| 205 | test_meal_limit_label_monthly | 餐饮限额 label 对齐原型 | `limit_meal_single` 的 label == "餐饮 月度限额" |
+
+#### TestSystemConfigPersistence（保存→落库→运行时生效 · 4 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 206 | test_save_new_items_persists | 保存新配置项后重读生效 | 重读 `ds_enabled is False` |
+| 207 | test_getters_reflect_config | 运行时 getter 反映配置 | `get_deepseek_settings()` / `get_verify_rules()` / `get_itinerary_rules()` 反映新值 |
+| 208 | test_api_override_falls_back_to_env | 清空字段回退环境变量 | 回退到 `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` |
+| 209 | test_reset_restores_defaults | 重置恢复默认值 | 重置后 `ds_enabled is True` |
+
+#### TestDeepSeekDisabled（DeepSeek 启停 · 2 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 210 | test_call_deepseek_function_disabled | `ds_enabled=False` 时不发起网络请求 | 返回含 `_disabled` 标记 |
+| 211 | test_call_deepseek_function_enabled_no_network | 默认启用但无网络/Key 时不崩溃 | 返回 dict（含 `_error`） |
+
+#### TestInvoiceAuthToggle（发票真伪开关 · 2 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 212 | test_auth_disabled_skips_verify | `rule_invoice_auth=False` 时 verify 节点跳过查验 | 结论「通过」，摘要含「停用」 |
+| 213 | test_auth_enabled_runs_verify | 默认启用时 verify 节点执行查验 | 查验状态「正常」 |
+
+#### TestAdminApiE2E（前端 API 端到端 · 1 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 214 | test_save_new_config_items_via_api | 管理员经 API 保存新配置项 | POST 200，GET 反映已保存值 |
+
+#### TestCountersignToggle（会签开关 · 3 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 215 | test_countersign_toggle_in_schema | schema 含会签开关 | `countersign_enabled` 为 toggle，label 正确 |
+| 216 | test_countersign_default_enabled | 默认开启会签 | `countersign_enabled is True` |
+| 217 | test_countersign_off_disables_route | 关闭后路由不再要求会签，重开恢复 | `determine_approval_route(60000)["需要会签"]` 随开关变化 |
+
+#### TestCategoryLimitOverride（分类限额覆盖 · 3 项）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 218 | test_office_limit_overrides_yaml | 办公限额覆盖 YAML 默认 | `get_category_limits()["办公"] == 500.0` |
+| 219 | test_other_limit_overrides_yaml | 其他限额覆盖 YAML 默认 | `get_category_limits()["其他"] == 800.0` |
+| 220 | test_all_category_limits_override | 全部分类限额覆盖生效 | 交通/住宿/餐饮/办公/其他均按新值 |
 
 ---
 
@@ -645,6 +708,7 @@ if os.path.exists(_TEST_DB_PATH):
 | test_classify_limit.py | 功能 | 3 |
 | test_itinerary_verify.py | 功能 | 14 |
 | test_workflow.py | 功能 | 23 |
+| test_system_config_e2e.py | 功能 | 19 |
 | test_agent.py | 集成 | 12 |
 | test_itinerary_agent.py | 集成 | 8 |
 | test_api_approve_finance.py | 集成 | 18 |
@@ -652,8 +716,8 @@ if os.path.exists(_TEST_DB_PATH):
 | test_e2e.py | 端到端 | 2 |
 | test_mask_sensitive.py | 隐私 | 22 |
 | test_performance.py | 性能 | 41 |
-| **合计** | — | **179** |
+| **合计** | — | **198** |
 
 ---
 
-*文档生成于 2026-07-16 · pytest 8.3.4 · Python 3.10.4*
+*文档生成于 2026-07-19 · pytest 8.3.4 · Python 3.10.4*
