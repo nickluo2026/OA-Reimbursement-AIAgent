@@ -134,16 +134,24 @@ def save_ai_check_result(
 def check_duplicate_invoice(invoice_number: str, window_days: int = 30) -> bool:
     """检查发票是否重复报销"""
     with get_session() as s:
-        exists = s.query(InvoiceHistory).filter_by(
-            invoice_number=invoice_number,
-        ).first()
+        exists = (
+            s.query(InvoiceHistory)
+            .filter_by(
+                invoice_number=invoice_number,
+            )
+            .first()
+        )
         if exists:
             return True
 
         # 同时检查发票记录表中是否有同一号码
-        existing = s.query(InvoiceRecord).filter_by(
-            invoice_number=invoice_number,
-        ).first()
+        existing = (
+            s.query(InvoiceRecord)
+            .filter_by(
+                invoice_number=invoice_number,
+            )
+            .first()
+        )
         return existing is not None
 
 

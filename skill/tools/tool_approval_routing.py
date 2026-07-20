@@ -45,9 +45,8 @@ def determine_approval_route(amount: float) -> dict[str, Any]:
     if admin_cs is not None:
         countersign["enabled"] = bool(admin_cs)
 
-    needs_countersign = (
-        countersign.get("enabled", False)
-        and amount >= countersign.get("threshold", 10000)
+    needs_countersign = countersign.get("enabled", False) and amount >= countersign.get(
+        "threshold", 10000
     )
 
     result = {

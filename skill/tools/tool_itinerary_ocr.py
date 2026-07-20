@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from ..schemas.itinerary_schema import ITINERARY_EXTRACT_TOOL
-from ..utils.pdf_extractor import extract_pdf_text
 from ..utils.http_client import call_deepseek_function
+from ..utils.pdf_extractor import extract_pdf_text
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ SYSTEM_PROMPT = (
     "2. 行程详情逐项提取，放入「行程详情」数组（序号/车型/上车时间/城市/起终点/里程/金额）\n"
     "3. 「总金额_元」应等于所有行程明细金额之和\n"
     "4. 必须调用 extract_itinerary 函数返回结构化结果\n"
-    "5. 无数据的字段填空字符串 \"\"，无数据的数字填 0\n"
+    '5. 无数据的字段填空字符串 ""，无数据的数字填 0\n'
     "6. 不要编造未在文本中出现的字段值"
 )
 
@@ -44,7 +44,7 @@ VISION_SYSTEM_PROMPT = (
     "1. 仔细观察用户提供的行程单图片，精确提取全部可见字段\n"
     "2. 行程明细逐项提取，放入「行程详情」数组\n"
     "3. 必须调用 extract_itinerary 函数返回结构化结果\n"
-    "4. 无数据的字段填空字符串 \"\"，无数据的数字填 0\n"
+    '4. 无数据的字段填空字符串 ""，无数据的数字填 0\n'
     "5. 不要编造未在图片中出现的字段值\n"
     "6. 注意区分各行程的金额、里程与时间"
 )
@@ -111,10 +111,16 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
 
 def _ocr_extract_image(image_path: str) -> dict[str, Any]:
     """图片 OCR：通过 DeepSeek Vision API 识别行程单图片"""
-    from ..utils.http_client import _get_headers, _now_ms
-    from ..config import DEEPSEEK_BASE_URL, DEEPSEEK_VISION_MODEL, MAX_TOKENS, REQUEST_TIMEOUT, TEMPERATURE
-
     import requests
+
+    from ..config import (
+        DEEPSEEK_BASE_URL,
+        DEEPSEEK_VISION_MODEL,
+        MAX_TOKENS,
+        REQUEST_TIMEOUT,
+        TEMPERATURE,
+    )
+    from ..utils.http_client import _get_headers, _now_ms
 
     logger.info("调用 DeepSeek Vision API 识别行程单图片: %s", image_path)
 
@@ -138,7 +144,8 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
                     },
                     {
                         "type": "text",
-                        "text": "请识别并提取这张行程单的全部字段信息，调用 extract_itinerary 函数返回结果。",
+                        "text": "请识别并提取这张行程单的全部字段信息，"
+                        "调用 extract_itinerary 函数返回结果。",
                     },
                 ],
             },

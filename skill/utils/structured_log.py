@@ -58,9 +58,11 @@ structlog.configure(
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
-        structlog.dev.ConsoleRenderer()
-        if os.environ.get("OA_ENV", "production") == "development"
-        else structlog.processors.JSONRenderer(),
+        (
+            structlog.dev.ConsoleRenderer()
+            if os.environ.get("OA_ENV", "production") == "development"
+            else structlog.processors.JSONRenderer()
+        ),
     ],
     context_class=dict,
     logger_factory=structlog.stdlib.LoggerFactory(),

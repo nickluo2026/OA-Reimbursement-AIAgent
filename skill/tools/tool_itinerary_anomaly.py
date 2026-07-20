@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any
 
 from ..config import get_itinerary_rules
@@ -53,11 +53,13 @@ def _rule_based_check(
         for field in rules.get("itinerary_required_fields", []):
             val = itinerary.get(field)
             if val is None or val == "" or val == 0 or val == []:
-                anomalies.append({
-                    "异常类型": "字段缺失",
-                    "异常描述": f"必填字段「{field}」缺失或为空",
-                    "严重程度": "严重",
-                })
+                anomalies.append(
+                    {
+                        "异常类型": "字段缺失",
+                        "异常描述": f"必填字段「{field}」缺失或为空",
+                        "严重程度": "严重",
+                    }
+                )
 
     # --- 日期格式与逻辑检查 ---
     start_str = str(itinerary.get("行程开始日期", "")).strip()
@@ -71,39 +73,49 @@ def _rule_based_check(
     apply_date_obj = _parse_date(apply_str) if apply_str else None
 
     if start_str and not start_date:
-        anomalies.append({
-            "异常类型": "格式错误",
-            "异常描述": f"行程开始日期格式错误: {start_str}，应为 YYYY-MM-DD",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "格式错误",
+                "异常描述": f"行程开始日期格式错误: {start_str}，应为 YYYY-MM-DD",
+                "严重程度": "严重",
+            }
+        )
     if end_str and not end_date:
-        anomalies.append({
-            "异常类型": "格式错误",
-            "异常描述": f"行程结束日期格式错误: {end_str}，应为 YYYY-MM-DD",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "格式错误",
+                "异常描述": f"行程结束日期格式错误: {end_str}，应为 YYYY-MM-DD",
+                "严重程度": "严重",
+            }
+        )
 
     # 日期逻辑：开始 > 结束
     if start_date and end_date and start_date > end_date:
-        anomalies.append({
-            "异常类型": "日期异常",
-            "异常描述": f"行程开始日期 {start_str} 晚于结束日期 {end_str}",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "日期异常",
+                "异常描述": f"行程开始日期 {start_str} 晚于结束日期 {end_str}",
+                "严重程度": "严重",
+            }
+        )
 
     # 日期逻辑：行程日期晚于申请日
     if apply_date_obj and start_date and start_date > apply_date_obj:
-        anomalies.append({
-            "异常类型": "日期异常",
-            "异常描述": f"行程开始日期 {start_str} 晚于申请日期 {apply_str}",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "日期异常",
+                "异常描述": f"行程开始日期 {start_str} 晚于申请日期 {apply_str}",
+                "严重程度": "严重",
+            }
+        )
     if apply_date_obj and end_date and end_date > apply_date_obj:
-        anomalies.append({
-            "异常类型": "日期异常",
-            "异常描述": f"行程结束日期 {end_str} 晚于申请日期 {apply_str}",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "日期异常",
+                "异常描述": f"行程结束日期 {end_str} 晚于申请日期 {apply_str}",
+                "严重程度": "严重",
+            }
+        )
 
     # --- 行程详情检查 ---
     details = itinerary.get("行程详情")
@@ -116,17 +128,21 @@ def _rule_based_check(
     # 行程数异常
     count = len(details_list)
     if count == 0:
-        anomalies.append({
-            "异常类型": "行程数异常",
-            "异常描述": "行程详情为空，无有效行程记录",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "行程数异常",
+                "异常描述": "行程详情为空，无有效行程记录",
+                "严重程度": "严重",
+            }
+        )
     elif count > max_count:
-        anomalies.append({
-            "异常类型": "行程数异常",
-            "异常描述": f"行程数 {count} 超过上限 {max_count}",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "行程数异常",
+                "异常描述": f"行程数 {count} 超过上限 {max_count}",
+                "严重程度": "严重",
+            }
+        )
 
     # 单笔金额异常
     for idx, item in enumerate(details_list):
@@ -134,31 +150,43 @@ def _rule_based_check(
             continue
         amt = _to_float(item.get("金额_元"))
         if amt is not None and amt > single_threshold:
-            anomalies.append({
-                "异常类型": "金额异常",
-                "异常描述": f"第 {item.get('序号', idx + 1)} 行行程金额 {amt} 元超过单笔阈值 {single_threshold} 元",
-                "严重程度": "警告",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "金额异常",
+                    "异常描述": f"第 {item.get('序号', idx + 1)} 行行程金额 {amt} 元"
+                    f"超过单笔阈值 {single_threshold} 元",
+                    "严重程度": "警告",
+                }
+            )
 
     # 总金额异常
     total_amount = _to_float(itinerary.get("总金额_元"))
     if total_amount is not None and total_amount > total_threshold:
-        anomalies.append({
-            "异常类型": "金额异常",
-            "异常描述": f"行程单总金额 {total_amount} 元超过上限 {total_threshold} 元",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "金额异常",
+                "异常描述": f"行程单总金额 {total_amount} 元超过上限 {total_threshold} 元",
+                "严重程度": "严重",
+            }
+        )
 
     # 申请金额校验（总金额 ≤ 申请金额）
-    if (total_amount is not None and total_amount > 0
-            and apply_amount is not None and apply_amount > 0
-            and total_amount > apply_amount):
+    if (
+        total_amount is not None
+        and total_amount > 0
+        and apply_amount is not None
+        and apply_amount > 0
+        and total_amount > apply_amount
+    ):
         diff = total_amount - apply_amount
-        anomalies.append({
-            "异常类型": "金额异常",
-            "异常描述": f"行程单总金额 {total_amount} 元超过申请金额 {apply_amount} 元，超出 {diff} 元",
-            "严重程度": "严重",
-        })
+        anomalies.append(
+            {
+                "异常类型": "金额异常",
+                "异常描述": f"行程单总金额 {total_amount} 元超过申请金额 "
+                f"{apply_amount} 元，超出 {diff} 元",
+                "严重程度": "严重",
+            }
+        )
 
     return anomalies
 

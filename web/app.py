@@ -11,22 +11,22 @@
     POST /upload    处理上传与 AI 校验
 """
 
-import os
-import uuid
-import secrets
 import logging
+import os
+import secrets
+import uuid
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from skill import run_reimbursement_skill
 from skill import workflow as wf
 from skill.database import init_db
 from skill.utils import admin_store
 from skill.utils.mask_sensitive import mask_ocr_result
-from skill.utils.structured_log import set_request_id, get_request_id
+from skill.utils.structured_log import get_request_id, set_request_id
 
 # ── 数据库初始化 ──
 init_db()
@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 class RequestIDFilter(logging.Filter):
     """为所有日志记录注入 request_id，避免第三方库（如 werkzeug）日志因缺少该字段而报 KeyError"""
+
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
             record.request_id = get_request_id()
@@ -93,11 +94,11 @@ app.config.update(
 # ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
 # 角色定义：对应 design.md §1.1 / §17.2 与 constitution.md §2.6
 ROLE_INFO = {
-    "employee":      {"icon": "👤", "name": "普通员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
-    "approver":      {"icon": "👔", "name": "审批领导", "desc": "审核下属报销申请"},
+    "employee": {"icon": "👤", "name": "普通员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
+    "approver": {"icon": "👔", "name": "审批领导", "desc": "审核下属报销申请"},
     "finance_review": {"icon": "📋", "name": "财务复核", "desc": "复核 AI 校验结果并确认归档"},
-    "finance_pay":    {"icon": "💰", "name": "出纳打款", "desc": "发起费用发放（须与归档人不同）"},
-    "admin":         {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
+    "finance_pay": {"icon": "💰", "name": "出纳打款", "desc": "发起费用发放（须与归档人不同）"},
+    "admin": {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
 }
 
 # 演示账号映射（工号 → 姓名 / 角色 / 密码哈希）
@@ -106,11 +107,31 @@ ROLE_INFO = {
 # 财务职责分离：FIN-001 财务复核（仅归档）、FIN-002 出纳打款（仅打款），
 # 且系统强制「打款人 ≠ 归档人」。
 DEMO_ACCOUNTS = {
-    "EMP-2026": {"name": "张三", "role": "employee", "password_hash": generate_password_hash("123456")},
-    "APR-001":  {"name": "李总", "role": "approver", "password_hash": generate_password_hash("123456")},
-    "FIN-001":  {"name": "王会计", "role": "finance_review", "password_hash": generate_password_hash("123456")},
-    "FIN-002":  {"name": "李出纳", "role": "finance_pay", "password_hash": generate_password_hash("123456")},
-    "ADM-001":  {"name": "赵管理", "role": "admin", "password_hash": generate_password_hash("123456")},
+    "EMP-2026": {
+        "name": "张三",
+        "role": "employee",
+        "password_hash": generate_password_hash("123456"),
+    },
+    "APR-001": {
+        "name": "李总",
+        "role": "approver",
+        "password_hash": generate_password_hash("123456"),
+    },
+    "FIN-001": {
+        "name": "王会计",
+        "role": "finance_review",
+        "password_hash": generate_password_hash("123456"),
+    },
+    "FIN-002": {
+        "name": "李出纳",
+        "role": "finance_pay",
+        "password_hash": generate_password_hash("123456"),
+    },
+    "ADM-001": {
+        "name": "赵管理",
+        "role": "admin",
+        "password_hash": generate_password_hash("123456"),
+    },
 }
 
 # 财务两类角色（财务复核 / 出纳打款）共享财务工作台与财务 API 权限
@@ -186,8 +207,12 @@ def login():
             # 记录登录失败审计
             try:
                 admin_store.add_audit_log(
-                    account or "未知", "—", "LOGIN_FAILED",
-                    account or "—", "失败", request.remote_addr,
+                    account or "未知",
+                    "—",
+                    "LOGIN_FAILED",
+                    account or "—",
+                    "失败",
+                    request.remote_addr,
                 )
             except Exception:
                 pass
@@ -201,8 +226,12 @@ def login():
         # 登录成功审计
         try:
             admin_store.add_audit_log(
-                info["name"], info["role"], "LOGIN",
-                account, "成功", request.remote_addr,
+                info["name"],
+                info["role"],
+                "LOGIN",
+                account,
+                "成功",
+                request.remote_addr,
             )
         except Exception:
             pass
@@ -281,7 +310,9 @@ def upload():
     request_id = uuid.uuid4().hex[:16]
     set_request_id(request_id)
 
-    logger.info("收到报销申请 request_id=%s filename=%s amount=%s", request_id, file.filename, apply_amount)
+    logger.info(
+        "收到报销申请 request_id=%s filename=%s amount=%s", request_id, file.filename, apply_amount
+    )
 
     # 提交人取登录账号（前端未传 employee_id 时回退到 session）
     employee_id = request.form.get("employee_id", "").strip() or session.get("account", "unknown")
@@ -462,11 +493,13 @@ def api_approve_list():
         return err
     items = wf.list_pending()
     serialized = [_serialize_with_name(r) for r in items]
-    return jsonify({
-        "count": len(serialized),
-        "items": serialized,
-        "done_this_month": wf.count_decisions_this_month(session["account"]),
-    })
+    return jsonify(
+        {
+            "count": len(serialized),
+            "items": serialized,
+            "done_this_month": wf.count_decisions_this_month(session["account"]),
+        }
+    )
 
 
 @app.route("/api/approve", methods=["POST"])
@@ -489,12 +522,18 @@ def api_approve():
         return jsonify({"error": str(e)}), 400
     # 审计日志：APPROVE / REJECT / TRANSFER
     try:
-        audit_action = {"通过": "APPROVE", "驳回": "REJECT", "转审": "TRANSFER"}.get(action, action or "")
+        audit_action = {"通过": "APPROVE", "驳回": "REJECT", "转审": "TRANSFER"}.get(
+            action, action or ""
+        )
         amt = result.get("apply_amount") if isinstance(result, dict) else None
         amt_str = f" ¥{amt:.2f}" if isinstance(amt, (int, float)) else ""
         admin_store.add_audit_log(
-            session.get("name", "审批领导"), session.get("role", "审批领导"),
-            audit_action, f"{request_id}{amt_str}", "成功", request.remote_addr or "",
+            session.get("name", "审批领导"),
+            session.get("role", "审批领导"),
+            audit_action,
+            f"{request_id}{amt_str}",
+            "成功",
+            request.remote_addr or "",
             request_id=request_id or "",
         )
     except Exception:
@@ -513,12 +552,14 @@ def api_finance_list():
         return err
     items = wf.list_for_finance()
     serialized = [_serialize_with_name(r) for r in items]
-    return jsonify({
-        "items": serialized,
-        "pending_archive": sum(1 for i in items if i.workflow_status == wf.WS_APPROVED),
-        "archived": sum(1 for i in items if i.workflow_status == wf.WS_ARCHIVED),
-        "paid": sum(1 for i in items if i.workflow_status == wf.WS_PAID),
-    })
+    return jsonify(
+        {
+            "items": serialized,
+            "pending_archive": sum(1 for i in items if i.workflow_status == wf.WS_APPROVED),
+            "archived": sum(1 for i in items if i.workflow_status == wf.WS_ARCHIVED),
+            "paid": sum(1 for i in items if i.workflow_status == wf.WS_PAID),
+        }
+    )
 
 
 @app.route("/api/finance", methods=["POST"])
@@ -542,18 +583,28 @@ def api_finance():
     # 审计日志：ARCHIVE / PAYMENT_INIT（按财务子角色区分，落实职责分离留痕）
     try:
         audit_action = {"归档": "ARCHIVE", "打款": "PAYMENT_INIT"}.get(action, action or "")
-        audit_role = {"归档": "财务复核", "打款": "出纳打款"}.get(action, session.get("role", "财务人员"))
+        audit_role = {"归档": "财务复核", "打款": "出纳打款"}.get(
+            action, session.get("role", "财务人员")
+        )
         audit_name = session.get("name", audit_role)
         admin_store.add_audit_log(
-            audit_name, audit_role,
-            audit_action, f"¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
+            audit_name,
+            audit_role,
+            audit_action,
+            f"¥{result['apply_amount']:.2f}",
+            "成功",
+            request.remote_addr,
             request_id=request_id,
         )
         # 打款后补记「回单归档」审计，与 workflow 中的回单归档动作对应
         if action == "打款":
             admin_store.add_audit_log(
-                audit_name, audit_role,
-                "RECEIPT_ARCHIVE", f"¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
+                audit_name,
+                audit_role,
+                "RECEIPT_ARCHIVE",
+                f"¥{result['apply_amount']:.2f}",
+                "成功",
+                request.remote_addr,
                 request_id=request_id,
             )
     except Exception:
@@ -607,15 +658,19 @@ def api_admin_config():
     if err:
         return err
     if request.method == "GET":
-        return jsonify({
-            "schema": admin_store.get_config_schema(),
-            "config": admin_store.get_system_config(),
-        })
+        return jsonify(
+            {
+                "schema": admin_store.get_config_schema(),
+                "config": admin_store.get_system_config(),
+            }
+        )
     data = request.get_json(silent=True) or {}
     items = data.get("items", {})
     merged = admin_store.save_system_config(
-        items, operator=session.get("name", "系统管理员"),
-        role="系统管理员", ip=request.remote_addr,
+        items,
+        operator=session.get("name", "系统管理员"),
+        role="系统管理员",
+        ip=request.remote_addr,
     )
     return jsonify({"status": "ok", "config": merged})
 
@@ -628,7 +683,8 @@ def api_admin_config_reset():
         return err
     merged = admin_store.reset_system_config(
         operator=session.get("name", "系统管理员"),
-        role="系统管理员", ip=request.remote_addr,
+        role="系统管理员",
+        ip=request.remote_addr,
     )
     return jsonify({"status": "ok", "config": merged})
 
@@ -651,12 +707,14 @@ def api_admin_usage():
     date_filter = request.args.get("date")
     type_filter = request.args.get("call_type")
     status_filter = request.args.get("status")
-    return jsonify({
-        "overview": admin_store.get_usage_overview(),
-        "daily": admin_store.get_usage_daily(),
-        "by_type": admin_store.get_usage_by_type(),
-        "records": admin_store.list_usage_records(date_filter, type_filter, status_filter),
-    })
+    return jsonify(
+        {
+            "overview": admin_store.get_usage_overview(),
+            "daily": admin_store.get_usage_daily(),
+            "by_type": admin_store.get_usage_by_type(),
+            "records": admin_store.list_usage_records(date_filter, type_filter, status_filter),
+        }
+    )
 
 
 @app.errorhandler(413)

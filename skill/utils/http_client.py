@@ -56,7 +56,9 @@ def call_deepseek_function(
     # 运行时凭据与开关来自系统配置（管理员可覆盖环境变量）
     settings = get_deepseek_settings()
     if not settings["enabled"]:
-        logger.info("DeepSeek 大模型已停用（系统配置 ds_enabled=False），跳过本次调用: %s", call_type)
+        logger.info(
+            "DeepSeek 大模型已停用（系统配置 ds_enabled=False），跳过本次调用: %s", call_type
+        )
         return {
             "_disabled": True,
             "_warning": "DeepSeek 大模型已停用（系统配置已关闭 AI 校验），本次调用跳过",

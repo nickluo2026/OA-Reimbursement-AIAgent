@@ -17,7 +17,6 @@ from typing import Any
 
 from .database import ApprovalRecord, get_session, utcnow
 from .tools.tool_approval_routing import determine_approval_route
-from .utils.mask_sensitive import mask_ocr_result
 from .utils.db_store import (
     get_ai_results_for_request,
     get_invoices_for_request,
@@ -26,6 +25,7 @@ from .utils.db_store import (
     set_finance_operators,
     update_workflow_status,
 )
+from .utils.mask_sensitive import mask_ocr_result
 
 logger = logging.getLogger(__name__)
 
@@ -130,11 +130,7 @@ def count_by_status(status: str) -> int:
 
 def _count_approvals(request_id: str, action: str) -> int:
     with get_session() as s:
-        return (
-            s.query(ApprovalRecord)
-            .filter_by(request_id=request_id, action=action)
-            .count()
-        )
+        return s.query(ApprovalRecord).filter_by(request_id=request_id, action=action).count()
 
 
 def _ticket_type_of(request_id: str) -> str:

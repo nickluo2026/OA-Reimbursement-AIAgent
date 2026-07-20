@@ -17,16 +17,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
-import pytest
-
 # ── 性能阈值（毫秒）──
-THRESHOLD_LOCAL_CALC_MS = 100    # 本地纯计算（规则/脱敏/路由）
-THRESHOLD_DB_OP_MS = 100         # 单次数据库操作
-THRESHOLD_DB_BATCH_MS = 3000     # 批量数据库操作（100条）
-THRESHOLD_API_MS = 500           # API 响应（不含 AI）
-THRESHOLD_GRAPH_MS = 1000        # StateGraph 执行（mock 工具）
-THRESHOLD_GRAPH_BUILD_MS = 500   # 图构建
-THRESHOLD_CONCURRENT_MS = 3000   # 并发操作
+THRESHOLD_LOCAL_CALC_MS = 100  # 本地纯计算（规则/脱敏/路由）
+THRESHOLD_DB_OP_MS = 100  # 单次数据库操作
+THRESHOLD_DB_BATCH_MS = 3000  # 批量数据库操作（100条）
+THRESHOLD_API_MS = 500  # API 响应（不含 AI）
+THRESHOLD_GRAPH_MS = 1000  # StateGraph 执行（mock 工具）
+THRESHOLD_GRAPH_BUILD_MS = 500  # 图构建
+THRESHOLD_CONCURRENT_MS = 3000  # 并发操作
 
 
 # ═══════════════════════════════════════════════
@@ -35,17 +33,21 @@ THRESHOLD_CONCURRENT_MS = 3000   # 并发操作
 def _generate_test_pdf(num_pages: int = 5) -> str:
     """用 PyMuPDF 生成多页测试 PDF"""
     import fitz
+
     doc = fitz.open()
     for i in range(num_pages):
         page = doc.new_page()
-        page.insert_text((50, 72), (
-            f"发票测试页面 {i + 1}\n"
-            f"发票号码: {12345678 + i}\n"
-            f"开票日期: 2026-06-01\n"
-            f"发票金额: 300.00\n"
-            f"销售方名称: 测试酒店管理有限公司\n"
-            f"购买方名称: 测试科技有限公司\n"
-        ))
+        page.insert_text(
+            (50, 72),
+            (
+                f"发票测试页面 {i + 1}\n"
+                f"发票号码: {12345678 + i}\n"
+                f"开票日期: 2026-06-01\n"
+                f"发票金额: 300.00\n"
+                f"销售方名称: 测试酒店管理有限公司\n"
+                f"购买方名称: 测试科技有限公司\n"
+            ),
+        )
     path = tempfile.mktemp(suffix=".pdf")
     doc.save(path)
     doc.close()
@@ -64,16 +66,18 @@ def _make_large_itinerary(trip_count: int = 50) -> dict:
     """生成大量行程明细的行程单（用于大数据量校验性能测试）"""
     trips = []
     for i in range(trip_count):
-        trips.append({
-            "序号": i + 1,
-            "车型": "经济型",
-            "上车时间": f"2026-06-08 {10 + i % 12:02d}:{i % 60:02d}",
-            "城市": "北京",
-            "起点": f"地点{i}",
-            "终点": f"地点{i + 1}",
-            "里程_公里": str(5 + i),
-            "金额_元": f"{20 + i}.00",
-        })
+        trips.append(
+            {
+                "序号": i + 1,
+                "车型": "经济型",
+                "上车时间": f"2026-06-08 {10 + i % 12:02d}:{i % 60:02d}",
+                "城市": "北京",
+                "起点": f"地点{i}",
+                "终点": f"地点{i + 1}",
+                "里程_公里": str(5 + i),
+                "金额_元": f"{20 + i}.00",
+            }
+        )
     total = sum(20 + i for i in range(trip_count))
     return {
         "申请日期": "2026-06-10",
@@ -111,7 +115,9 @@ class TestOcrPerformance:
             os.unlink(pdf_path)
 
         assert len(text) > 0
-        assert elapsed < THRESHOLD_LOCAL_CALC_MS, f"PDF 提取耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
+        assert (
+            elapsed < THRESHOLD_LOCAL_CALC_MS
+        ), f"PDF 提取耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
     def test_large_pdf_text_extraction_performance(self):
         """大 PDF 文本提取性能（20页）"""
@@ -141,7 +147,9 @@ class TestOcrPerformance:
             os.unlink(img_path)
 
         assert data_uri.startswith("data:image/png;base64,")
-        assert elapsed < THRESHOLD_LOCAL_CALC_MS, f"base64 编码耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
+        assert (
+            elapsed < THRESHOLD_LOCAL_CALC_MS
+        ), f"base64 编码耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
     def test_large_image_base64_encoding_performance(self):
         """大图片 base64 编码性能（500KB 图片）"""
@@ -172,11 +180,15 @@ class TestAnomalyCheckPerformance:
         _rule_based_check(sample_invoice_data, apply_amount=500, apply_date="2026-06-10")
 
         start = time.perf_counter()
-        anomalies = _rule_based_check(sample_invoice_data, apply_amount=500, apply_date="2026-06-10")
+        anomalies = _rule_based_check(
+            sample_invoice_data, apply_amount=500, apply_date="2026-06-10"
+        )
         elapsed = _elapsed_ms(start)
 
         assert isinstance(anomalies, list)
-        assert elapsed < THRESHOLD_LOCAL_CALC_MS, f"规则检查耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
+        assert (
+            elapsed < THRESHOLD_LOCAL_CALC_MS
+        ), f"规则检查耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
     def test_rule_based_check_batch_performance(self, sample_invoice_data):
         """规则引擎批量检查性能（100次调用，平均应 < 5ms/次）"""
@@ -202,7 +214,8 @@ class TestAnomalyCheckPerformance:
         for i in range(100):
             save_invoice(
                 {"发票号码": f"DUP-{i:04d}", "发票金额": 100 + i, "销售方名称": "X"},
-                f"REQ-DUP-{i}", "",
+                f"REQ-DUP-{i}",
+                "",
             )
 
         start = time.perf_counter()
@@ -219,7 +232,8 @@ class TestAnomalyCheckPerformance:
         for i in range(100):
             save_invoice(
                 {"发票号码": f"EXIST-{i:04d}", "发票金额": 100, "销售方名称": "X"},
-                f"REQ-EXIST-{i}", "",
+                f"REQ-EXIST-{i}",
+                "",
             )
 
         start = time.perf_counter()
@@ -227,7 +241,9 @@ class TestAnomalyCheckPerformance:
         elapsed = _elapsed_ms(start)
 
         assert result is False
-        assert elapsed < THRESHOLD_DB_OP_MS, f"查重未命中耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"查重未命中耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
 
 # ═══════════════════════════════════════════════
@@ -258,7 +274,9 @@ class TestClassifyPerformance:
         elapsed = _elapsed_ms(start)
 
         assert result["费用分类"] == "差旅"
-        assert elapsed < THRESHOLD_LOCAL_CALC_MS, f"分类限额耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
+        assert (
+            elapsed < THRESHOLD_LOCAL_CALC_MS
+        ), f"分类限额耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
     def test_small_amount_skip_performance(self):
         """小额免审性能（≤100元直接跳过，无 AI 调用）"""
@@ -294,7 +312,9 @@ class TestItineraryPerformance:
         elapsed = _elapsed_ms(start)
 
         assert "校验结论" in result
-        assert elapsed < THRESHOLD_LOCAL_CALC_MS, f"50条行程校验耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
+        assert (
+            elapsed < THRESHOLD_LOCAL_CALC_MS
+        ), f"50条行程校验耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
     def test_anomaly_large_itinerary_performance(self):
         """行程单异常检测性能（50 条行程明细）"""
@@ -307,7 +327,9 @@ class TestItineraryPerformance:
         elapsed = _elapsed_ms(start)
 
         assert "总体结论" in result
-        assert elapsed < THRESHOLD_LOCAL_CALC_MS, f"50条行程异常检测耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
+        assert (
+            elapsed < THRESHOLD_LOCAL_CALC_MS
+        ), f"50条行程异常检测耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
     def test_verify_normal_itinerary_performance(self, sample_itinerary_data):
         """正常行程单（3条）合理性校验性能"""
@@ -342,7 +364,9 @@ class TestDatabasePerformance:
         )
         elapsed = _elapsed_ms(start)
 
-        assert elapsed < THRESHOLD_DB_OP_MS, f"单条写入耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"单条写入耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
     def test_batch_save_reimbursement_performance(self, fresh_db):
         """批量写入报销单性能（100条，平均 < 30ms/条）"""
@@ -362,7 +386,9 @@ class TestDatabasePerformance:
 
         avg_ms = elapsed / count
         assert avg_ms < 30, f"批量写入平均耗时 {avg_ms:.2f}ms/条 > 30ms"
-        assert elapsed < THRESHOLD_DB_BATCH_MS, f"批量写入总耗时 {elapsed:.1f}ms > {THRESHOLD_DB_BATCH_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_BATCH_MS
+        ), f"批量写入总耗时 {elapsed:.1f}ms > {THRESHOLD_DB_BATCH_MS}ms"
 
     def test_query_single_reimbursement_performance(self, fresh_db):
         """单条报销单查询性能（按主键）"""
@@ -381,7 +407,9 @@ class TestDatabasePerformance:
         elapsed = _elapsed_ms(start)
 
         assert result is not None
-        assert elapsed < THRESHOLD_DB_OP_MS, f"主键查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"主键查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
     def test_list_pending_performance(self, fresh_db):
         """待审列表查询性能（100条数据中筛选待审批）"""
@@ -397,7 +425,8 @@ class TestDatabasePerformance:
             )
             save_invoice(
                 {"发票号码": f"INV-LIST-{i:04d}", "发票金额": 100 + i, "销售方名称": "X"},
-                f"REQ-LIST-{i:04d}", "",
+                f"REQ-LIST-{i:04d}",
+                "",
             )
 
         start = time.perf_counter()
@@ -405,7 +434,9 @@ class TestDatabasePerformance:
         elapsed = _elapsed_ms(start)
 
         assert len(items) == 100
-        assert elapsed < THRESHOLD_DB_OP_MS, f"待审列表查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"待审列表查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
     def test_list_by_employee_performance(self, fresh_db):
         """按员工查询报销单性能"""
@@ -425,7 +456,9 @@ class TestDatabasePerformance:
         elapsed = _elapsed_ms(start)
 
         assert len(items) == 50
-        assert elapsed < THRESHOLD_DB_OP_MS, f"按员工查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"按员工查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
     def test_get_detail_performance(self, sample_reimbursement):
         """报销单明细查询性能（含发票/AI结果/审批记录）"""
@@ -436,7 +469,9 @@ class TestDatabasePerformance:
         elapsed = _elapsed_ms(start)
 
         assert detail is not None
-        assert elapsed < THRESHOLD_DB_OP_MS, f"明细查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"明细查询耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
     def test_invoice_save_performance(self, fresh_db):
         """发票记录写入性能"""
@@ -454,7 +489,9 @@ class TestDatabasePerformance:
         save_invoice(ocr, "REQ-INV-PERF", "")
         elapsed = _elapsed_ms(start)
 
-        assert elapsed < THRESHOLD_DB_OP_MS, f"发票写入耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
+        assert (
+            elapsed < THRESHOLD_DB_OP_MS
+        ), f"发票写入耗时 {elapsed:.1f}ms > {THRESHOLD_DB_OP_MS}ms"
 
 
 # ═══════════════════════════════════════════════
@@ -547,8 +584,7 @@ class TestMaskPerformance:
         ocr = {
             "手机号": "13812345678",
             "商品明细": [
-                {"项目名称": f"项目{i}", "金额": f"{i}.00", "税率": "6%"}
-                for i in range(100)
+                {"项目名称": f"项目{i}", "金额": f"{i}.00", "税率": "6%"} for i in range(100)
             ],
         }
 
@@ -577,7 +613,9 @@ class TestGraphPerformance:
         elapsed = _elapsed_ms(start)
 
         assert app is not None
-        assert elapsed < THRESHOLD_GRAPH_BUILD_MS, f"图构建耗时 {elapsed:.1f}ms > {THRESHOLD_GRAPH_BUILD_MS}ms"
+        assert (
+            elapsed < THRESHOLD_GRAPH_BUILD_MS
+        ), f"图构建耗时 {elapsed:.1f}ms > {THRESHOLD_GRAPH_BUILD_MS}ms"
 
     @patch("skill.orchestrator.nodes.classify_node.classify_and_check_limit")
     @patch("skill.orchestrator.nodes.anomaly_node.detect_anomaly")
@@ -595,14 +633,19 @@ class TestGraphPerformance:
         }
         mock_anomaly.return_value = {"总体结论": "通过", "异常明细": [], "检查摘要": "无异常"}
         mock_classify.return_value = {
-            "费用分类": "差旅", "分类依据": "住宿费",
-            "发票金额": 300, "分类限额": 1000,
-            "是否超限": False, "校验结果": "通过",
+            "费用分类": "差旅",
+            "分类依据": "住宿费",
+            "发票金额": 300,
+            "分类限额": 1000,
+            "是否超限": False,
+            "校验结果": "通过",
         }
 
         start = time.perf_counter()
         result = run_reimbursement_skill(
-            pdf_path="test.pdf", apply_amount=500, apply_date="2026-06-10",
+            pdf_path="test.pdf",
+            apply_amount=500,
+            apply_date="2026-06-10",
         )
         elapsed = _elapsed_ms(start)
 
@@ -617,13 +660,19 @@ class TestGraphPerformance:
         from skill.agent import run_reimbursement_skill
 
         mock_ocr.return_value = {
-            "发票号码": "12345678", "发票金额": 300,
-            "开票日期": "2026-06-01", "购买方名称": "XX公司", "销售方名称": "YY公司",
+            "发票号码": "12345678",
+            "发票金额": 300,
+            "开票日期": "2026-06-01",
+            "购买方名称": "XX公司",
+            "销售方名称": "YY公司",
         }
         mock_anomaly.return_value = {"总体结论": "通过", "异常明细": [], "检查摘要": "无异常"}
         mock_classify.return_value = {
-            "费用分类": "差旅", "发票金额": 300, "分类限额": 1000,
-            "是否超限": False, "校验结果": "通过",
+            "费用分类": "差旅",
+            "发票金额": 300,
+            "分类限额": 1000,
+            "是否超限": False,
+            "校验结果": "通过",
         }
 
         count = 50
@@ -641,10 +690,15 @@ class TestGraphPerformance:
     @patch("skill.agents.itinerary_agent.verify_itinerary")
     @patch("skill.agents.itinerary_agent.detect_itinerary_anomaly")
     @patch("skill.agents.itinerary_agent.ocr_extract_itinerary")
-    def test_itinerary_graph_invoke_performance(self, mock_ocr, mock_anomaly, mock_verify,
-                                                  sample_itinerary_data,
-                                                  sample_itinerary_anomaly_pass,
-                                                  sample_itinerary_verify_pass):
+    def test_itinerary_graph_invoke_performance(
+        self,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
+        sample_itinerary_data,
+        sample_itinerary_anomaly_pass,
+        sample_itinerary_verify_pass,
+    ):
         """行程单 Agent 图执行性能"""
         from skill.agent import run_reimbursement_skill
 
@@ -654,13 +708,17 @@ class TestGraphPerformance:
 
         start = time.perf_counter()
         result = run_reimbursement_skill(
-            pdf_path="itinerary.pdf", apply_amount=100,
-            apply_date="2026-06-10", ticket_type="行程单",
+            pdf_path="itinerary.pdf",
+            apply_amount=100,
+            apply_date="2026-06-10",
+            ticket_type="行程单",
         )
         elapsed = _elapsed_ms(start)
 
         assert result["status"] == "通过"
-        assert elapsed < THRESHOLD_GRAPH_MS, f"行程单图执行耗时 {elapsed:.1f}ms > {THRESHOLD_GRAPH_MS}ms"
+        assert (
+            elapsed < THRESHOLD_GRAPH_MS
+        ), f"行程单图执行耗时 {elapsed:.1f}ms > {THRESHOLD_GRAPH_MS}ms"
 
 
 # ═══════════════════════════════════════════════
@@ -682,7 +740,8 @@ class TestWebApiPerformance:
             )
             save_invoice(
                 {"发票号码": f"INV-API-{i:04d}", "发票金额": 100 + i, "销售方名称": "X"},
-                f"REQ-API-{i:04d}", "",
+                f"REQ-API-{i:04d}",
+                "",
             )
 
         with client.session_transaction() as sess:
@@ -711,7 +770,8 @@ class TestWebApiPerformance:
         )
         save_invoice(
             {"发票号码": "INV-DETAIL-PERF", "发票金额": 358.50, "销售方名称": "X"},
-            "REQ-DETAIL-PERF", "",
+            "REQ-DETAIL-PERF",
+            "",
         )
 
         with client.session_transaction() as sess:
@@ -748,7 +808,9 @@ class TestWebApiPerformance:
         elapsed = _elapsed_ms(start)
 
         assert resp.status_code == 200
-        assert elapsed < THRESHOLD_API_MS, f"我的报销 API 耗时 {elapsed:.1f}ms > {THRESHOLD_API_MS}ms"
+        assert (
+            elapsed < THRESHOLD_API_MS
+        ), f"我的报销 API 耗时 {elapsed:.1f}ms > {THRESHOLD_API_MS}ms"
 
     def test_login_page_render_performance(self, client):
         """登录页渲染性能"""
@@ -786,8 +848,12 @@ class TestAdminQueryPerformance:
 
         for i in range(100):
             admin_store.add_audit_log(
-                user="测试用户", role="普通员工", action="SUBMIT",
-                target=f"REQ-AUDIT-{i}", result="成功", ip="10.0.0.1",
+                user="测试用户",
+                role="普通员工",
+                action="SUBMIT",
+                target=f"REQ-AUDIT-{i}",
+                result="成功",
+                ip="10.0.0.1",
             )
 
         with client.session_transaction() as sess:
@@ -800,7 +866,9 @@ class TestAdminQueryPerformance:
         elapsed = _elapsed_ms(start)
 
         assert resp.status_code == 200
-        assert elapsed < THRESHOLD_API_MS, f"审计日志查询耗时 {elapsed:.1f}ms > {THRESHOLD_API_MS}ms"
+        assert (
+            elapsed < THRESHOLD_API_MS
+        ), f"审计日志查询耗时 {elapsed:.1f}ms > {THRESHOLD_API_MS}ms"
 
     def test_usage_overview_performance(self, client, fresh_db):
         """用量统计概览查询性能（100条调用记录）"""
@@ -808,9 +876,12 @@ class TestAdminQueryPerformance:
 
         for i in range(100):
             admin_store.record_api_usage(
-                call_type="发票OCR提取", model="deepseek-v4-flash",
-                prompt_tokens=3000, completion_tokens=1500,
-                latency_ms=2000, status="成功",
+                call_type="发票OCR提取",
+                model="deepseek-v4-flash",
+                prompt_tokens=3000,
+                completion_tokens=1500,
+                latency_ms=2000,
+                status="成功",
             )
 
         with client.session_transaction() as sess:
@@ -823,7 +894,9 @@ class TestAdminQueryPerformance:
         elapsed = _elapsed_ms(start)
 
         assert resp.status_code == 200
-        assert elapsed < THRESHOLD_API_MS, f"用量统计查询耗时 {elapsed:.1f}ms > {THRESHOLD_API_MS}ms"
+        assert (
+            elapsed < THRESHOLD_API_MS
+        ), f"用量统计查询耗时 {elapsed:.1f}ms > {THRESHOLD_API_MS}ms"
 
     def test_usage_filter_performance(self, client, fresh_db):
         """用量明细筛选性能"""
@@ -833,8 +906,10 @@ class TestAdminQueryPerformance:
             admin_store.record_api_usage(
                 call_type="异常检测" if i % 2 == 0 else "分类限额",
                 model="deepseek-v4-flash",
-                prompt_tokens=1000, completion_tokens=500,
-                latency_ms=1000 + i, status="成功",
+                prompt_tokens=1000,
+                completion_tokens=500,
+                latency_ms=1000 + i,
+                status="成功",
             )
 
         with client.session_transaction() as sess:
@@ -892,7 +967,9 @@ class TestConcurrentPerformance:
         elapsed = _elapsed_ms(start)
 
         assert all(r is not None for r in results)
-        assert elapsed < THRESHOLD_CONCURRENT_MS, f"并发查询耗时 {elapsed:.1f}ms > {THRESHOLD_CONCURRENT_MS}ms"
+        assert (
+            elapsed < THRESHOLD_CONCURRENT_MS
+        ), f"并发查询耗时 {elapsed:.1f}ms > {THRESHOLD_CONCURRENT_MS}ms"
 
     def test_concurrent_list_pending_performance(self, fresh_db):
         """并发查询待审列表性能（5线程并发）"""
@@ -908,7 +985,8 @@ class TestConcurrentPerformance:
             )
             save_invoice(
                 {"发票号码": f"INV-CPEND-{i:04d}", "发票金额": 100 + i, "销售方名称": "X"},
-                f"REQ-CPEND-{i:04d}", "",
+                f"REQ-CPEND-{i:04d}",
+                "",
             )
 
         start = time.perf_counter()
@@ -917,7 +995,9 @@ class TestConcurrentPerformance:
         elapsed = _elapsed_ms(start)
 
         assert all(len(r) == 50 for r in results)
-        assert elapsed < THRESHOLD_CONCURRENT_MS, f"并发列表查询耗时 {elapsed:.1f}ms > {THRESHOLD_CONCURRENT_MS}ms"
+        assert (
+            elapsed < THRESHOLD_CONCURRENT_MS
+        ), f"并发列表查询耗时 {elapsed:.1f}ms > {THRESHOLD_CONCURRENT_MS}ms"
 
     def test_concurrent_mask_performance(self):
         """并发脱敏性能（10线程 × 100次）"""

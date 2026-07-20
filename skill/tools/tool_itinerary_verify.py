@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any
 
 from ..config import get_itinerary_rules
@@ -93,7 +93,10 @@ def verify_itinerary(
         amount_result = "拦截"
         has_block = True
     elif amounts and abs(total_amount - sum_amount) > 0.01:
-        amount_check = f"总金额 {total_amount} 元与明细合计 {sum_amount:.2f} 元不一致，差额 {total_amount - sum_amount:.2f} 元"
+        amount_check = (
+            f"总金额 {total_amount} 元与明细合计 {sum_amount:.2f} 元不一致，"
+            f"差额 {total_amount - sum_amount:.2f} 元"
+        )
         amount_result = "拦截"
         has_block = True
     elif apply_amt and total_amount and total_amount > apply_amt:
@@ -105,17 +108,19 @@ def verify_itinerary(
             f"，不超过申请金额 {apply_amt} 元" if apply_amt else ""
         )
         amount_result = "通过"
-    details_items.append({
-        "校验项目": "总金额匹配",
-        "校验结果": amount_result,
-        "说明": amount_check,
-    })
+    details_items.append(
+        {
+            "校验项目": "总金额匹配",
+            "校验结果": amount_result,
+            "说明": amount_check,
+        }
+    )
 
     # —— 2. 行程天数 ——
     if start_date and end_date:
         days = (end_date - start_date).days + 1
         if days < 0:
-            days_check = f"行程天数异常：开始日期晚于结束日期"
+            days_check = "行程天数异常：开始日期晚于结束日期"
             days_result = "拦截"
             has_block = True
         elif days > 90:
@@ -131,11 +136,13 @@ def verify_itinerary(
         days_result = "拦截"
         has_block = True
         days_value = 0
-    details_items.append({
-        "校验项目": "行程天数",
-        "校验结果": days_result,
-        "说明": days_check,
-    })
+    details_items.append(
+        {
+            "校验项目": "行程天数",
+            "校验结果": days_result,
+            "说明": days_check,
+        }
+    )
 
     # —— 3. 单笔最高金额 ——
     if amounts:
@@ -150,11 +157,13 @@ def verify_itinerary(
         single_check = "无行程明细，无法计算单笔金额"
         single_result = "拦截"
         has_block = True
-    details_items.append({
-        "校验项目": "单笔最高金额",
-        "校验结果": single_result,
-        "说明": single_check,
-    })
+    details_items.append(
+        {
+            "校验项目": "单笔最高金额",
+            "校验结果": single_result,
+            "说明": single_check,
+        }
+    )
 
     # —— 4. 日期合理性 ——
     if start_date and end_date and details_list:
@@ -182,11 +191,13 @@ def verify_itinerary(
         date_check = "行程日期或明细缺失，无法校验日期合理性"
         date_result = "拦截"
         has_block = True
-    details_items.append({
-        "校验项目": "日期合理性",
-        "校验结果": date_result,
-        "说明": date_check,
-    })
+    details_items.append(
+        {
+            "校验项目": "日期合理性",
+            "校验结果": date_result,
+            "说明": date_check,
+        }
+    )
 
     # —— 5. 行程连续性 ——
     if details_list:
@@ -215,7 +226,9 @@ def verify_itinerary(
                 # 间隔超过 72 小时视为不连续
                 if gap > 72 * 3600:
                     gaps_ok = False
-                    big_gaps.append(f"第{board_times[i][0]}行与第{board_times[i-1][0]}行间隔超过72小时")
+                    big_gaps.append(
+                        f"第{board_times[i][0]}行与第{board_times[i-1][0]}行间隔超过72小时"
+                    )
             if gaps_ok:
                 cont_check = "行程按时间排序连续性合理"
                 cont_result = "通过"
@@ -230,11 +243,13 @@ def verify_itinerary(
         cont_check = "无行程明细，无法校验连续性"
         cont_result = "拦截"
         has_block = True
-    details_items.append({
-        "校验项目": "行程连续性",
-        "校验结果": cont_result,
-        "说明": cont_check,
-    })
+    details_items.append(
+        {
+            "校验项目": "行程连续性",
+            "校验结果": cont_result,
+            "说明": cont_check,
+        }
+    )
 
     # —— 总体结论 ——
     if has_block:

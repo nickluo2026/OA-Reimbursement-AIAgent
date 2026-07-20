@@ -10,13 +10,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from ..database import ApiUsage, AuditLog, SystemConfig, get_session
 from ..config import (
     DEEPSEEK_MODEL,
     DEEPSEEK_VISION_MODEL,
     PRICE_INPUT_PER_1K,
     PRICE_OUTPUT_PER_1K,
 )
+from ..database import ApiUsage, AuditLog, SystemConfig, get_session
 from ..utils.structured_log import get_request_id
 from .mask_sensitive import mask_ip
 
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 CONFIG_KEY = "system"
 _TZ_MIGRATION_FLAG = "tz_seed_normalized"  # 时区迁移幂等标记
+
 
 # ═══════════════════════════════════════════════
 # 时区处理：数据库统一以 UTC（naive）存储，展示/种子写入时与本地时区互转，
@@ -89,9 +90,23 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
         "group": "🤖 启用/停用Deepseek大模型",
         "items": [
-            {"key": "ds_enabled", "label": "启用/停用 DeepSeek 大模型（AI 校验）", "type": "toggle"},
-            {"key": "deepseek_api_key", "label": "API 密钥", "type": "secret", "env": "DEEPSEEK_API_KEY"},
-            {"key": "deepseek_base_url", "label": "API 地址", "type": "text", "env": "DEEPSEEK_BASE_URL"},
+            {
+                "key": "ds_enabled",
+                "label": "启用/停用 DeepSeek 大模型（AI 校验）",
+                "type": "toggle",
+            },
+            {
+                "key": "deepseek_api_key",
+                "label": "API 密钥",
+                "type": "secret",
+                "env": "DEEPSEEK_API_KEY",
+            },
+            {
+                "key": "deepseek_base_url",
+                "label": "API 地址",
+                "type": "text",
+                "env": "DEEPSEEK_BASE_URL",
+            },
             {"key": "deepseek_model", "label": "模型名称", "type": "text", "env": "DEEPSEEK_MODEL"},
         ],
     },
@@ -107,8 +122,18 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
         "group": "💰 费用限额配置",
         "items": [
-            {"key": "limit_travel_transport", "label": "差旅-交通 月度限额", "type": "number", "unit": "元"},
-            {"key": "limit_travel_hotel", "label": "差旅-住宿 月度限额", "type": "number", "unit": "元"},
+            {
+                "key": "limit_travel_transport",
+                "label": "差旅-交通 月度限额",
+                "type": "number",
+                "unit": "元",
+            },
+            {
+                "key": "limit_travel_hotel",
+                "label": "差旅-住宿 月度限额",
+                "type": "number",
+                "unit": "元",
+            },
             {"key": "limit_meal_single", "label": "餐饮 月度限额", "type": "number", "unit": "元"},
             {"key": "limit_office", "label": "办公 月度限额", "type": "number", "unit": "元"},
             {"key": "limit_other", "label": "其他 月度限额", "type": "number", "unit": "元"},
@@ -117,11 +142,23 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
         "group": "👥 审批权限分配",
         "items": [
-            {"key": "approval_le_3000",    "label": "单笔 ≤ 3000 元 — 直属领导审批", "type": "toggle"},
-            {"key": "approval_3000_10000", "label": "3000 < 单笔 ≤ 10000 元 — 部门总监审批", "type": "toggle"},
-            {"key": "approval_10000_50000","label": "10000 < 单笔 ≤ 50000 元 — VP/分管副总审批", "type": "toggle"},
-            {"key": "approval_gt_50000",   "label": "单笔 > 50000 元 — CEO 审批", "type": "toggle"},
-            {"key": "countersign_enabled", "label": "金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）", "type": "toggle"},
+            {"key": "approval_le_3000", "label": "单笔 ≤ 3000 元 — 直属领导审批", "type": "toggle"},
+            {
+                "key": "approval_3000_10000",
+                "label": "3000 < 单笔 ≤ 10000 元 — 部门总监审批",
+                "type": "toggle",
+            },
+            {
+                "key": "approval_10000_50000",
+                "label": "10000 < 单笔 ≤ 50000 元 — VP/分管副总审批",
+                "type": "toggle",
+            },
+            {"key": "approval_gt_50000", "label": "单笔 > 50000 元 — CEO 审批", "type": "toggle"},
+            {
+                "key": "countersign_enabled",
+                "label": "金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）",
+                "type": "toggle",
+            },
         ],
     },
 ]
@@ -184,7 +221,7 @@ def save_system_config(
         logger.error("保存系统配置失败: %s", e)
         return merged
 
-    summary = "费用限额 / 异常规则 / 审批权限（%d 项）" % len(changed)
+    summary = f"费用限额 / 异常规则 / 审批权限（{len(changed)} 项）"
     add_audit_log(operator, role, "CONFIG_UPDATE", summary, "成功", ip)
     return merged
 
@@ -195,9 +232,7 @@ def reset_system_config(
     ip: str = "",
 ) -> dict[str, Any]:
     """恢复系统配置为默认值，并写审计日志。"""
-    return save_system_config(
-        dict(DEFAULT_CONFIG), operator=operator, role=role, ip=ip
-    )
+    return save_system_config(dict(DEFAULT_CONFIG), operator=operator, role=role, ip=ip)
 
 
 # ═══════════════════════════════════════════════
@@ -235,12 +270,7 @@ def list_audit_log(limit: int = 200) -> list[dict[str, Any]]:
     """返回审计日志（按时间倒序）。"""
     try:
         with get_session() as s:
-            rows = (
-                s.query(AuditLog)
-                .order_by(AuditLog.time.desc())
-                .limit(limit)
-                .all()
-            )
+            rows = s.query(AuditLog).order_by(AuditLog.time.desc()).limit(limit).all()
             return [_audit_to_dict(r) for r in rows]
     except Exception as e:  # pragma: no cover
         logger.error("读取审计日志失败: %s", e)
@@ -265,9 +295,7 @@ def _audit_to_dict(r: AuditLog) -> dict[str, Any]:
 # ═══════════════════════════════════════════════
 def calc_cost_cny(prompt_tokens: int, completion_tokens: int) -> float:
     """按 DeepSeek-V4-Flash 定价估算费用（CNY）。"""
-    return (
-        prompt_tokens / 1000
-    ) * PRICE_INPUT_PER_1K + (
+    return (prompt_tokens / 1000) * PRICE_INPUT_PER_1K + (
         completion_tokens / 1000
     ) * PRICE_OUTPUT_PER_1K
 
@@ -309,23 +337,17 @@ def get_usage_overview() -> dict[str, Any]:
             total_prompt = sum(r.prompt_tokens for r in rows)
             total_completion = sum(r.completion_tokens for r in rows)
             error_count = sum(1 for r in rows if r.status != "成功")
-            avg_latency = (
-                int(sum(r.latency_ms for r in rows) / total_calls)
-                if total_calls
-                else 0
-            )
+            avg_latency = int(sum(r.latency_ms for r in rows) / total_calls) if total_calls else 0
             total_tokens = total_prompt + total_completion
-            success_rate = round(
-                (total_calls - error_count) / total_calls * 100, 1
-            ) if total_calls else 0.0
+            success_rate = (
+                round((total_calls - error_count) / total_calls * 100, 1) if total_calls else 0.0
+            )
             return {
                 "total_calls": total_calls,
                 "total_prompt_tokens": total_prompt,
                 "total_completion_tokens": total_completion,
                 "total_tokens": total_tokens,
-                "estimated_cost_cny": round(
-                    calc_cost_cny(total_prompt, total_completion), 2
-                ),
+                "estimated_cost_cny": round(calc_cost_cny(total_prompt, total_completion), 2),
                 "avg_latency_ms": avg_latency,
                 "success_rate": success_rate,
                 "error_count": error_count,
@@ -440,20 +462,124 @@ def _usage_to_dict(r: ApiUsage) -> dict[str, Any]:
 # ═══════════════════════════════════════════════
 # 原型审计日志演示数据（prototype.html MOCK_AUDIT_LOG）
 _SEED_AUDIT_LOG = [
-    ("赵管理", "系统管理员", "CONFIG_UPDATE", "差旅-住宿 月度限额: 5000 → 6000", "成功", "10.0.1.32", "2026-07-14 14:32:18"),
-    ("李出纳", "出纳打款", "PAYMENT_INIT", "RB-2026-0713-021 · ¥425.80", "成功", "10.0.1.19", "2026-07-14 14:28:05"),
-    ("李总", "审批领导", "APPROVE", "RB-2026-0714-004 · ¥4520.00", "成功", "10.0.1.12", "2026-07-14 14:25:42"),
-    ("李总", "审批领导", "APPROVE", "RB-2026-0714-002 · ¥186.50", "成功", "10.0.1.12", "2026-07-14 14:20:11"),
-    ("王会计", "财务复核", "ARCHIVE", "RB-2026-0713-018 · ¥680.00", "成功", "10.0.1.18", "2026-07-14 14:15:33"),
-    ("李总", "审批领导", "REJECT", "RB-2026-0714-005 · ¥3280.00", "成功", "10.0.1.12", "2026-07-14 14:10:08"),
-    ("张三", "普通员工", "SUBMIT", "RB-2026-0714-001 · ¥358.50", "成功", "10.0.1.45", "2026-07-14 13:58:22"),
-    ("赵管理", "系统管理员", "RULE_TOGGLE", "检测金额异常 → 启用", "成功", "10.0.1.32", "2026-07-14 13:45:17"),
+    (
+        "赵管理",
+        "系统管理员",
+        "CONFIG_UPDATE",
+        "差旅-住宿 月度限额: 5000 → 6000",
+        "成功",
+        "10.0.1.32",
+        "2026-07-14 14:32:18",
+    ),
+    (
+        "李出纳",
+        "出纳打款",
+        "PAYMENT_INIT",
+        "RB-2026-0713-021 · ¥425.80",
+        "成功",
+        "10.0.1.19",
+        "2026-07-14 14:28:05",
+    ),
+    (
+        "李总",
+        "审批领导",
+        "APPROVE",
+        "RB-2026-0714-004 · ¥4520.00",
+        "成功",
+        "10.0.1.12",
+        "2026-07-14 14:25:42",
+    ),
+    (
+        "李总",
+        "审批领导",
+        "APPROVE",
+        "RB-2026-0714-002 · ¥186.50",
+        "成功",
+        "10.0.1.12",
+        "2026-07-14 14:20:11",
+    ),
+    (
+        "王会计",
+        "财务复核",
+        "ARCHIVE",
+        "RB-2026-0713-018 · ¥680.00",
+        "成功",
+        "10.0.1.18",
+        "2026-07-14 14:15:33",
+    ),
+    (
+        "李总",
+        "审批领导",
+        "REJECT",
+        "RB-2026-0714-005 · ¥3280.00",
+        "成功",
+        "10.0.1.12",
+        "2026-07-14 14:10:08",
+    ),
+    (
+        "张三",
+        "普通员工",
+        "SUBMIT",
+        "RB-2026-0714-001 · ¥358.50",
+        "成功",
+        "10.0.1.45",
+        "2026-07-14 13:58:22",
+    ),
+    (
+        "赵管理",
+        "系统管理员",
+        "RULE_TOGGLE",
+        "检测金额异常 → 启用",
+        "成功",
+        "10.0.1.32",
+        "2026-07-14 13:45:17",
+    ),
     ("李总", "审批领导", "LOGIN", "工号 APR-001", "成功", "10.0.1.12", "2026-07-14 11:20:05"),
-    ("李出纳", "出纳打款", "PAYMENT_INIT", "RB-2026-0713-015 · ¥1280.00", "成功", "10.0.1.19", "2026-07-14 10:35:41"),
-    ("赵管理", "系统管理员", "PERMISSION_GRANT", "王会计 → 财务复核权限", "成功", "10.0.1.32", "2026-07-14 09:18:33"),
-    ("李总", "审批领导", "TRANSFER", "RB-2026-0713-019 · ¥5800.00 → 部门总监", "成功", "10.0.1.12", "2026-07-13 18:42:09"),
-    ("李四", "普通员工", "SUBMIT", "RB-2026-0714-002 · ¥186.50", "成功", "10.0.1.48", "2026-07-13 17:30:21"),
-    ("李总", "审批领导", "LOGIN_FAILED", "工号 APR-001 · 密码错误", "失败", "10.0.1.12", "2026-07-13 16:15:48"),
+    (
+        "李出纳",
+        "出纳打款",
+        "PAYMENT_INIT",
+        "RB-2026-0713-015 · ¥1280.00",
+        "成功",
+        "10.0.1.19",
+        "2026-07-14 10:35:41",
+    ),
+    (
+        "赵管理",
+        "系统管理员",
+        "PERMISSION_GRANT",
+        "王会计 → 财务复核权限",
+        "成功",
+        "10.0.1.32",
+        "2026-07-14 09:18:33",
+    ),
+    (
+        "李总",
+        "审批领导",
+        "TRANSFER",
+        "RB-2026-0713-019 · ¥5800.00 → 部门总监",
+        "成功",
+        "10.0.1.12",
+        "2026-07-13 18:42:09",
+    ),
+    (
+        "李四",
+        "普通员工",
+        "SUBMIT",
+        "RB-2026-0714-002 · ¥186.50",
+        "成功",
+        "10.0.1.48",
+        "2026-07-13 17:30:21",
+    ),
+    (
+        "李总",
+        "审批领导",
+        "LOGIN_FAILED",
+        "工号 APR-001 · 密码错误",
+        "失败",
+        "10.0.1.12",
+        "2026-07-13 16:15:48",
+    ),
     ("王会计", "财务复核", "LOGIN", "工号 FIN-001", "成功", "10.0.1.18", "2026-07-13 14:22:11"),
 ]
 
@@ -479,12 +605,57 @@ _SEED_USAGE_DAILY = [
 
 # 少量明细样例（prototype.html MOCK_RECORDS 节选，含失败记录）
 _SEED_USAGE_RECORDS = [
-    ("2026-07-14 14:32:15", "a3f8b2c1e9d4", "发票OCR提取", "deepseek-v4-flash", 3200, 1800, 2100, "成功"),
-    ("2026-07-14 14:30:08", "b7e2d9f4a1c6", "异常检测", "deepseek-v4-flash", 850, 420, 1200, "成功"),
-    ("2026-07-14 14:28:33", "c1d5a8e3b2f7", "行程单OCR提取", "deepseek-v4-flash", 3100, 1650, 2350, "成功"),
+    (
+        "2026-07-14 14:32:15",
+        "a3f8b2c1e9d4",
+        "发票OCR提取",
+        "deepseek-v4-flash",
+        3200,
+        1800,
+        2100,
+        "成功",
+    ),
+    (
+        "2026-07-14 14:30:08",
+        "b7e2d9f4a1c6",
+        "异常检测",
+        "deepseek-v4-flash",
+        850,
+        420,
+        1200,
+        "成功",
+    ),
+    (
+        "2026-07-14 14:28:33",
+        "c1d5a8e3b2f7",
+        "行程单OCR提取",
+        "deepseek-v4-flash",
+        3100,
+        1650,
+        2350,
+        "成功",
+    ),
     ("2026-07-14 14:25:51", "d9f3c7b1e6a2", "分类限额", "deepseek-v4-flash", 520, 380, 900, "成功"),
-    ("2026-07-14 14:20:17", "e2a6b9d4c8f1", "发票OCR提取", "deepseek-v4-flash", 2800, 1500, 1980, "成功"),
-    ("2026-07-14 14:10:05", "a4b7e2d9c6f3", "Vision API", DEEPSEEK_VISION_MODEL, 480, 420, 3200, "成功"),
+    (
+        "2026-07-14 14:20:17",
+        "e2a6b9d4c8f1",
+        "发票OCR提取",
+        "deepseek-v4-flash",
+        2800,
+        1500,
+        1980,
+        "成功",
+    ),
+    (
+        "2026-07-14 14:10:05",
+        "a4b7e2d9c6f3",
+        "Vision API",
+        DEEPSEEK_VISION_MODEL,
+        480,
+        420,
+        3200,
+        "成功",
+    ),
     ("2026-07-13 17:45:22", "f2c7e5b8a1d4", "发票OCR提取", "deepseek-v4-flash", 3100, 0, 0, "失败"),
     ("2026-07-13 16:30:08", "a8b3f6c1e9d2", "分类限额", "deepseek-v4-flash", 540, 0, 600, "失败"),
 ]

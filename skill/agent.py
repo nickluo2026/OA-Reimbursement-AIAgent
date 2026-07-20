@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Agent 编排入口：委托 LangGraph StateGraph 执行报销校验
 
 V1.4 重构：原硬编码线性串联逻辑迁移至 ``skill/orchestrator/graph.py`` 的 StateGraph。
@@ -95,7 +94,7 @@ def run_reimbursement_skill(
         "classify_result": final.get("classify_result"),
         "itinerary_result": final.get("itinerary_result"),
         "verify_result": final.get("verify_result"),  # 功能5：发票真伪查验
-        "final_status": final_status,                 # 最终状态枚举（PASS/WARN/BLOCK）
+        "final_status": final_status,  # 最终状态枚举（PASS/WARN/BLOCK）
         "summary": final.get("summary", ""),
     }
 
@@ -111,5 +110,7 @@ if __name__ == "__main__":
     dt = sys.argv[3] if len(sys.argv) > 3 else None
     ttype = sys.argv[4] if len(sys.argv) > 4 else "发票"
 
-    output = run_reimbursement_skill(pdf_path=pdf, apply_amount=amt, apply_date=dt, ticket_type=ttype)
+    output = run_reimbursement_skill(
+        pdf_path=pdf, apply_amount=amt, apply_date=dt, ticket_type=ttype
+    )
     print(json.dumps(output, ensure_ascii=False, indent=2))

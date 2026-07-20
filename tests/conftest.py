@@ -3,6 +3,9 @@
 import os
 import sys
 import tempfile
+from unittest.mock import MagicMock
+
+import pytest
 
 # 测试统一使用独立临时数据库，避免污染真实 oa_agent.db
 _TEST_DB_PATH = os.path.join(tempfile.gettempdir(), "oa_test_agent.db")
@@ -15,14 +18,10 @@ if os.path.exists(_TEST_DB_PATH):
 # 将项目根目录加入 Python 搜索路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import json
-from unittest.mock import MagicMock, patch
-import pytest
-
-
 # ═══════════════════════════════════════════════
 # Mock 数据
 # ═══════════════════════════════════════════════
+
 
 @pytest.fixture
 def sample_invoice_data() -> dict:
@@ -143,6 +142,7 @@ def sample_classify_result() -> dict:
 # ═══════════════════════════════════════════════
 # 行程单 Mock 数据
 # ═══════════════════════════════════════════════
+
 
 @pytest.fixture
 def sample_itinerary_data() -> dict:
@@ -271,7 +271,11 @@ def sample_itinerary_verify_pass() -> dict:
         "日期合理性": "所有行程上车时间均在行程日期范围内",
         "行程连续性": "行程按时间排序连续性合理",
         "校验明细": [
-            {"校验项目": "总金额匹配", "校验结果": "通过", "说明": "总金额 85.50 元与明细合计 85.50 元一致"},
+            {
+                "校验项目": "总金额匹配",
+                "校验结果": "通过",
+                "说明": "总金额 85.50 元与明细合计 85.50 元一致",
+            },
             {"校验项目": "行程天数", "校验结果": "通过", "说明": "行程天数 2 天"},
             {"校验项目": "单笔最高金额", "校验结果": "通过", "说明": "单笔最高金额 30.00 元"},
             {"校验项目": "日期合理性", "校验结果": "通过", "说明": "均在范围内"},
@@ -283,6 +287,7 @@ def sample_itinerary_verify_pass() -> dict:
 # ═══════════════════════════════════════════════
 # Mock Helpers
 # ═══════════════════════════════════════════════
+
 
 def mock_deepseek_return(data: dict) -> MagicMock:
     """创建一个返回指定数据的 Mock"""
@@ -307,7 +312,7 @@ def fresh_db():
 @pytest.fixture
 def sample_reimbursement(fresh_db):
     """创建一条待审批报销单（含发票），返回 request_id"""
-    from skill.utils.db_store import save_reimbursement, save_invoice
+    from skill.utils.db_store import save_invoice, save_reimbursement
 
     rid = "REQ-TEST-001"
     save_reimbursement(

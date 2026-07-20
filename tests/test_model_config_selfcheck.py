@@ -105,10 +105,8 @@ def test_manifest_aligns_with_config_default():
     """skill_manifest.yaml 的 deepseek_model 应与 config 默认模型一致。"""
     import yaml
 
-    manifest_path = os.path.join(
-        os.path.dirname(cfg.__file__), "skill_manifest.yaml"
-    )
-    with open(manifest_path, "r", encoding="utf-8") as f:
+    manifest_path = os.path.join(os.path.dirname(cfg.__file__), "skill_manifest.yaml")
+    with open(manifest_path, encoding="utf-8") as f:
         manifest = yaml.safe_load(f)
     assert manifest["config"]["deepseek_model"] == cfg.DEEPSEEK_MODEL
     assert manifest["config"]["deepseek_vision_model"] == cfg.DEEPSEEK_VISION_MODEL

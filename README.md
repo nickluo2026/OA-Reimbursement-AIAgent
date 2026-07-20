@@ -278,5 +278,47 @@ python3 run_web.py
 ```
 > 如需了解技术架构与开发信息，请参阅`docs/requirement.md`（需求文档）和`docs/design.md`（设计文档）。
 
+### 4. CI/CD 与分支保护
+
+本项目使用 **GitHub Actions** 做持续集成，流水线定义在 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
+
+**触发条件**：向 `main` 分支 `push`，或任意 `pull_request`。
+
+**三个并行 Job（任一失败即阻断合并）**：
+
+| Job | 目的 | 关键命令 |
+|-----|------|----------|
+| `lint` | 代码风格与格式 | `ruff check .` + `black --check --line-length 100 .` |
+| `typecheck` | 静态类型检查 | `pyright` |
+| `test` | 单元测试（矩阵） | `pytest`，Python 3.10 / 3.11 / 3.12 |
+
+测试无需真实密钥：CI 注入占位 `DEEPSEEK_API_KEY=sk-test-dummy`，`conftest.py` 自动使用临时数据库，不污染真实库。
+
+**本地对齐 CI（提交前自检）**：
+
+```bash
+pip install ruff black pyright
+ruff check .
+black --check --line-length 100 .
+pyright
+pytest tests/ -v
+```
+
+#### 启用分支保护（让 CI 成为合并门槛）
+
+为了让 `main` 分支的合并必须经过 CI 校验，建议在 GitHub 开启分支保护规则：
+
+1. 进入仓库 **Settings → Branches → Branch protection rules → Add rule**。
+2. **Branch name pattern** 填 `main`。
+3. 勾选 **Require a pull request before merging**（可选同时勾选 **Require approvals** 设定最少评审数）。
+4. 勾选 **Require status checks to pass before merging**，在搜索框中依次添加并勾选以下检查项（名称即 Job 名，需先成功跑过一次流水线才会出现）：
+   - `lint`
+   - `typecheck`
+   - `test`
+5. （可选）勾选 **Require branches to be up to date before merging**，确保合并基于最新 `main`。
+6. 点击 **Create / Save** 保存。
+
+配置后，任何针对 `main` 的 PR 都必须等 `lint` / `typecheck` / `test` 全部变绿且通过评审，才能合并，从而守住代码质量门槛。
+
 ## 十三、许可证
 本项目采用 MIT 开源授权许可证。完整的授权说明请查看 [LICENSE](LICENSE) 文件。

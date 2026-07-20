@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..agents.base_agent import AgentMeta, BaseAgent
 
-_AGENT_REGISTRY: dict[str, "BaseAgent"] = {}
+_AGENT_REGISTRY: dict[str, BaseAgent] = {}
 
 
 def register_agent(agent):
@@ -28,21 +28,21 @@ def register_agent(agent):
     return agent
 
 
-def _do_register(agent: "BaseAgent") -> None:
+def _do_register(agent: BaseAgent) -> None:
     info = agent.meta()
     if info.name in _AGENT_REGISTRY:
         raise ValueError(f"Agent 已注册: {info.name}")
     _AGENT_REGISTRY[info.name] = agent
 
 
-def get_agent(name: str) -> "BaseAgent":
+def get_agent(name: str) -> BaseAgent:
     """按名称获取 Agent"""
     if name not in _AGENT_REGISTRY:
         raise KeyError(f"未注册的 Agent: {name}，已注册: {list(_AGENT_REGISTRY)}")
     return _AGENT_REGISTRY[name]
 
 
-def list_agents() -> "list[AgentMeta]":
+def list_agents() -> list[AgentMeta]:
     """列出所有已注册 Agent 元信息"""
     return [a.meta() for a in _AGENT_REGISTRY.values()]
 

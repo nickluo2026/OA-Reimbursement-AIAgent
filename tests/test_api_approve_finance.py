@@ -12,8 +12,8 @@
 
 import pytest
 
-from web.app import app
 from skill.utils.db_store import save_invoice, save_reimbursement
+from web.app import app
 
 
 @pytest.fixture
@@ -32,8 +32,12 @@ def _login(c, account, role, name):
 
 def _make_reimbursement(rid="REQ-API-001", amount=358.50, employee="EMP-2026"):
     save_reimbursement(
-        request_id=rid, employee_id=employee, apply_amount=amount,
-        apply_date="2026-07-14", reason="集成测试报销", expense_category="差旅",
+        request_id=rid,
+        employee_id=employee,
+        apply_amount=amount,
+        apply_date="2026-07-14",
+        reason="集成测试报销",
+        expense_category="差旅",
     )
     save_invoice({"发票号码": "INV-" + rid, "发票金额": amount, "销售方名称": "X"}, rid, "")
 
@@ -112,7 +116,10 @@ class TestApproveAPI:
     def test_approve_reject(self, client, fresh_db):
         _make_reimbursement()
         _login(client, "APR-001", "approver", "李总")
-        resp = client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "驳回", "comment": "票据缺失"})
+        resp = client.post(
+            "/api/approve",
+            json={"request_id": "REQ-API-001", "action": "驳回", "comment": "票据缺失"},
+        )
         assert resp.status_code == 200
         assert resp.get_json()["data"]["workflow_status"] == "已驳回"
 

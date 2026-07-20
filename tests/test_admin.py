@@ -11,8 +11,8 @@
 
 import pytest
 
-from web.app import app
 from skill.utils import admin_store
+from web.app import app
 
 
 @pytest.fixture
@@ -143,10 +143,16 @@ class TestAdminAudit:
         from skill.utils.db_store import save_invoice, save_reimbursement
 
         save_reimbursement(
-            request_id="REQ-ADM-1", employee_id="EMP-2026", apply_amount=358.50,
-            apply_date="2026-07-14", reason="审计测试", expense_category="差旅",
+            request_id="REQ-ADM-1",
+            employee_id="EMP-2026",
+            apply_amount=358.50,
+            apply_date="2026-07-14",
+            reason="审计测试",
+            expense_category="差旅",
         )
-        save_invoice({"发票号码": "INV-ADM-1", "发票金额": 358.50, "销售方名称": "X"}, "REQ-ADM-1", "")
+        save_invoice(
+            {"发票号码": "INV-ADM-1", "发票金额": 358.50, "销售方名称": "X"}, "REQ-ADM-1", ""
+        )
         _login(client, "APR-001", "approver", "李总")
         client.post("/api/approve", json={"request_id": "REQ-ADM-1", "action": "通过"})
         _login(client, "ADM-001", "admin", "赵管理")

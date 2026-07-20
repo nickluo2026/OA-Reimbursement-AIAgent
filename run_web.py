@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """启动 Web 服务"""
 
-import sys
 import os
+import sys
 
 # 将项目根目录加入 Python 路径，确保 skill 包可导入
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from web.app import app
 from skill.config import self_check_model_config
+from web.app import app
 
 if __name__ == "__main__":
     # 启动期模型配置自检（不发起网络请求），异常仅告警不阻断

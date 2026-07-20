@@ -1,8 +1,6 @@
 """功能3：异常输入检查 — 单元测试"""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import date
+from unittest.mock import patch
 
 from skill.tools.tool_anomaly_check import (
     _rule_based_check,
@@ -83,7 +81,7 @@ class TestRuleBasedCheck:
         """发票金额超过申请金额应拦截"""
         anomalies = _rule_based_check(
             sample_invoice_data,  # 发票金额 300
-            apply_amount=200,      # 申请金额 200
+            apply_amount=200,  # 申请金额 200
             apply_date="2026-06-10",
         )
         types = [a["异常类型"] for a in anomalies]
@@ -95,7 +93,7 @@ class TestRuleBasedCheck:
         """发票金额 ≤ 申请金额 应通过"""
         anomalies = _rule_based_check(
             sample_invoice_data,  # 发票金额 300
-            apply_amount=500,      # 申请金额 500
+            apply_amount=500,  # 申请金额 500
             apply_date="2026-06-10",
         )
         # 不应有金额异常
@@ -109,8 +107,7 @@ class TestRuleBasedCheck:
             apply_amount=None,
             apply_date="2026-06-10",
         )
-        amount_checks = [a for a in anomalies
-                         if "超过申请金额" in a.get("异常描述", "")]
+        amount_checks = [a for a in anomalies if "超过申请金额" in a.get("异常描述", "")]
         assert len(amount_checks) == 0
 
 
@@ -137,7 +134,9 @@ class TestDetectAnomaly:
 
     @patch("skill.tools.tool_anomaly_check.call_deepseek_function")
     def test_return_block_on_rule_engine_severe(
-        self, mock_ds, sample_invoice_missing_fields,
+        self,
+        mock_ds,
+        sample_invoice_missing_fields,
     ):
         """规则引擎发现严重异常时直接返回拦截"""
         # 规则引擎会发现字段缺失，直接返回拦截
@@ -151,7 +150,9 @@ class TestDetectAnomaly:
 
     @patch("skill.tools.tool_anomaly_check.call_deepseek_function")
     def test_call_deepseek_when_rules_pass(
-        self, mock_ds, sample_invoice_data,
+        self,
+        mock_ds,
+        sample_invoice_data,
     ):
         """规则检查通过时调用 DeepSeek 做语义补充"""
         mock_ds.return_value = {
@@ -169,7 +170,9 @@ class TestDetectAnomaly:
 
     @patch("skill.tools.tool_anomaly_check.call_deepseek_function")
     def test_merge_rule_and_deepseek_results(
-        self, mock_ds, sample_invoice_data,
+        self,
+        mock_ds,
+        sample_invoice_data,
     ):
         """规则引擎和 DeepSeek 结果应合并"""
         # 注入一个规则引擎能检测到的问题

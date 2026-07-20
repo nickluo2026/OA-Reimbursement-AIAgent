@@ -1,10 +1,6 @@
 """功能1：OCR 提取 — 单元测试"""
 
-import os
-import tempfile
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from skill.tools.tool_ocr_extract import ocr_extract_invoice
 

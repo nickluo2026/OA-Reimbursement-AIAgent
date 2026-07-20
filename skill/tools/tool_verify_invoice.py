@@ -69,9 +69,7 @@ def _resolve_provider() -> str:
     return provider
 
 
-def _classify_conclusion(
-    verify_status: str, block_on_fake: bool, block_on_error: bool
-) -> str:
+def _classify_conclusion(verify_status: str, block_on_fake: bool, block_on_error: bool) -> str:
     """根据查验状态与拦截策略推导总体结论。"""
     if verify_status in (STATUS_VOID, STATUS_RED, STATUS_NOT_FOUND):
         return VERIFY_BLOCK if block_on_fake else VERIFY_WARN
@@ -124,9 +122,8 @@ def verify_invoice(
 
     status = raw.get("查验状态", STATUS_NORMAL)
     conclusion = _classify_conclusion(status, block_on_fake, block_on_error)
-    summary = (
-        f"查验平台[{provider_name}]返回：{status}"
-        + ("，判定为假票并拦截" if conclusion == VERIFY_BLOCK else "")
+    summary = f"查验平台[{provider_name}]返回：{status}" + (
+        "，判定为假票并拦截" if conclusion == VERIFY_BLOCK else ""
     )
     return {
         "查验平台": provider_name,

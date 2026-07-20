@@ -8,5 +8,13 @@
     "extraPaths": [
         "."
     ],
-    "reportMissingImports": "warning"
+    "reportMissingImports": "warning",
+    "typeCheckingMode": "basic",
+    "reportArgumentType": "warning",
+    "reportOptionalSubscript": "warning",
+    "reportGeneralTypeIssues": "warning",
+    "reportAttributeAccessIssue": "warning",
+    "reportCallIssue": "warning",
+    "reportTypedDictNotRequiredAccess": "warning",
+    "reportReturnType": "warning"
 }

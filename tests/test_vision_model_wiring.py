@@ -29,13 +29,7 @@ def _mock_tool_calls_response(func_name: str, args: str) -> MagicMock:
     resp.raise_for_status.return_value = None
     resp.json.return_value = {
         "choices": [
-            {
-                "message": {
-                    "tool_calls": [
-                        {"function": {"name": func_name, "arguments": args}}
-                    ]
-                }
-            }
+            {"message": {"tool_calls": [{"function": {"name": func_name, "arguments": args}}]}}
         ],
         "usage": {"prompt_tokens": 500, "completion_tokens": 200},
     }

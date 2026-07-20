@@ -17,8 +17,9 @@ from skill.orchestrator.state import CheckStatus
 class TestRunReimbursementSkill:
     """主编排函数测试"""
 
-    def test_full_pipeline_pass(self, mock_classify, mock_anomaly, mock_ocr,
-                                 sample_invoice_data, sample_classify_result):
+    def test_full_pipeline_pass(
+        self, mock_classify, mock_anomaly, mock_ocr, sample_invoice_data, sample_classify_result
+    ):
         """完整流程：通过"""
         mock_ocr.return_value = sample_invoice_data
         mock_anomaly.return_value = {
@@ -49,8 +50,9 @@ class TestRunReimbursementSkill:
         mock_anomaly.assert_not_called()
         mock_classify.assert_not_called()
 
-    def test_anomaly_block_skips_classify(self, mock_classify, mock_anomaly, mock_ocr,
-                                           sample_invoice_data):
+    def test_anomaly_block_skips_classify(
+        self, mock_classify, mock_anomaly, mock_ocr, sample_invoice_data
+    ):
         """异常拦截时跳过分类限额"""
         mock_ocr.return_value = sample_invoice_data
         mock_anomaly.return_value = {
@@ -99,10 +101,18 @@ class TestRunReimbursementSkill:
     @patch("skill.orchestrator.nodes.ocr_node.save_invoice")
     @patch("skill.orchestrator.nodes.ocr_node.save_reimbursement")
     def test_persistence_on_request_id(
-        self, mock_reimb, mock_invoice, mock_save_ocr, mock_save_anomaly,
-        mock_save_classify, mock_update,
-        mock_classify, mock_anomaly, mock_ocr,
-        sample_invoice_data, sample_classify_result,
+        self,
+        mock_reimb,
+        mock_invoice,
+        mock_save_ocr,
+        mock_save_anomaly,
+        mock_save_classify,
+        mock_update,
+        mock_classify,
+        mock_anomaly,
+        mock_ocr,
+        sample_invoice_data,
+        sample_classify_result,
     ):
         """有 request_id 时应持久化数据"""
         mock_ocr.return_value = sample_invoice_data
@@ -133,9 +143,7 @@ class TestRunReimbursementSkill:
         mock_invoice.assert_called_once()
         # save_ai_check_result 分布在 OCR/异常检测/分类限额 三处节点
         total_save = (
-            mock_save_ocr.call_count
-            + mock_save_anomaly.call_count
-            + mock_save_classify.call_count
+            mock_save_ocr.call_count + mock_save_anomaly.call_count + mock_save_classify.call_count
         )
         assert total_save >= 2
 
@@ -146,9 +154,16 @@ class TestRunReimbursementSkill:
     @patch("skill.orchestrator.nodes.ocr_node.save_invoice")
     @patch("skill.orchestrator.nodes.ocr_node.save_reimbursement")
     def test_persistence_error_non_fatal(
-        self, mock_reimb, mock_invoice, mock_save_ocr, mock_save_anomaly,
-        mock_save_classify, mock_update,
-        mock_classify, mock_anomaly, mock_ocr,
+        self,
+        mock_reimb,
+        mock_invoice,
+        mock_save_ocr,
+        mock_save_anomaly,
+        mock_save_classify,
+        mock_update,
+        mock_classify,
+        mock_anomaly,
+        mock_ocr,
         sample_invoice_data,
     ):
         """持久化异常不应影响主流程"""

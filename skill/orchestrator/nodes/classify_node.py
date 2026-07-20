@@ -32,8 +32,7 @@ def classify_node(state: ReimbursementState) -> dict[str, Any]:
     if is_over_limit:
         logger.warning("✓ 功能2 完成, 费用超限: %s", classify_result.get("校验结果"))
         summary = (
-            f"费用超限: {classify_result.get('校验结果', '')}。"
-            f"异常检查结论: {conclusion}。"
+            f"费用超限: {classify_result.get('校验结果', '')}。" f"异常检查结论: {conclusion}。"
         )
         if request_id:
             try:

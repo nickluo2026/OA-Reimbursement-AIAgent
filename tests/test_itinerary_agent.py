@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 from skill.agent import run_reimbursement_skill
 from skill.orchestrator.graph import route_by_ticket_type
-from skill.orchestrator.state import CheckStatus
 
 
 @patch("skill.agents.itinerary_agent.verify_itinerary")
@@ -21,10 +20,15 @@ from skill.orchestrator.state import CheckStatus
 class TestItineraryAgent:
     """行程单 Agent 编排测试"""
 
-    def test_full_pipeline_pass(self, mock_ocr, mock_anomaly, mock_verify,
-                                 sample_itinerary_data,
-                                 sample_itinerary_anomaly_pass,
-                                 sample_itinerary_verify_pass):
+    def test_full_pipeline_pass(
+        self,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
+        sample_itinerary_data,
+        sample_itinerary_anomaly_pass,
+        sample_itinerary_verify_pass,
+    ):
         """完整流程：通过"""
         mock_ocr.return_value = sample_itinerary_data
         mock_anomaly.return_value = sample_itinerary_anomaly_pass
@@ -56,9 +60,14 @@ class TestItineraryAgent:
         mock_anomaly.assert_not_called()
         mock_verify.assert_not_called()
 
-    def test_anomaly_block_skips_verify(self, mock_ocr, mock_anomaly, mock_verify,
-                                         sample_itinerary_data,
-                                         sample_itinerary_anomaly_block):
+    def test_anomaly_block_skips_verify(
+        self,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
+        sample_itinerary_data,
+        sample_itinerary_anomaly_block,
+    ):
         """异常拦截时跳过合理性校验"""
         mock_ocr.return_value = sample_itinerary_data
         mock_anomaly.return_value = sample_itinerary_anomaly_block
@@ -74,9 +83,14 @@ class TestItineraryAgent:
         mock_verify.assert_not_called()
         assert result["itinerary_result"] is None
 
-    def test_verify_warning_returns_warning(self, mock_ocr, mock_anomaly, mock_verify,
-                                             sample_itinerary_data,
-                                             sample_itinerary_anomaly_pass):
+    def test_verify_warning_returns_warning(
+        self,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
+        sample_itinerary_data,
+        sample_itinerary_anomaly_pass,
+    ):
         """合理性校验预警 → 最终预警"""
         mock_ocr.return_value = sample_itinerary_data
         mock_anomaly.return_value = sample_itinerary_anomaly_pass
@@ -106,8 +120,14 @@ class TestItineraryAgent:
     @patch("skill.agents.itinerary_agent.save_invoice")
     @patch("skill.agents.itinerary_agent.save_reimbursement")
     def test_persistence_on_request_id(
-        self, mock_reimb, mock_invoice, mock_save, mock_update,
-        mock_ocr, mock_anomaly, mock_verify,
+        self,
+        mock_reimb,
+        mock_invoice,
+        mock_save,
+        mock_update,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
         sample_itinerary_data,
         sample_itinerary_anomaly_pass,
         sample_itinerary_verify_pass,

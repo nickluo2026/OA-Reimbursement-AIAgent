@@ -6,9 +6,9 @@
 
 from skill.utils.mask_sensitive import (
     mask_ip,
+    mask_ocr_result,
     mask_phone,
     mask_tax_id,
-    mask_ocr_result,
 )
 
 

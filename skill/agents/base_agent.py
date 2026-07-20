@@ -19,19 +19,18 @@ from typing import Any
 class AgentMeta:
     """Agent 元信息"""
 
-    name: str              # Agent 唯一标识
-    ticket_type: str       # 支持的票据类型
-    description: str       # 功能描述
-    input_schema: type     # 入参 Schema
-    output_schema: type    # 出参 Schema
+    name: str  # Agent 唯一标识
+    ticket_type: str  # 支持的票据类型
+    description: str  # 功能描述
+    input_schema: type  # 入参 Schema
+    output_schema: type  # 出参 Schema
 
 
 class BaseAgent(ABC):
     """Agent 抽象基类 — 所有 Agent 必须继承并实现 run"""
 
     @abstractmethod
-    def meta(self) -> AgentMeta:
-        ...
+    def meta(self) -> AgentMeta: ...
 
     @abstractmethod
     def run(self, state: dict[str, Any]) -> dict[str, Any]:

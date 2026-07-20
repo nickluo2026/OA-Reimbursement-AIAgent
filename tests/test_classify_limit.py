@@ -1,6 +1,6 @@
 """功能2：费用分类与限额校验 — 单元测试"""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from skill.tools.tool_classify_limit import classify_and_check_limit
 

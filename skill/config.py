@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """全局配置：从环境变量与 YAML 规则文件加载"""
 
 import os
@@ -16,9 +15,7 @@ RULES_DIR = SKILL_ROOT / "rules"
 
 # ============ DeepSeek API 配置 ============
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_BASE_URL: str = os.getenv(
-    "DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions"
-)
+DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
 DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 # 视觉调用复用同一模型（V4-Flash 原生多模态）；
 # 保留独立常量，便于未来切换专用视觉模型。
@@ -75,7 +72,7 @@ def self_check_model_config() -> dict[str, Any]:
 def _load_yaml(filename: str) -> dict[str, Any]:
     """加载 rules 目录下的 YAML 文件"""
     filepath = RULES_DIR / filename
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

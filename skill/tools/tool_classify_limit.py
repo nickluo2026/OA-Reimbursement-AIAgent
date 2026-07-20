@@ -59,7 +59,8 @@ def classify_and_check_limit(
             "发票金额": amount,
             "分类限额": SMALL_AMOUNT_THRESHOLD,
             "是否超限": False,
-            "校验结果": f"金额 {amount} 元 ≤ 小额免审阈值 {SMALL_AMOUNT_THRESHOLD} 元，免于限额校验",
+            "校验结果": f"金额 {amount} 元 ≤ 小额免审阈值 {SMALL_AMOUNT_THRESHOLD} 元，"
+            f"免于限额校验",
         }
 
     # ① 调用 DeepSeek 做费用分类

@@ -16,8 +16,12 @@ from skill.utils.db_store import (
 
 def _make(rid, amount, employee="EMP-2026"):
     save_reimbursement(
-        request_id=rid, employee_id=employee, apply_amount=amount,
-        apply_date="2026-07-14", reason="测试报销", expense_category="差旅",
+        request_id=rid,
+        employee_id=employee,
+        apply_amount=amount,
+        apply_date="2026-07-14",
+        reason="测试报销",
+        expense_category="差旅",
     )
     save_invoice({"发票号码": "INV-" + rid, "发票金额": amount, "销售方名称": "X"}, rid, "")
 
@@ -64,11 +68,15 @@ class TestSubmitApproval:
         assert result["transferred"] is False
 
     def test_reject(self, sample_reimbursement):
-        result = wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="驳回", comment="票据不全")
+        result = wf.submit_approval(
+            sample_reimbursement, "APR-001", "李总", action="驳回", comment="票据不全"
+        )
         assert result["workflow_status"] == wf.WS_REJECTED
 
     def test_transfer_keeps_status(self, sample_reimbursement):
-        result = wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="转审", comment="转上级")
+        result = wf.submit_approval(
+            sample_reimbursement, "APR-001", "李总", action="转审", comment="转上级"
+        )
         # 转审不改变工作流状态，仅留痕
         assert result["workflow_status"] == wf.WS_PENDING
         assert result["transferred"] is True

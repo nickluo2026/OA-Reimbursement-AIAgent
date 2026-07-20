@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from ..schemas.invoice_schema import EXTRACT_INVOICE_TOOL
-from ..utils.pdf_extractor import extract_pdf_text
 from ..utils.http_client import call_deepseek_function
+from ..utils.pdf_extractor import extract_pdf_text
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ SYSTEM_PROMPT = (
     "2. 将「价税合计小写」数值填到「发票金额」字段\n"
     "3. 商品明细逐项提取，放入「商品明细」数组\n"
     "4. 必须调用 extract_invoice 函数返回结构化结果\n"
-    "5. 无数据的字段填空字符串 \"\"，无数据的数字填 0\n"
+    '5. 无数据的字段填空字符串 ""，无数据的数字填 0\n'
     "6. 不要编造未在文本中出现的字段值"
 )
 
@@ -42,7 +42,7 @@ VISION_SYSTEM_PROMPT = (
     "2. 将「价税合计小写」数值填到「发票金额」字段\n"
     "3. 商品明细逐项提取，放入「商品明细」数组\n"
     "4. 必须调用 extract_invoice 函数返回结构化结果\n"
-    "5. 无数据的字段填空字符串 \"\"，无数据的数字填 0\n"
+    '5. 无数据的字段填空字符串 ""，无数据的数字填 0\n'
     "6. 不要编造未在图片中出现的字段值\n"
     "7. 注意区分金额、税额、价税合计等不同数字"
 )
@@ -113,7 +113,8 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
 
 def _ocr_extract_image(image_path: str) -> dict[str, Any]:
     """图片 OCR：通过 DeepSeek Vision API 识别发票图片"""
-    from ..utils.http_client import _get_headers, _now_ms
+    import requests
+
     from ..config import (
         DEEPSEEK_VISION_MODEL,
         MAX_TOKENS,
@@ -121,8 +122,7 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
         TEMPERATURE,
         get_deepseek_settings,
     )
-
-    import requests
+    from ..utils.http_client import _get_headers, _now_ms
 
     logger.info("调用 DeepSeek Vision API 识别图片: %s", image_path)
 
@@ -154,7 +154,8 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
                     },
                     {
                         "type": "text",
-                        "text": "请识别并提取这张发票的全部字段信息，调用 extract_invoice 函数返回结果。",
+                        "text": "请识别并提取这张发票的全部字段信息，"
+                        "调用 extract_invoice 函数返回结果。",
                     },
                 ],
             },

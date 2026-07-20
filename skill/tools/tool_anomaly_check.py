@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 import logging
-import re
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any
 
 from ..config import get_anomaly_rules
@@ -49,11 +48,13 @@ def _rule_based_check(
     for field in rules.get("required_fields", []):
         val = invoice.get(field)
         if val is None or val == "" or val == 0:
-            anomalies.append({
-                "异常类型": "字段缺失",
-                "异常描述": f"必填字段「{field}」缺失或为空",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "字段缺失",
+                    "异常描述": f"必填字段「{field}」缺失或为空",
+                    "严重程度": "严重",
+                }
+            )
 
     # --- 发票号码格式检查 ---
     invoice_no = str(invoice.get("发票号码", "")).strip()
@@ -61,11 +62,14 @@ def _rule_based_check(
         min_len = rules.get("invoice_number_min_length", 8)
         max_len = rules.get("invoice_number_max_length", 20)
         if not (min_len <= len(invoice_no) <= max_len):
-            anomalies.append({
-                "异常类型": "格式错误",
-                "异常描述": f"发票号码长度 {len(invoice_no)} 不在允许范围 [{min_len}, {max_len}]",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "格式错误",
+                    "异常描述": f"发票号码长度 {len(invoice_no)} 不在允许范围 "
+                    f"[{min_len}, {max_len}]",
+                    "严重程度": "严重",
+                }
+            )
 
     # --- 日期检查 ---
     invoice_date_str = str(invoice.get("开票日期", "")).strip()
@@ -73,11 +77,13 @@ def _rule_based_check(
         try:
             invoice_date = datetime.strptime(invoice_date_str, "%Y-%m-%d").date()
         except ValueError:
-            anomalies.append({
-                "异常类型": "格式错误",
-                "异常描述": f"开票日期格式错误: {invoice_date_str}，应为 YYYY-MM-DD",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "格式错误",
+                    "异常描述": f"开票日期格式错误: {invoice_date_str}，应为 YYYY-MM-DD",
+                    "严重程度": "严重",
+                }
+            )
             invoice_date = None
     else:
         invoice_date = None
@@ -93,46 +99,62 @@ def _rule_based_check(
         age_days = (ref_date - invoice_date).days
         max_age = rules.get("max_invoice_age_days", 180)
         if age_days > max_age:
-            anomalies.append({
-                "异常类型": "票据过期",
-                "异常描述": f"开票日期距申请日 {age_days} 天，超过 {max_age} 天上限",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "票据过期",
+                    "异常描述": f"开票日期距申请日 {age_days} 天，超过 {max_age} 天上限",
+                    "严重程度": "严重",
+                }
+            )
         # 日期异常：开票日期晚于申请日
         elif age_days < 0:
-            anomalies.append({
-                "异常类型": "日期异常",
-                "异常描述": f"开票日期 {invoice_date_str} 晚于申请日 {ref_date}",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "日期异常",
+                    "异常描述": f"开票日期 {invoice_date_str} 晚于申请日 {ref_date}",
+                    "严重程度": "严重",
+                }
+            )
         # 即将过期预警（剩余 30 天内）
         elif age_days > max_age - 30:
-            anomalies.append({
-                "异常类型": "即将过期",
-                "异常描述": f"票据将在 {max_age - age_days} 天后过期，请及时报销",
-                "严重程度": "警告",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "即将过期",
+                    "异常描述": f"票据将在 {max_age - age_days} 天后过期，请及时报销",
+                    "严重程度": "警告",
+                }
+            )
 
     # --- 金额异常检查（高额阈值）---
     amount = invoice.get("发票金额", 0)
     if isinstance(amount, (int, float)) and amount > 0 and rules.get("enable_amount_check", True):
         threshold = rules.get("amount_anomaly_threshold", 10000)
         if amount > threshold:
-            anomalies.append({
-                "异常类型": "金额异常",
-                "异常描述": f"发票金额 {amount} 元超过异常阈值 {threshold} 元",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "金额异常",
+                    "异常描述": f"发票金额 {amount} 元超过异常阈值 {threshold} 元",
+                    "严重程度": "严重",
+                }
+            )
 
     # --- 申请金额校验（发票金额 ≤ 申请金额）---
-    if isinstance(amount, (int, float)) and amount > 0 and apply_amount is not None and apply_amount > 0:
+    if (
+        isinstance(amount, (int, float))
+        and amount > 0
+        and apply_amount is not None
+        and apply_amount > 0
+    ):
         if amount > apply_amount:
             diff = amount - apply_amount
-            anomalies.append({
-                "异常类型": "金额异常",
-                "异常描述": f"发票金额 {amount} 元超过申请金额 {apply_amount} 元，超出 {diff} 元，需修改申请金额或核实票据",
-                "严重程度": "严重",
-            })
+            anomalies.append(
+                {
+                    "异常类型": "金额异常",
+                    "异常描述": f"发票金额 {amount} 元超过申请金额 {apply_amount} 元，"
+                    f"超出 {diff} 元，需修改申请金额或核实票据",
+                    "严重程度": "严重",
+                }
+            )
 
     return anomalies
 
@@ -200,7 +222,8 @@ def detect_anomaly(
         f"申请金额: {apply_amount}\n"
         f"申请日期: {apply_date or '今天'}\n\n"
         f"发票数据:\n{invoice_json}\n\n"
-        f"规则引擎已检测到的异常（请合并到结果中）:\n{json.dumps(rule_anomalies, ensure_ascii=False)}"
+        f"规则引擎已检测到的异常（请合并到结果中）:\n"
+        f"{json.dumps(rule_anomalies, ensure_ascii=False)}"
     )
 
     result = call_deepseek_function(
@@ -231,7 +254,11 @@ def detect_anomaly(
     # 重新判定总体结论（取规则引擎与 DeepSeek 中更严格的结果）
     ds_conclusion = result.get("总体结论", "通过")
     priority = {"通过": 0, "预警": 1, "拦截": 2}
-    final_conclusion = ds_conclusion if priority.get(ds_conclusion, 0) >= priority.get(conclusion, 0) else conclusion
+    final_conclusion = (
+        ds_conclusion
+        if priority.get(ds_conclusion, 0) >= priority.get(conclusion, 0)
+        else conclusion
+    )
 
     result["异常明细"] = deepseek_anomalies
     result["总体结论"] = final_conclusion

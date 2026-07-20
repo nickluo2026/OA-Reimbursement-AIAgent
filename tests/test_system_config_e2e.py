@@ -10,8 +10,15 @@
 
 import pytest
 
-from web.app import app as _web_app
+from skill.config import (
+    get_category_limits,
+    get_deepseek_settings,
+    get_itinerary_rules,
+    get_verify_rules,
+)
+from skill.orchestrator.state import CheckStatus, ReimbursementState
 from skill.utils import admin_store
+from web.app import app as _web_app
 
 
 @pytest.fixture
@@ -19,15 +26,6 @@ def client():
     _web_app.config["TESTING"] = True
     with _web_app.test_client() as c:
         yield c
-
-from skill.config import (
-    get_anomaly_rules,
-    get_category_limits,
-    get_deepseek_settings,
-    get_itinerary_rules,
-    get_verify_rules,
-)
-from skill.orchestrator.state import CheckStatus, ReimbursementState
 
 
 @pytest.fixture
@@ -76,10 +74,7 @@ class TestSystemConfigSchema:
     def test_meal_limit_label_monthly(self, fresh_db):
         schema = admin_store.get_config_schema()
         labels = [
-            it["label"]
-            for g in schema
-            for it in g["items"]
-            if it["key"] == "limit_meal_single"
+            it["label"] for g in schema for it in g["items"] if it["key"] == "limit_meal_single"
         ]
         assert labels == ["餐饮 月度限额"]
 
@@ -178,13 +173,24 @@ class TestDeepSeekDisabled:
 class TestInvoiceAuthToggle:
     def _state(self, invoice):
         return ReimbursementState(
-            pdf_path="", apply_amount=100.0, apply_date="2026-06-10",
-            request_id="REQ-V-1", employee_id="EMP-2026", reason="",
-            expense_category="差旅", ticket_type="发票",
-            ocr_result=invoice, anomaly_result=None, classify_result=None,
-            verify_result=None, itinerary_result=None,
-            final_status=CheckStatus.PASS, summary="", warnings=[],
-            errors=[], history=[],
+            pdf_path="",
+            apply_amount=100.0,
+            apply_date="2026-06-10",
+            request_id="REQ-V-1",
+            employee_id="EMP-2026",
+            reason="",
+            expense_category="差旅",
+            ticket_type="发票",
+            ocr_result=invoice,
+            anomaly_result=None,
+            classify_result=None,
+            verify_result=None,
+            itinerary_result=None,
+            final_status=CheckStatus.PASS,
+            summary="",
+            warnings=[],
+            errors=[],
+            history=[],
         )
 
     def test_auth_disabled_skips_verify(self, fresh_db):
@@ -236,8 +242,10 @@ class TestCountersignToggle:
         items = {it["key"]: it for it in groups["👥 审批权限分配"]["items"]}
         assert "countersign_enabled" in items
         assert items["countersign_enabled"]["type"] == "toggle"
-        assert items["countersign_enabled"]["label"] == \
-            "金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）"
+        assert (
+            items["countersign_enabled"]["label"]
+            == "金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）"
+        )
 
     def test_countersign_default_enabled(self, fresh_db):
         assert admin_store.get_system_config()["countersign_enabled"] is True

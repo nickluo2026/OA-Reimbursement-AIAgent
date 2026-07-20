@@ -83,10 +83,15 @@ class ItineraryAgent(BaseAgent):
                 )
                 # 行程单复用 InvoiceRecord 表存储 OCR 原始结果
                 save_invoice(ocr_result, request_id, pdf_path)
-                save_ai_check_result(request_id, "行程单OCR提取", "通过", {
-                    "总金额_元": total_amount,
-                    "行程数": trip_count,
-                })
+                save_ai_check_result(
+                    request_id,
+                    "行程单OCR提取",
+                    "通过",
+                    {
+                        "总金额_元": total_amount,
+                        "行程数": trip_count,
+                    },
+                )
             except Exception as e:
                 logger.warning("持久化异常（非致命）: %s", e)
 
@@ -136,7 +141,9 @@ class ItineraryAgent(BaseAgent):
 
         if request_id:
             try:
-                save_ai_check_result(request_id, "行程单合理性校验", verify_conclusion, itinerary_result)
+                save_ai_check_result(
+                    request_id, "行程单合理性校验", verify_conclusion, itinerary_result
+                )
             except Exception as e:
                 logger.warning("持久化异常（非致命）: %s", e)
 

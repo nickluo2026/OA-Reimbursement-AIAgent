@@ -15,13 +15,14 @@ from langgraph.graph import END, StateGraph
 
 try:  # langgraph 新版（>=0.2）提供 START 常量，入口点改用 add_conditional_edges
     from langgraph.graph import START
+
     _HAS_START = True
 except ImportError:  # 旧版无 START，回退到 set_conditional_entry_point
     START = None  # type: ignore[assignment]
     _HAS_START = False
 
-from ..config import SMALL_AMOUNT_THRESHOLD
 from ..agents import ItineraryAgent  # noqa: F401 — 触发 @register_agent 注册
+from ..config import SMALL_AMOUNT_THRESHOLD
 from .nodes.anomaly_node import anomaly_node
 from .nodes.classify_node import classify_node
 from .nodes.itinerary_node import itinerary_node

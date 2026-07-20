@@ -1,7 +1,6 @@
 """功能5：发票真伪查验单元测试（Mock Provider）"""
 
 from skill.tools.tool_verify_invoice import verify_invoice
-from skill.config import get_verify_rules
 
 
 def _invoice(no: str) -> dict:
