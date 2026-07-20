@@ -23,6 +23,7 @@ from .utils.db_store import (
     get_invoices_for_request,
     mark_invoice_reimbursed,
     save_approval_record,
+    set_finance_operators,
     update_workflow_status,
 )
 
@@ -181,6 +182,8 @@ def serialize(r) -> dict[str, Any]:
         "transferred": transferred,
         "countersign_passed": passed,
         "needs_countersign": route.get("需要会签", False),
+        "archived_by": r.archived_by or "",
+        "paid_by": r.paid_by or "",
     }
 
 
@@ -222,6 +225,8 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
         "workflow_status": r.workflow_status,
         "created_at": r.created_at.isoformat() if r.created_at else None,
         "route": compute_route(r.apply_amount),
+        "archived_by": r.archived_by or "",
+        "paid_by": r.paid_by or "",
         "invoices": [
             {
                 "invoice_number": inv.invoice_number,
@@ -310,10 +315,11 @@ def submit_finance(
     action: str = "归档",
     comment: str = "",
 ) -> dict[str, Any]:
-    """财务确认归档 / 发起打款
+    """财务复核归档 / 出纳打款（职责分离）
 
-    - 归档：仅「已通过」可归档，置「已归档」
-    - 打款：仅「已归档」可打款，置「已发放」并标记发票已报销（防重）
+    - 归档（财务复核岗）：仅「已通过」可归档，置「已归档」，记录归档人
+    - 打款（出纳岗）：仅「已归档」可打款，置「已发放」并标记发票已报销（防重）；
+      系统强制 **打款人 ≠ 归档人**（职责分离），违规直接拦截
     """
     if action not in ("归档", "打款"):
         raise ValueError(f"未知财务动作: {action}")
@@ -335,19 +341,29 @@ def submit_finance(
             action="归档",
             comment=comment,
         )
+        # 记录归档人（财务复核岗工号），供职责分离校验
+        set_finance_operators(request_id, archived_by=finance_id)
         update_workflow_status(request_id, WS_ARCHIVED)
-        logger.info("财务归档 %s", request_id)
-    else:  # 打款
+        logger.info("财务复核归档 %s by=%s", request_id, finance_id)
+    else:  # 打款（出纳岗）
         if r.workflow_status != WS_ARCHIVED:
             raise ValueError(f"报销单（报销单号：{request_id}）尚未归档，请先确认归档再打款")
+        # 职责分离校验：打款人不得为同一报销单的归档人（舞弊风险拦截）
+        if r.archived_by and r.archived_by == finance_id:
+            raise ValueError(
+                f"舞弊风险拦截：报销单（报销单号：{request_id}）的打款人与归档人"
+                f"不能为同一人（{finance_id}），已阻止本次打款。"
+            )
         save_approval_record(
             request_id=request_id,
             approver_id=finance_id,
             approver_name=finance_name,
-            approval_node="财务复核",
+            approval_node="出纳打款",
             action="打款",
             comment=comment,
         )
+        # 记录打款人（出纳岗工号）
+        set_finance_operators(request_id, paid_by=finance_id)
         # 防重：标记关联发票已报销
         for inv in get_invoices_for_request(request_id):
             try:
@@ -355,6 +371,15 @@ def submit_finance(
             except Exception as e:  # 已报销则忽略（幂等）
                 logger.warning("标记发票已报销失败(可能重复): %s", e)
         update_workflow_status(request_id, WS_PAID)
-        logger.info("财务打款 %s 金额=%.2f", request_id, r.apply_amount)
+        # 回单归档：打款完成后留痕（出纳岗动作）
+        save_approval_record(
+            request_id=request_id,
+            approver_id=finance_id,
+            approver_name=finance_name,
+            approval_node="出纳打款",
+            action="回单归档",
+            comment=comment,
+        )
+        logger.info("出纳打款 %s 金额=%.2f by=%s", request_id, r.apply_amount, finance_id)
 
     return serialize(get_reimbursement(request_id))

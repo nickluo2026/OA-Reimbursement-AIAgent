@@ -82,7 +82,7 @@ class Employee(Base):
     employee_id = Column(String(32), primary_key=True, comment="员工工号")
     name = Column(String(64), nullable=False, comment="姓名")
     department = Column(String(128), comment="部门")
-    role = Column(String(32), default="员工", comment="角色: 员工/领导/财务")
+    role = Column(String(32), default="员工", comment="角色: 员工/审批领导/财务复核/出纳打款/系统管理员")
     created_at = Column(DateTime, default=utcnow)
 
     def __repr__(self) -> str:
@@ -104,6 +104,8 @@ class Reimbursement(Base):
     workflow_status = Column(String(16), default="待审批", index=True,
                               comment="工作流状态: 待审批/审批中/已通过/已驳回/已归档")
     remark = Column(String(256), comment="备注")
+    archived_by = Column(String(32), comment="归档人(财务复核岗工号)")
+    paid_by = Column(String(32), comment="打款人(出纳岗工号)")
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -159,7 +161,7 @@ class ApprovalRecord(Base):
     request_id = Column(String(64), nullable=False, index=True, comment="关联报销单")
     approver_id = Column(String(32), comment="审批人工号")
     approver_name = Column(String(64), comment="审批人姓名")
-    approval_node = Column(String(32), comment="审批节点: 直属领导/部门总监/VP/CEO/财务")
+    approval_node = Column(String(32), comment="审批节点: 直属领导/部门总监/VP/CEO/财务复核/出纳打款")
     action = Column(String(16), comment="动作: 通过/驳回/转审")
     comment = Column(String(512), comment="审批意见")
     action_time = Column(DateTime, default=utcnow)
@@ -266,3 +268,11 @@ def init_db() -> None:
         if "request_id" not in cols:
             with _engine.begin() as conn:
                 conn.execute(text("ALTER TABLE audit_log ADD COLUMN request_id VARCHAR(64) DEFAULT ''"))
+
+    # 迁移：为已有 reimbursement 表补充财务职责分离字段（归档人 / 打款人）
+    if "reimbursement" in _insp.get_table_names():
+        r_cols = [c["name"] for c in _insp.get_columns("reimbursement")]
+        for col in ("archived_by", "paid_by"):
+            if col not in r_cols:
+                with _engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE reimbursement ADD COLUMN {col} VARCHAR(32)"))

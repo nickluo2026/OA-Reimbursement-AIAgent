@@ -4,6 +4,23 @@
 (function () {
     'use strict';
 
+    /* 当前登录角色的财务子角色：finance_review（财务复核）/ finance_pay（出纳打款） */
+    var USER_ROLE = '';
+    var _roleMeta = document.querySelector('meta[name="user-role"]');
+    if (_roleMeta) {
+        USER_ROLE = _roleMeta.content || '';
+    }
+
+    /* 工号 → 姓名（与 web/app.py DEMO_ACCOUNTS 对齐，用于展示归档人/打款人） */
+    var NAME_MAP = {
+        'FIN-001': '王会计', 'FIN-002': '李出纳',
+        'APR-001': '李总', 'EMP-2026': '张三', 'ADM-001': '赵管理'
+    };
+    function displayName(id) {
+        if (!id) return '';
+        return NAME_MAP[id] || id;
+    }
+
     var AI_MAP = {
         '通过': { cls: 'ai-pass', icon: '✓' },
         '预警': { cls: 'ai-warn', icon: '⚠️' },
@@ -64,9 +81,10 @@
             : '<span class="tag invoice">🧾 发票</span>';
 
         var actions = '<button class="btn-mini primary" onclick="viewDetail(\'' + esc(it.request_id) + '\')">📄 查看明细</button>';
-        if (it.workflow_status === '已通过') {
+        // 职责分离：仅财务复核岗可「确认归档」，仅出纳岗可「发起打款」
+        if (it.workflow_status === '已通过' && USER_ROLE === 'finance_review') {
             actions += '<button class="btn-mini success" onclick="openAction(\'' + esc(it.request_id) + '\',\'归档\')">📦 确认归档</button>';
-        } else if (it.workflow_status === '已归档') {
+        } else if (it.workflow_status === '已归档' && USER_ROLE === 'finance_pay') {
             actions += '<button class="btn-mini primary" style="border-color:var(--green);color:var(--green);" onclick="openAction(\'' + esc(it.request_id) + '\',\'打款\')">💰 发起打款</button>';
         }
 
@@ -80,6 +98,7 @@
                 '<span><span class="meta-key">提交人:</span><span class="meta-value">' + esc(it.employee_name) + '</span></span>' +
                 '<span><span class="meta-key">费用类型:</span><span class="meta-value">' + esc(it.expense_category || '—') + '</span></span>' +
                 '<span><span class="meta-key">AI 状态:</span><span class="meta-value">' + esc(it.ai_status) + '</span></span>' +
+                (it.workflow_status === '已归档' && it.archived_by ? '<span><span class="meta-key">归档人:</span><span class="meta-value">' + esc(displayName(it.archived_by)) + '</span></span>' : '') +
             '</div>' +
             '<div class="ai-summary-box">🤖 <strong>AI 复核：</strong>' + esc(it.ai_summary) + '</div>' +
             '<div class="reimburse-item-footer">' +

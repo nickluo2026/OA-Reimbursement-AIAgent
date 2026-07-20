@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="user-role" content="{{ role_key }}">
     <title>财务工作台 — 企业报销智能化系统</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/workbench.css">
@@ -47,7 +48,15 @@
                 <span>💰 已打款：<strong style="color:var(--green);" id="financePaidCount">—</strong></span>
             </div>
         </div>
-        <p class="card-desc">审批领导已通过的报销单。复核 AI 校验结果 → 确认归档 → 发起费用发放。</p>
+        <p class="card-desc">
+            {% if role_key == 'finance_review' %}
+                审批领导已通过的报销单。复核 AI 校验结果 → 确认归档。
+            {% elif role_key == 'finance_pay' %}
+                已归档待发放的报销单。确认信息无误后发起打款（打款人须与归档人不同）。
+            {% else %}
+                审批领导已通过的报销单。复核 AI 校验结果 → 确认归档 → 发起费用发放。
+            {% endif %}
+        </p>
         <div class="reimburse-list" id="financeList"></div>
     </div>
     {% endif %}

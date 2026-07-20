@@ -107,15 +107,16 @@ class TestEndToEndFlow:
         assert wf.list_pending() == []
         assert len(wf.list_for_finance()) == 1
 
-        # ── 3) 财务归档 ──
-        _login(client, "FIN-001", "finance", "王会计")
+        # ── 3) 财务复核归档 ──
+        _login(client, "FIN-001", "finance_review", "王会计")
         r_archive = client.post(
             "/api/finance", json={"request_id": rid, "action": "归档"}
         )
         assert r_archive.status_code == 200
         assert r_archive.get_json()["data"]["workflow_status"] == wf.WS_ARCHIVED
 
-        # ── 4) 财务打款 ──
+        # ── 4) 出纳打款（职责分离：须与归档人不同账号） ──
+        _login(client, "FIN-002", "finance_pay", "李出纳")
         r_pay = client.post(
             "/api/finance", json={"request_id": rid, "action": "打款"}
         )

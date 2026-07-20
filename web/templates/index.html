@@ -29,11 +29,11 @@
     {# 普通员工仅能提交报销，隐藏顶部导航（报销上传 / 审批工作台 / 财务工作台） #}
     {% if role_key != "employee" %}
     <nav class="topnav">
-        <a href="/" class="{% if role_key in ('approver', 'finance', 'admin') %}active{% endif %}">📤 报销上传</a>
+        <a href="/" class="{% if role_key in ('approver', 'finance_review', 'finance_pay', 'admin') %}active{% endif %}">📤 报销上传</a>
         {% if role_key in ('approver', 'admin') %}
         <a href="/approve">📥 审批工作台</a>
         {% endif %}
-        {% if role_key in ('finance', 'admin') %}
+        {% if role_key in ('finance_review', 'finance_pay', 'admin') %}
         <a href="/finance">💼 财务工作台</a>
         {% endif %}
         {% if role_key == "admin" %}

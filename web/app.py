@@ -93,21 +93,28 @@ app.config.update(
 # ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
 # 角色定义：对应 design.md §1.1 / §17.2 与 constitution.md §2.6
 ROLE_INFO = {
-    "employee": {"icon": "👤", "name": "普通员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
-    "approver": {"icon": "👔", "name": "审批领导", "desc": "审核下属报销申请"},
-    "finance":  {"icon": "💼", "name": "财务人员", "desc": "财务终审与打款"},
-    "admin":    {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
+    "employee":      {"icon": "👤", "name": "普通员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
+    "approver":      {"icon": "👔", "name": "审批领导", "desc": "审核下属报销申请"},
+    "finance_review": {"icon": "📋", "name": "财务复核", "desc": "复核 AI 校验结果并确认归档"},
+    "finance_pay":    {"icon": "💰", "name": "出纳打款", "desc": "发起费用发放（须与归档人不同）"},
+    "admin":         {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
 }
 
 # 演示账号映射（工号 → 姓名 / 角色 / 密码哈希）
 # [S-001] 密码使用 werkzeug PBKDF2 哈希存储，不再接受任意密码。
 #         演示密码统一为 "123456"，生产环境应替换为真实密码库。
+# 财务职责分离：FIN-001 财务复核（仅归档）、FIN-002 出纳打款（仅打款），
+# 且系统强制「打款人 ≠ 归档人」。
 DEMO_ACCOUNTS = {
     "EMP-2026": {"name": "张三", "role": "employee", "password_hash": generate_password_hash("123456")},
     "APR-001":  {"name": "李总", "role": "approver", "password_hash": generate_password_hash("123456")},
-    "FIN-001":  {"name": "王会计", "role": "finance", "password_hash": generate_password_hash("123456")},
+    "FIN-001":  {"name": "王会计", "role": "finance_review", "password_hash": generate_password_hash("123456")},
+    "FIN-002":  {"name": "李出纳", "role": "finance_pay", "password_hash": generate_password_hash("123456")},
     "ADM-001":  {"name": "赵管理", "role": "admin", "password_hash": generate_password_hash("123456")},
 }
+
+# 财务两类角色（财务复核 / 出纳打款）共享财务工作台与财务 API 权限
+FINANCE_ROLES = ("finance_review", "finance_pay")
 
 
 def allowed_file(filename: str) -> bool:
@@ -203,7 +210,8 @@ def login():
         # 按角色跳转到默认工作台
         target = {
             "approver": "approve_page",
-            "finance": "finance_page",
+            "finance_review": "finance_page",
+            "finance_pay": "finance_page",
             "admin": "admin_page",
         }.get(info["role"], "index")
         return redirect(url_for(target))
@@ -358,6 +366,20 @@ def _require_role(role: str):
     return None
 
 
+def _require_finance():
+    """财务工作台/财务 API 准入：未登录 401；非财务角色 403；否则 None。
+
+    财务复核（finance_review）与出纳打款（finance_pay）均放行，
+    具体动作（归档 / 打款）的职责分离由 ``workflow.submit_finance`` 强制校验。
+    """
+    err = _require_login()
+    if err:
+        return err
+    if session.get("role") not in FINANCE_ROLES:
+        return jsonify({"error": "无权限访问该资源"}), 403
+    return None
+
+
 def employee_display_name(employee_id: str) -> str:
     """工号 → 姓名（演示账号映射，未知则回退工号）。"""
     info = DEMO_ACCOUNTS.get(employee_id)
@@ -393,7 +415,7 @@ def approve_page():
 
 @app.route("/finance")
 def finance_page():
-    """财务终审工作台：需登录且角色为 finance。"""
+    """财务工作台：需登录且角色为财务复核 / 出纳打款。"""
     if "account" not in session:
         return redirect(url_for("login"))
     role = session.get("role", "employee")
@@ -406,7 +428,7 @@ def finance_page():
         user_icon=role_info["icon"],
         role_desc=role_info["desc"],
         role_key=role,
-        forbidden=role != "finance",
+        forbidden=role not in FINANCE_ROLES,
     )
 
 
@@ -486,7 +508,7 @@ def api_approve():
 @app.route("/api/finance/list")
 def api_finance_list():
     """财务列表（已通过 / 已归档）。"""
-    err = _require_role("finance")
+    err = _require_finance()
     if err:
         return err
     items = wf.list_for_finance()
@@ -501,8 +523,8 @@ def api_finance_list():
 
 @app.route("/api/finance", methods=["POST"])
 def api_finance():
-    """财务操作：归档 / 打款。"""
-    err = _require_role("finance")
+    """财务操作：归档（财务复核）/ 打款（出纳打款）。"""
+    err = _require_finance()
     if err:
         return err
     data = request.get_json(silent=True) or {}
@@ -517,14 +539,23 @@ def api_finance():
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    # 审计日志：ARCHIVE / PAYMENT_INIT
+    # 审计日志：ARCHIVE / PAYMENT_INIT（按财务子角色区分，落实职责分离留痕）
     try:
         audit_action = {"归档": "ARCHIVE", "打款": "PAYMENT_INIT"}.get(action, action or "")
+        audit_role = {"归档": "财务复核", "打款": "出纳打款"}.get(action, session.get("role", "财务人员"))
+        audit_name = session.get("name", audit_role)
         admin_store.add_audit_log(
-            session.get("name", "财务人员"), session.get("role", "财务人员"),
+            audit_name, audit_role,
             audit_action, f"¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
             request_id=request_id,
         )
+        # 打款后补记「回单归档」审计，与 workflow 中的回单归档动作对应
+        if action == "打款":
+            admin_store.add_audit_log(
+                audit_name, audit_role,
+                "RECEIPT_ARCHIVE", f"¥{result['apply_amount']:.2f}", "成功", request.remote_addr,
+                request_id=request_id,
+            )
     except Exception:
         pass
     return jsonify({"status": "ok", "data": result})

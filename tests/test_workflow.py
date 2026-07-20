@@ -124,18 +124,38 @@ class TestSubmitFinance:
         archived = wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="归档")
         assert archived["workflow_status"] == wf.WS_ARCHIVED
 
-        paid = wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="打款")
+        # 职责分离：打款须由出纳岗（FIN-002）执行，与归档人（FIN-001）不同
+        paid = wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
         assert paid["workflow_status"] == wf.WS_PAID
+        assert paid["archived_by"] == "FIN-001"
+        assert paid["paid_by"] == "FIN-002"
         # 发票已标记报销（防重）— sample_reimbursement 创建的发票号为 88886666
         assert check_duplicate_invoice("88886666") is True
 
     def test_pay_idempotent_invoice(self, sample_reimbursement):
         wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="通过")
         wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="归档")
-        wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="打款")
+        wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
         # 再次打款：状态已是已发放，应报错（不可重复打款）
         with pytest.raises(ValueError):
+            wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
+
+    def test_segregation_violation_same_person(self, sample_reimbursement):
+        """职责分离：同一人既归档又打款须被拦截（舞弊风险）"""
+        wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="通过")
+        wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="归档")
+        with pytest.raises(ValueError) as exc:
             wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="打款")
+        assert "舞弊" in str(exc.value) or "归档人" in str(exc.value)
+
+    def test_pay_by_different_person(self, sample_reimbursement):
+        """跨人打款（归档 FIN-001 / 打款 FIN-002）正常发放并落库"""
+        wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="通过")
+        wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="归档")
+        paid = wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
+        assert paid["workflow_status"] == wf.WS_PAID
+        assert paid["archived_by"] == "FIN-001"
+        assert paid["paid_by"] == "FIN-002"
 
 
 # ── 列表查询 ──
@@ -175,5 +195,5 @@ class TestStats:
         assert wf.count_by_status(wf.WS_PENDING) == 1
         wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="通过")
         wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="归档")
-        wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="打款")
+        wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
         assert wf.count_by_status(wf.WS_PAID) == 1

@@ -194,6 +194,28 @@ def get_reimbursement(request_id: str) -> Reimbursement | None:
         return s.query(Reimbursement).filter_by(request_id=request_id).first()
 
 
+def set_finance_operators(
+    request_id: str,
+    archived_by: str | None = None,
+    paid_by: str | None = None,
+) -> None:
+    """持久化财务复核（归档人）/ 出纳打款（打款人）工号，落实职责分离。
+
+    archived_by / paid_by 分别记录，便于审计与「打款人 ≠ 归档人」校验。
+    """
+    with get_session() as s:
+        record = s.query(Reimbursement).filter_by(request_id=request_id).first()
+        if record:
+            if archived_by is not None:
+                record.archived_by = archived_by
+            if paid_by is not None:
+                record.paid_by = paid_by
+            record.updated_at = utcnow()
+            s.commit()
+        else:
+            logger.warning("报销单 %s 不存在，无法写入财务人员信息", request_id)
+
+
 def get_invoices_for_request(request_id: str) -> list[InvoiceRecord]:
     """查询报销单关联的发票列表"""
     with get_session() as s:

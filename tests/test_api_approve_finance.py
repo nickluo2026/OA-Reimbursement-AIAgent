@@ -57,7 +57,7 @@ class TestPages:
         assert "无审批权限" in resp.get_data(as_text=True)
 
     def test_finance_page_renders_for_finance(self, client, fresh_db):
-        _login(client, "FIN-001", "finance", "王会计")
+        _login(client, "FIN-001", "finance_review", "王会计")
         resp = client.get("/finance")
         assert resp.status_code == 200
         assert "待终审报销单" in resp.get_data(as_text=True)
@@ -140,7 +140,7 @@ class TestFinanceAPI:
         _make_reimbursement()
         _login(client, "APR-001", "approver", "李总")
         client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "通过"})
-        _login(client, "FIN-001", "finance", "王会计")
+        _login(client, "FIN-001", "finance_review", "王会计")
         resp = client.get("/api/finance/list")
         assert resp.status_code == 200
         assert resp.get_json()["pending_archive"] == 1
@@ -149,12 +149,14 @@ class TestFinanceAPI:
         _make_reimbursement()
         _login(client, "APR-001", "approver", "李总")
         client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "通过"})
-        _login(client, "FIN-001", "finance", "王会计")
+        _login(client, "FIN-001", "finance_review", "王会计")
 
         r1 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "归档"})
         assert r1.status_code == 200
         assert r1.get_json()["data"]["workflow_status"] == "已归档"
 
+        # 打款须由出纳岗（FIN-002）执行，落实职责分离
+        _login(client, "FIN-002", "finance_pay", "李出纳")
         r2 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "打款"})
         assert r2.status_code == 200
         assert r2.get_json()["data"]["workflow_status"] == "已发放"
@@ -163,10 +165,24 @@ class TestFinanceAPI:
         _make_reimbursement()
         _login(client, "APR-001", "approver", "李总")
         client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "通过"})
-        _login(client, "FIN-001", "finance", "王会计")
+        _login(client, "FIN-001", "finance_review", "王会计")
         resp = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "打款"})
         assert resp.status_code == 400
         assert "归档" in resp.get_json()["error"]
+
+    def test_finance_segregation_api(self, client, fresh_db):
+        """职责分离（API 级）：同一财务账号既归档又打款须被拦截"""
+        _make_reimbursement()
+        _login(client, "APR-001", "approver", "李总")
+        client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "通过"})
+        _login(client, "FIN-001", "finance_review", "王会计")
+        r1 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "归档"})
+        assert r1.status_code == 200
+
+        # 同一账号（FIN-001，同时为归档人）尝试打款 → 舞弊拦截
+        r2 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "打款"})
+        assert r2.status_code == 400
+        assert "舞弊" in r2.get_json()["error"] or "归档人" in r2.get_json()["error"]
 
     def test_finance_forbidden_for_approver(self, client, fresh_db):
         _make_reimbursement()
