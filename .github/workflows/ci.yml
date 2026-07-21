@@ -19,25 +19,33 @@ jobs:
             python:
               - '**/*.py'
 
+  # 必需状态检查名为 "lint"。被 if 跳过的 job 不会产生通过状态，
+  # 因此本 job 始终运行：有 Python 改动时执行真正的检查，
+  # 无改动时立即成功，从而满足分支保护的 required check。
   lint:
     needs: changes
-    if: ${{ needs.changes.outputs.python == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Skip lint for non-Python changes
+        if: ${{ needs.changes.outputs.python != 'true' }}
+        run: echo "No Python changes detected — lint skipped, marking success."
 
       - name: Set up Python
+        if: ${{ needs.changes.outputs.python == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install lint tools
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: pip install ruff black
 
       - name: Ruff check
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: ruff check .
 
       - name: Black format check
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: black --check --line-length 100 .
 
   typecheck:
