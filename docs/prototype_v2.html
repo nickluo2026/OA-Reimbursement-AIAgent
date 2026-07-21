@@ -1152,6 +1152,8 @@ select.form-input { appearance: auto; }
 var currentTicketType = '发票';
 var currentRole = 'employee';
 var lastCheckPassed = false;   // 记录最近一次校验是否通过（用于关闭弹窗后切换按钮）
+var lastAiStatus = 'pass';      // 最近一次 AI 校验状态（pass/warn/block），提交时回填待审队列
+var lastAiSummary = '';         // 最近一次 AI 校验摘要，提交时回填待审队列
 
 /* 计数与状态（用于实时统计） */
 var approveDoneTotal = 42;   // 审批领导本月已审（累计）
@@ -1266,7 +1268,9 @@ function logout() {
     selectRole('employee');
     document.getElementById('loginPassword').value = '123456';
     resetResults();
-    restoreMockData();
+    // 注意：不再调用 restoreMockData()，否则会清空 FIN-001 已归档的数据，
+    // 导致 FIN-002 重新登录后看不到待打款报销单（破坏职责分离演示流程）。
+    // 内存状态在单次会话的多次登录间保持连续；刷新页面即可恢复初始 Mock 数据。
 }
 
 /* ── 票据类型切换 ── */
@@ -1429,8 +1433,17 @@ function handleAction(status) {
             reason: reason, status: '审批中', submitTime: nowStr()
         };
         MOCK_MY_LIST.unshift(item);
+        // 路由至审批领导待审队列（补齐 submitter / AI 校验字段供渲染）
+        var cfg = ROLES.employee;
+        var pendingItem = Object.assign({}, item, {
+            submitter: cfg.user + '（' + cfg.account + '）',
+            aiStatus: lastAiStatus,
+            aiSummary: lastAiSummary || 'AI 校验通过 · 金额匹配'
+        });
+        MOCK_PENDING_LIST.unshift(pendingItem);
         addAuditLog('SUBMIT', newId + ' · ¥' + amount.toFixed(2), '成功');
         renderMyList();
+        renderApproveList();
         showSubmitSuccess(item);
     } else {
         resetResults();
@@ -1639,6 +1652,8 @@ function showResult(isItinerary) {
         '错误': { icon: '❌', label: '系统错误', cls: 'error' },
     };
     var meta = statusMap[data.status] || statusMap['通过'];
+    lastAiStatus = (data.status === '预警') ? 'warn' : (data.status === '拦截' ? 'block' : 'pass');
+    lastAiSummary = data.summary;
 
     var statusEl = document.getElementById('resultStatus');
     statusEl.className = 'result-status visible ' + meta.cls;
@@ -1981,17 +1996,21 @@ function handleApprove(id, action) {
 
     if (action === '通过') {
         if (!confirm('确认通过报销单 ' + id + '？')) return;
-        // 流转至财务待终审列表（保留归档状态为 pending）
+        // 流转至财务待终审列表（保留归档状态为 pending），插入头部使最新提交排在最前
         var finItem = Object.assign({}, item, {
             archiveStatus: 'pending',
             approver: ROLES.approver.user + '（已审批通过 ' + nowStr() + '）'
         });
-        MOCK_FINAL_LIST.push(finItem);
+        MOCK_FINAL_LIST.unshift(finItem);
         MOCK_PENDING_LIST = MOCK_PENDING_LIST.filter(function(x) { return x.id !== id; });
         approveDoneTotal++;
+        // 回流员工「我的报销单」：状态更新为已通过
+        var myItem = MOCK_MY_LIST.find(function(x) { return x.id === id; });
+        if (myItem) myItem.status = '已通过';
         addAuditLog('APPROVE', id + ' · ¥' + item.amount.toFixed(2), '成功');
         alert('已通过：' + id + '\n（已流转至财务终审列表）');
         renderApproveList();
+        renderMyList();
         return;
     }
 }
@@ -2226,10 +2245,14 @@ function handleFinance(id, action) {
         // 银行回单回写 → 补充归档（自动）
         item.receiptArchived = true;
         addAuditLog('RECEIPT_ARCHIVE', id + ' · 银行回单已回写归档', '成功');
+        // 回流员工「我的报销单」：状态更新为已打款
+        var myItem = MOCK_MY_LIST.find(function (x) { return x.id === id; });
+        if (myItem) myItem.status = '已打款';
         MOCK_FINAL_LIST = MOCK_FINAL_LIST.filter(function (x) { return x.id !== id; });
         alert('已打款：' + id + '\n（费用已发放；银行回单已自动回写归档）');
         renderFinReviewList();
         renderFinPayList();
+        renderMyList();
         return;
     }
 }
