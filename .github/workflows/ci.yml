@@ -48,27 +48,34 @@ jobs:
         if: ${{ needs.changes.outputs.python == 'true' }}
         run: black --check --line-length 100 .
 
+  # 同样的 guard 逻辑：始终运行，无 Python 改动时直接成功，
+  # 以防将来被设为分支保护的必需检查。
   typecheck:
     needs: changes
-    if: ${{ needs.changes.outputs.python == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Skip typecheck for non-Python changes
+        if: ${{ needs.changes.outputs.python != 'true' }}
+        run: echo "No Python changes detected — typecheck skipped, marking success."
 
       - name: Set up Python
+        if: ${{ needs.changes.outputs.python == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install deps + pyright
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: pip install -r requirements.txt pyright
 
       - name: Pyright
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: pyright
 
+  # 同样的 guard 逻辑：矩阵 job 始终运行（每条目都会快速成功），
+  # 无 Python 改动时直接成功，以防将来被设为分支保护的必需检查。
   test:
     needs: changes
-    if: ${{ needs.changes.outputs.python == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -77,15 +84,20 @@ jobs:
     env:
       DEEPSEEK_API_KEY: sk-test-dummy
     steps:
-      - uses: actions/checkout@v4
+      - name: Skip tests for non-Python changes
+        if: ${{ needs.changes.outputs.python != 'true' }}
+        run: echo "No Python changes detected — tests skipped, marking success."
 
       - name: Set up Python ${{ matrix.python-version }}
+        if: ${{ needs.changes.outputs.python == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install deps
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: pip install -r requirements.txt
 
       - name: Run tests
+        if: ${{ needs.changes.outputs.python == 'true' }}
         run: pytest tests/ -v --tb=short
