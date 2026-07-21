@@ -25,7 +25,7 @@ from skill import run_reimbursement_skill
 from skill import workflow as wf
 from skill.database import init_db
 from skill.utils import admin_store
-from skill.utils.mask_sensitive import mask_ocr_result
+from skill.utils.mask_sensitive import mask_amount, mask_ocr_result
 from skill.utils.structured_log import get_request_id, set_request_id
 
 # ── 数据库初始化 ──
@@ -349,7 +349,7 @@ def upload():
     # ── 写入审计日志（提交报销）──
     try:
         if "account" in session:
-            amt_str = f"¥{apply_amount:.2f}" if apply_amount is not None else ""
+            amt_str = mask_amount(apply_amount)
             target = amt_str if amt_str else "—"
             admin_store.add_audit_log(
                 session.get("name", "员工"),
@@ -526,7 +526,7 @@ def api_approve():
             action, action or ""
         )
         amt = result.get("apply_amount") if isinstance(result, dict) else None
-        amt_str = f" ¥{amt:.2f}" if isinstance(amt, (int, float)) else ""
+        amt_str = (" " + mask_amount(amt)) if amt is not None else ""
         admin_store.add_audit_log(
             session.get("name", "审批领导"),
             session.get("role", "审批领导"),
@@ -602,7 +602,7 @@ def api_finance():
                 audit_name,
                 audit_role,
                 "RECEIPT_ARCHIVE",
-                f"¥{result['apply_amount']:.2f}",
+                mask_amount(result.get("apply_amount")),
                 "成功",
                 request.remote_addr,
                 request_id=request_id,

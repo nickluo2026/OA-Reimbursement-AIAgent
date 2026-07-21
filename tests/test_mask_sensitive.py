@@ -1,10 +1,11 @@
 """敏感数据脱敏工具单元测试
 
-验证 mask_phone / mask_tax_id / mask_ocr_result 的正确性，
+验证 mask_phone / mask_tax_id / mask_ocr_result / mask_amount 的正确性，
 并确保脱敏不修改原始数据（数据库完整性）。
 """
 
 from skill.utils.mask_sensitive import (
+    mask_amount,
     mask_ip,
     mask_ocr_result,
     mask_phone,
@@ -140,3 +141,26 @@ class TestMaskOcrResult:
         masked = mask_ocr_result(ocr)
         # 非字符串值保持原样
         assert masked["手机号"] == 13812345678
+
+
+class TestMaskAmount:
+    def test_normal(self):
+        assert mask_amount(1234.56) == "¥1***.56"
+
+    def test_small(self):
+        assert mask_amount(425.80) == "¥4**.80"
+
+    def test_string_input(self):
+        assert mask_amount("300.00") == "¥3**.00"
+
+    def test_negative(self):
+        assert mask_amount(-50.0) == "-¥5*.00"
+
+    def test_zero(self):
+        assert mask_amount(0) == "¥*.00"
+
+    def test_none(self):
+        assert mask_amount(None) == ""
+
+    def test_invalid(self):
+        assert mask_amount("abc") == "abc"

@@ -22,6 +22,29 @@ def mask_tax_id(tax_id: str) -> str:
     return tax_id[:4] + "*" * (len(tax_id) - 8) + tax_id[-4:]
 
 
+def mask_amount(amount: Any) -> str:
+    """金额脱敏：保留币种符号、首位数与两位小数，中间以*替代。
+
+    1234.56 → ¥1***.56；425.80 → ¥4***.80；-50.00 → -¥5*.00；
+    非法值原样返回。用于审计日志等对外展示场景，避免精确金额泄露。
+    """
+    if amount is None:
+        return ""
+    try:
+        f = float(amount)
+    except (TypeError, ValueError):
+        return str(amount)
+    negative = f < 0
+    s = f"{abs(f):.2f}"
+    int_part, _, dec = s.partition(".")
+    if len(int_part) <= 1:
+        masked_int = "*" * len(int_part)
+    else:
+        masked_int = int_part[0] + "*" * (len(int_part) - 1)
+    sign = "-" if negative else ""
+    return f"{sign}¥{masked_int}.{dec}"
+
+
 def mask_ip(ip: str) -> str:
     """IP 地址脱敏：IPv4 保留前两段，后两段以 *** 替代。
     192.168.1.100 → 192.168.***.***
