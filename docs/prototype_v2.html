@@ -639,7 +639,7 @@ select.form-input { appearance: auto; }
             <strong>演示账号：</strong><br>
             普通员工 <code>EMP-2026</code> · 审批领导 <code>APR-001</code><br>
             财务复核 <code>FIN-001</code> · 出纳 <code>FIN-002</code> · 系统管理员 <code>ADM-001</code><br>
-            （密码：123456；归档与打款须由不同财务人员操作，防舞弊）<br>
+            （密码：123456；财务复核与打款须由不同财务人员操作，防舞弊）<br>
         </div>
     </div>
 </div>
@@ -1430,7 +1430,7 @@ function handleAction(status) {
         var newId = 'RB-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + seq;
         var item = {
             id: newId, type: type, category: category, amount: amount,
-            reason: reason, status: '审批中', submitTime: nowStr()
+            reason: reason, status: '待审批', submitTime: nowStr()
         };
         MOCK_MY_LIST.unshift(item);
         // 路由至审批领导待审队列（补齐 submitter / AI 校验字段供渲染）
@@ -1468,7 +1468,7 @@ function showSubmitSuccess(item) {
     html += infoItem('申请金额', '¥' + item.amount.toFixed(2));
     html += infoItem('费用类型', item.category || '—');
     html += infoItem('报销事由', item.reason || '—');
-    html += infoItem('当前状态', '审批中');
+    html += infoItem('当前状态', '待审批');
     html += '</div>';
     html += '<p class="remark-hint" style="margin-top:16px;">提交成功，系统已路由至审批领导，可在「我的报销」中查看审批进度。</p>';
     document.getElementById('submitSuccessBody').innerHTML = html;
@@ -2004,9 +2004,9 @@ function handleApprove(id, action) {
         MOCK_FINAL_LIST.unshift(finItem);
         MOCK_PENDING_LIST = MOCK_PENDING_LIST.filter(function(x) { return x.id !== id; });
         approveDoneTotal++;
-        // 回流员工「我的报销单」：状态更新为已通过
+        // 回流员工「我的报销单」：状态更新为已通过，并回写审批人
         var myItem = MOCK_MY_LIST.find(function(x) { return x.id === id; });
-        if (myItem) myItem.status = '已通过';
+        if (myItem) { myItem.status = '已通过'; myItem.approver = finItem.approver; }
         addAuditLog('APPROVE', id + ' · ¥' + item.amount.toFixed(2), '成功');
         alert('已通过：' + id + '\n（已流转至财务终审列表）');
         renderApproveList();
@@ -2025,20 +2025,22 @@ function viewDetail(id) {
     if (!item) { alert('未找到报销单 ' + id); return; }
 
     var typeTag = item.type === '发票' ? '🧾 发票' : '🚕 行程单';
-    var statusText = item.archiveStatus === 'archived' ? '已归档'
-        : (item.transferred ? '已转审' : (item.status || '待审'));
+    var statusText = item.archiveStatus === 'archived'
+        ? (item.paid ? '已打款' : '已复核并归档')
+        : (item.archiveStatus === 'pending' ? '待复核'
+        : (item.transferred ? '已转审' : (item.status || '待审批')));
 
     var html = '<div class="info-grid">';
     html += infoItem('报销单号', item.id);
     html += infoItem('票据类型', typeTag);
     html += infoItem('申请金额', '¥' + (item.amount != null ? item.amount.toFixed(2) : '—'));
     html += infoItem('费用类型', item.category || '—');
-    html += infoItem('提交人', item.submitter || '我（' + (ROLES.employee.account) + '）');
+    html += infoItem('提交人', ROLES.employee.account);
     html += infoItem('提交时间', item.submitTime || '—');
-    html += infoItem('审批人', item.approver || '—');
+    html += infoItem('审批人', ROLES.approver.account);
     html += infoItem('报销事由', item.reason || '—');
-    if (item.archivedBy) html += infoItem('归档人', item.archivedBy);
-    if (item.paidBy) html += infoItem('打款人', item.paidBy);
+    if (item.archivedBy) html += infoItem('复核人', ROLES.finance_review.account);
+    if (item.paidBy) html += infoItem('打款人', ROLES.finance_pay.account);
     html += infoItem('当前状态', statusText);
     html += '</div>';
 
@@ -2061,8 +2063,8 @@ function renderMyList() {
     } else {
         MOCK_MY_LIST.forEach(function(item) {
             var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
-            var statusTag = item.status === '审批中'
-                ? '<span class="tag status-pending">⏳ 审批中</span>'
+            var statusTag = item.status === '待审批'
+                ? '<span class="tag status-pending">⏳ 待审批</span>'
                 : item.status === '已通过'
                     ? '<span class="tag status-approved">✓ 已通过</span>'
                     : '<span class="tag status-paid">💰 已打款</span>';
@@ -2163,7 +2165,7 @@ function renderFinReviewList() {
                     '<div class="reimburse-item-tags">' + typeTag + aiTag + statusTag + '</div>' +
                     '<div class="reimburse-item-actions">' +
                         '<button class="btn-mini primary" onclick="viewDetail(\'' + item.id + '\')">📄 查看明细</button>' +
-                        '<button class="btn-mini success" onclick="handleFinance(\'' + item.id + '\', \'归档\')">📦 确认归档</button>' +
+                        '<button class="btn-mini success" onclick="handleFinance(\'' + item.id + '\', \'归档\')">📦 确认复核并归档</button>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -2217,7 +2219,7 @@ function handleFinance(id, action) {
     var currentAccount = (ROLES[currentRole] || ROLES.employee).account;
 
     if (action === '归档') {
-        if (!confirm('确认归档报销单 ' + id + '？')) return;
+        if (!confirm('确认复核并归档报销单 ' + id + '？')) return;
         item.archiveStatus = 'archived';
         item.archivedBy = currentAccount;   // 记录归档人，供打款校验
         addAuditLog('ARCHIVE', id + ' · ¥' + item.amount.toFixed(2) + ' · 归档人 ' + currentAccount, '成功');
@@ -2245,9 +2247,14 @@ function handleFinance(id, action) {
         // 银行回单回写 → 补充归档（自动）
         item.receiptArchived = true;
         addAuditLog('RECEIPT_ARCHIVE', id + ' · 银行回单已回写归档', '成功');
-        // 回流员工「我的报销单」：状态更新为已打款
+        // 回流员工「我的报销单」：状态更新为已打款，并回写审批人/归档人/打款人
         var myItem = MOCK_MY_LIST.find(function (x) { return x.id === id; });
-        if (myItem) myItem.status = '已打款';
+        if (myItem) {
+            myItem.status = '已打款';
+            myItem.approver = item.approver || myItem.approver;
+            myItem.archivedBy = item.archivedBy || myItem.archivedBy;
+            myItem.paidBy = item.paidBy || myItem.paidBy;
+        }
         MOCK_FINAL_LIST = MOCK_FINAL_LIST.filter(function (x) { return x.id !== id; });
         alert('已打款：' + id + '\n（费用已发放；银行回单已自动回写归档）');
         renderFinReviewList();

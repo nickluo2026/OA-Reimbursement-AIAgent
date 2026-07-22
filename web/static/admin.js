@@ -13,7 +13,27 @@ function switchTab(tabId) {
         p.style.display = (p.id === tabId) ? 'block' : 'none';
     });
     if (tabId === 'tab-audit') loadAudit();
-    if (tabId === 'tab-usage') loadUsage();
+    if (tabId === 'tab-usage') startUsageAutoRefresh();
+    else stopUsageAutoRefresh();
+}
+
+// ── 用量统计自动刷新 ──
+// DeepSeek / Vision API 调用在其它流程（如员工上传报销）完成后，用量统计
+// 列表的时间与明细应同步更新，故在「用量统计」Tab 激活时定时拉取最新数据。
+var USAGE_REFRESH_MS = 5000;
+var usageRefreshTimer = null;
+
+function startUsageAutoRefresh() {
+    stopUsageAutoRefresh();
+    loadUsage();
+    usageRefreshTimer = setInterval(loadUsage, USAGE_REFRESH_MS);
+}
+
+function stopUsageAutoRefresh() {
+    if (usageRefreshTimer) {
+        clearInterval(usageRefreshTimer);
+        usageRefreshTimer = null;
+    }
 }
 
 // ── 工具函数 ──
