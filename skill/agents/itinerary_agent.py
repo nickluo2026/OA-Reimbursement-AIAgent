@@ -21,7 +21,7 @@ from ..orchestrator.registry import register_agent
 from ..orchestrator.state import CheckStatus
 from ..tools.tool_itinerary_anomaly import detect_itinerary_anomaly
 from ..tools.tool_itinerary_ocr import ocr_extract_itinerary
-from ..tools.tool_itinerary_verify import verify_itinerary
+from ..tools.tool_itinerary_verify import _to_float, verify_itinerary
 from ..utils.db_store import (
     save_ai_check_result,
     save_invoice,
@@ -31,6 +31,11 @@ from ..utils.db_store import (
 from .base_agent import AgentMeta, BaseAgent
 
 logger = logging.getLogger(__name__)
+
+
+def _derive_expense_category(ocr_result: dict[str, Any]) -> str:
+    """行程单统一归为「交通」费用分类（可按 车型/起点 关键词扩展）。"""
+    return "交通"
 
 
 @register_agent
@@ -67,20 +72,33 @@ class ItineraryAgent(BaseAgent):
             }
 
         total_amount = ocr_result.get("总金额_元")
+        synced_amount = _to_float(total_amount)
         trip_count = len(ocr_result.get("行程详情") or [])
         logger.info("✓ 行程单 OCR 完成, 总金额: %s, 行程数: %d", total_amount, trip_count)
 
+        # 计算本次应回写的申请金额与费用类型（落库与接口返回复用同一份值）
+        written_amount = (
+            synced_amount
+            if synced_amount is not None
+            else (apply_amount if apply_amount is not None else 0.0)
+        )
+        written_category = (
+            state.get("expense_category") or _derive_expense_category(ocr_result)
+        )
+
         # ── 持久化：保存报销单 + 行程单 OCR 结果 ──
-        # 修复：与 ocr_node.py 对齐，允许 apply_amount 为空时也落库（0 占位），保证 update 阶段能找到记录
+        # 修复：
+        #  1) 回写 OCR 总金额到申请金额（缺失/非法时回退 state 原值，再兜底 0）
+        #  2) 费用类型：尊重用户预选，否则按行程单推导为「交通」
         if request_id:
             try:
                 save_reimbursement(
                     request_id=request_id,
                     employee_id=state.get("employee_id", "unknown"),
-                    apply_amount=apply_amount if apply_amount is not None else 0.0,
+                    apply_amount=written_amount,
                     apply_date=apply_date or "",
                     reason=state.get("reason", ""),
-                    expense_category=state.get("expense_category", ""),
+                    expense_category=written_category,
                 )
                 # 行程单复用 InvoiceRecord 表存储 OCR 原始结果
                 save_invoice(ocr_result, request_id, pdf_path)
@@ -173,4 +191,7 @@ class ItineraryAgent(BaseAgent):
             "itinerary_result": itinerary_result,
             "final_status": final_status,
             "summary": summary,
+            # 透传本次回写的金额/费用类型，供 Web 层 AI 回写展示
+            "apply_amount": written_amount,
+            "expense_category": written_category,
         }

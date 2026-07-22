@@ -435,27 +435,46 @@
     function applyAiWriteback(results) {
         if (!results || !results.length) return;
         var r = results[0];
-        // 申请金额：优先发票金额，兜底价税合计_小写
-        var ocr = r.ocr_result || {};
-        var amt = ocr['发票金额'] != null ? ocr['发票金额'] : ocr['价税合计_小写'];
+        var ticketType = (r._form && r._form.ticket_type) || '发票';
         var amtEl = document.getElementById('apply_amount');
-        if (amtEl && amt != null && amt !== '') {
-            amtEl.value = amt;
-            amtEl.classList.add('auto-filled');
-        }
-        // 费用类型：分类结果
-        var cls = r.classify_result || {};
-        var cat = cls['费用分类'];
         var catEl = document.getElementById('expense_category');
-        if (catEl && cat) {
-            // 尝试匹配下拉项
-            var matched = false;
-            for (var i = 0; i < catEl.options.length; i++) {
-                if (catEl.options[i].value === cat) { catEl.selectedIndex = i; matched = true; break; }
+
+        if (ticketType === '行程单') {
+            // 行程单：使用智能体回写的金额与费用类型（已写入 DB，并随响应透传）
+            var itAmt = r.apply_amount;
+            if (amtEl && itAmt != null && itAmt !== '') {
+                amtEl.value = itAmt;
+                amtEl.classList.add('auto-filled');
             }
-            if (!matched && catEl.options[0]) { catEl.options[0].text = '🤖 ' + cat; catEl.selectedIndex = 0; }
-            catEl.classList.add('auto-filled');
+            var itCat = r.expense_category;
+            if (catEl && itCat) {
+                var matchedIt = false;
+                for (var k = 0; k < catEl.options.length; k++) {
+                    if (catEl.options[k].value === itCat) { catEl.selectedIndex = k; matchedIt = true; break; }
+                }
+                if (!matchedIt && catEl.options[0]) { catEl.options[0].text = '🤖 ' + itCat; catEl.selectedIndex = 0; }
+                catEl.classList.add('auto-filled');
+            }
+        } else {
+            // 发票：从 OCR 字段与分类限额结果回写
+            var ocr = r.ocr_result || {};
+            var amt = ocr['发票金额'] != null ? ocr['发票金额'] : ocr['价税合计_小写'];
+            if (amtEl && amt != null && amt !== '') {
+                amtEl.value = amt;
+                amtEl.classList.add('auto-filled');
+            }
+            var cls = r.classify_result || {};
+            var cat = cls['费用分类'];
+            if (catEl && cat) {
+                var matched = false;
+                for (var i = 0; i < catEl.options.length; i++) {
+                    if (catEl.options[i].value === cat) { catEl.selectedIndex = i; matched = true; break; }
+                }
+                if (!matched && catEl.options[0]) { catEl.options[0].text = '🤖 ' + cat; catEl.selectedIndex = 0; }
+                catEl.classList.add('auto-filled');
+            }
         }
+
         // 申请日期：空则填系统日期
         var dateEl = document.getElementById('apply_date');
         if (dateEl && !dateEl.value) {
@@ -1030,6 +1049,12 @@
         return s;
     }
 
+    /* 仅保留年月日（YYYY-MM-DD），用于申请日期等无需具体时间的字段 */
+    function fmtDate(v) {
+        if (!v) return '—';
+        return String(v).replace('T', ' ').split(' ')[0] || '—';
+    }
+
     /* ── 查看报销单明细弹窗 ── */
     window.viewDetail = function (requestId) {
         var modal = document.getElementById('myDetailModal');
@@ -1061,7 +1086,7 @@
             { k: '申请金额', v: money(d.apply_amount) },
             { k: '报销事由', v: d.reason || '—' },
             { k: '费用类型', v: d.expense_category || '—' },
-            { k: '申请日期', v: fmtTime(d.apply_date) },
+            { k: '申请日期', v: fmtDate(d.apply_date) },
             { k: '当前状态', v: d.workflow_status || '—' },
             { k: '提交时间', v: fmtTime(d.created_at) },
         ];
@@ -1108,10 +1133,13 @@
                 '<th>发票号码</th><th>类型</th><th>金额(元)</th><th>销售方</th><th>开票日期</th>' +
                 '</tr></thead><tbody>';
             invoices.forEach(function (inv) {
+                var invNo = inv.invoice_number;
+                var noCell = invNo ? escHtml(invNo) : '缺失，请补上发票';
+                var amtCell = invNo && inv.invoice_amount != null ? money(inv.invoice_amount) : '—';
                 html += '<tr>' +
-                    '<td>' + escHtml(inv.invoice_number || '—') + '</td>' +
+                    '<td>' + noCell + '</td>' +
                     '<td>' + escHtml(inv.invoice_type || '—') + '</td>' +
-                    '<td>' + escHtml(inv.invoice_amount != null ? money(inv.invoice_amount) : '—') + '</td>' +
+                    '<td>' + escHtml(amtCell) + '</td>' +
                     '<td>' + escHtml(inv.seller_name || '—') + '</td>' +
                     '<td>' + escHtml(fmtTime(inv.invoice_date)) + '</td>' +
                 '</tr>';

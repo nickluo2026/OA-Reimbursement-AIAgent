@@ -96,6 +96,9 @@ def run_reimbursement_skill(
         "verify_result": final.get("verify_result"),  # 功能5：发票真伪查验
         "final_status": final_status,  # 最终状态枚举（PASS/WARN/BLOCK）
         "summary": final.get("summary", ""),
+        # 行程单智能体回写的金额/费用类型（发票流程此值为表单原值，前端按票据类型区分使用）
+        "apply_amount": final.get("apply_amount"),
+        "expense_category": final.get("expense_category"),
     }
 
 

@@ -146,8 +146,11 @@
             html += '<h3 style="margin:18px 0 8px;font-size:15px;">🧾 关联发票</h3><div class="info-grid">';
             d.invoices.forEach(function (inv) {
                 var invNo = inv.invoice_number;
-                var invLabel = invNo ? '发票号 ' + esc(invNo) : '发票号：缺失';
-                html += infoItem(invLabel, money(inv.invoice_amount));
+                if (invNo) {
+                    html += infoItem('发票号 ' + esc(invNo), money(inv.invoice_amount));
+                } else {
+                    html += infoItem('发票号', '缺失，请补上发票');
+                }
             });
             html += '</div>';
         }

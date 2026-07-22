@@ -12,8 +12,19 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
+
+
+def _utc_to_local(dt: datetime | None) -> datetime | None:
+    """将 naive UTC 时间转为本地时间（去掉时区信息），使展示时间与系统时钟一致。
+
+    数据库以 UTC 存储（见 database.utcnow），序列化时若不转换，
+    前端会把 UTC 字符串当作本地时间显示，导致与系统时间相差时区偏移。
+    """
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
 
 from .database import ApprovalRecord, get_session, utcnow
 from .tools.tool_approval_routing import determine_approval_route
@@ -171,7 +182,7 @@ def serialize(r) -> dict[str, Any]:
         "expense_category": r.expense_category,
         "ai_status": r.ai_status,
         "workflow_status": r.workflow_status,
-        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
         "ticket_type": _ticket_type_of(r.request_id),
         "ai_summary": get_ai_summary_text(r.request_id),
         "route": route,
@@ -219,7 +230,7 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
         "expense_category": r.expense_category,
         "ai_status": r.ai_status,
         "workflow_status": r.workflow_status,
-        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
         "route": compute_route(r.apply_amount),
         "archived_by": r.archived_by or "",
         "paid_by": r.paid_by or "",

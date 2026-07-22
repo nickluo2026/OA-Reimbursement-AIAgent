@@ -46,6 +46,9 @@ class TestItineraryAgent:
         assert result["anomaly_result"] is not None
         assert result["itinerary_result"] is not None
         assert result["classify_result"] is None  # 行程单无分类限额
+        # 透传：回写值应随响应返回，供 Web 层展示
+        assert result["apply_amount"] == 85.5
+        assert result["expense_category"] == "交通"
 
     def test_ocr_error_returns_early(self, mock_ocr, mock_anomaly, mock_verify):
         """OCR 失败时立即返回"""
@@ -150,6 +153,84 @@ class TestItineraryAgent:
         mock_invoice.assert_called_once()
         # save_ai_check_result 在 OCR/异常检测/合理性校验三处
         assert mock_save.call_count >= 2
+
+        # 修复验证：OCR 总金额应回写为申请金额，且费用类型推导为「交通」
+        kw = mock_reimb.call_args.kwargs
+        assert kw["apply_amount"] == 85.5
+        assert kw["expense_category"] == "交通"
+
+    @patch("skill.agents.itinerary_agent.update_ai_status")
+    @patch("skill.agents.itinerary_agent.save_ai_check_result")
+    @patch("skill.agents.itinerary_agent.save_invoice")
+    @patch("skill.agents.itinerary_agent.save_reimbursement")
+    def test_persistence_empty_ocr_amount_falls_back(
+        self,
+        mock_reimb,
+        mock_invoice,
+        mock_save,
+        mock_update,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
+        sample_itinerary_data,
+        sample_itinerary_anomaly_pass,
+        sample_itinerary_verify_pass,
+    ):
+        """OCR 总金额为空时，申请金额回退到 state 原值"""
+        empty_total = dict(sample_itinerary_data)
+        empty_total["总金额_元"] = ""
+        mock_ocr.return_value = empty_total
+        mock_anomaly.return_value = sample_itinerary_anomaly_pass
+        mock_verify.return_value = sample_itinerary_verify_pass
+
+        _ = run_reimbursement_skill(
+            pdf_path="itinerary.pdf",
+            apply_amount=200,
+            apply_date="2026-06-10",
+            request_id="REQ-ITN-002",
+            employee_id="E001",
+            ticket_type="行程单",
+        )
+
+        kw = mock_reimb.call_args.kwargs
+        assert kw["apply_amount"] == 200  # 回退到 state 原值
+        assert kw["expense_category"] == "交通"
+
+    @patch("skill.agents.itinerary_agent.update_ai_status")
+    @patch("skill.agents.itinerary_agent.save_ai_check_result")
+    @patch("skill.agents.itinerary_agent.save_invoice")
+    @patch("skill.agents.itinerary_agent.save_reimbursement")
+    def test_persistence_respects_user_expense_category(
+        self,
+        mock_reimb,
+        mock_invoice,
+        mock_save,
+        mock_update,
+        mock_ocr,
+        mock_anomaly,
+        mock_verify,
+        sample_itinerary_data,
+        sample_itinerary_anomaly_pass,
+        sample_itinerary_verify_pass,
+    ):
+        """用户已预选费用分类时，应尊重用户选择而非推导值"""
+        mock_ocr.return_value = sample_itinerary_data
+        mock_anomaly.return_value = sample_itinerary_anomaly_pass
+        mock_verify.return_value = sample_itinerary_verify_pass
+
+        _ = run_reimbursement_skill(
+            pdf_path="itinerary.pdf",
+            apply_amount=100,
+            apply_date="2026-06-10",
+            request_id="REQ-ITN-003",
+            employee_id="E001",
+            expense_category="差旅",
+            ticket_type="行程单",
+        )
+
+        kw = mock_reimb.call_args.kwargs
+        assert kw["apply_amount"] == 85.5  # OCR 总金额仍回写
+        assert kw["expense_category"] == "差旅"  # 尊重用户预选
 
 
 class TestItineraryRouting:
