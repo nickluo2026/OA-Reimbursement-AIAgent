@@ -27,6 +27,8 @@ uploads/
 *.db
 *.sqlite3
 # oa_agent.db 由 *.db 覆盖，切勿手动 git add
+# 数据库备份（手动清理工具生成，不入库）
+oa_agent.db.bak-*
 
 # pytest
 .pytest_cache/

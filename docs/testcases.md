@@ -2,33 +2,36 @@
 
 | 项目 | OA-Reimbursement-AIAgent（报销 AI 智能体系统） |
 |------|------|
-| 版本 | V1.7 |
+| 版本 | V1.9 |
 | 测试框架 | pytest 8.3.4 |
 | Python 版本 | 3.10.4 |
 | 执行命令 | `python3 -m pytest tests/ -v --tb=short` |
-| 用例总数 | 198 |
+| 用例总数 | 231 |
 
-> 本文档汇总项目全部 13 个测试文件、198 项测试用例，覆盖功能测试、集成测试、端到端全链路测试、安全测试、数据隐私保护测试、性能测试六大维度。
+> 本文档汇总项目 16 个测试文件、231 项测试用例，覆盖功能测试、集成测试、安全测试、端到端全链路测试、数据隐私保护测试、性能测试六大维度。安全测试（认证 / 授权 / 职责分离，共 18 项）已从集成 / 功能维度拆分独立成章（与 `test_report.html` 一致）。
 
 ---
 
 ## 目录
 
-- [一、功能测试用例（79 项）](#一功能测试用例79-项)
+- [一、功能测试用例（95 项）](#一功能测试用例95-项)
   - [1.1 OCR 提取（test_ocr_extract.py · 4 项）](#11-ocr-提取test_ocr_extractpy--4-项)
-  - [1.2 异常检测（test_anomaly_check.py · 16 项）](#12-异常检测test_anomaly_checkpy--16-项)
-  - [1.3 分类限额（test_classify_limit.py · 3 项）](#13-分类限额test_classify_limitpy--3-项)
+  - [1.2 异常检测（test_anomaly_check.py · 15 项）](#12-异常检测test_anomaly_checkpy--15-项)
+  - [1.3 分类限额（test_classify_limit.py · 4 项）](#13-分类限额test_classify_limitpy--4-项)
   - [1.4 行程单工具（test_itinerary_verify.py · 14 项）](#14-行程单工具test_itinerary_verifypy--14-项)
-  - [1.5 审批工作流（test_workflow.py · 23 项）](#15-审批工作流test_workflowpy--23-项)
+  - [1.5 审批工作流（test_workflow.py · 25 项）](#15-审批工作流test_workflowpy--25-项)
   - [1.6 系统配置端到端（test_system_config_e2e.py · 19 项）](#16-系统配置端到端test_system_config_e2epy--19-项)
-- [二、集成测试用例（54 项）](#二集成测试用例54-项)
+  - [1.7 发票真伪查验（test_verify_invoice.py · 6 项）](#17-发票真伪查验test_verify_invoicepy--6-项)
+  - [1.8 模型配置自检（test_model_config_selfcheck.py · 9 项）](#18-模型配置自检test_model_config_selfcheckpy--9-项)
+  - [1.9 视觉模型接线（test_vision_model_wiring.py · 2 项）](#19-视觉模型接线test_vision_model_wiringpy--2-项)
+- [二、集成测试用例（46 项）](#二集成测试用例46-项)
   - [2.1 Agent 编排（test_agent.py · 12 项）](#21-agent-编排test_agentpy--12-项)
-  - [2.2 行程单 Agent（test_itinerary_agent.py · 8 项）](#22-行程单-agenttest_itinerary_agentpy--8-项)
-  - [2.3 审批/财务 API（test_api_approve_finance.py · 18 项）](#23-审批财务-apitest_api_approve_financepy--18-项)
+  - [2.2 行程单 Agent（test_itinerary_agent.py · 10 项）](#22-行程单-agenttest_itinerary_agentpy--10-项)
+  - [2.3 审批/财务 API（test_api_approve_finance.py · 23 项）](#23-审批财务-apitest_api_approve_financepy--23-项)
   - [2.4 管理员后台（test_admin.py · 16 项）](#24-管理员后台test_adminpy--16-项)
 - [三、端到端全链路测试用例（2 项）](#三端到端全链路测试用例2-项)
-- [四、安全测试用例（22 项）](#四安全测试用例22-项)
-- [五、数据隐私保护测试用例（22 项）](#五数据隐私保护测试用例22-项)
+- [四、安全测试用例（18 项）](#四安全测试用例18-项)
+- [五、数据隐私保护测试用例（29 项）](#五数据隐私保护测试用例29-项)
 - [六、性能测试用例（41 项）](#六性能测试用例41-项)
 
 ---
@@ -37,17 +40,17 @@
 
 | 测试类型 | 测试文件 | 用例数 |
 |---------|---------|-------|
-| 功能测试 | test_ocr_extract / test_anomaly_check / test_classify_limit / test_itinerary_verify / test_workflow / test_system_config_e2e | 79 |
-| 集成测试 | test_agent / test_itinerary_agent / test_api_approve_finance / test_admin | 54 |
+| 功能测试 | test_ocr_extract / test_anomaly_check / test_classify_limit / test_itinerary_verify / test_workflow / test_system_config_e2e / test_verify_invoice / test_model_config_selfcheck / test_vision_model_wiring | 95 |
+| 集成测试 | test_agent / test_itinerary_agent / test_api_approve_finance / test_admin | 46 |
+| 安全测试 | test_api_approve_finance / test_admin / test_system_config_e2e / test_workflow（认证 / 授权 / 职责分离） | 18 |
 | 端到端测试 | test_e2e | 2 |
-| 安全测试 | test_admin / test_api_approve_finance（认证授权用例） + 静态检查 | 22 |
-| 数据隐私保护 | test_mask_sensitive | 22 |
+| 数据隐私保护 | test_mask_sensitive | 29 |
 | 性能测试 | test_performance | 41 |
-| **合计** | **13 个文件** | **198** |
+| **合计** | **16 个文件** | **231** |
 
 ---
 
-## 一、功能测试用例（79 项）
+## 一、功能测试用例（95 项）
 
 > 覆盖三大核心工具（OCR提取/异常检测/分类限额）、行程单工具、审批工作流纯逻辑。
 
@@ -62,7 +65,7 @@
 | 3 | TestOcrExtractInvoice | test_pdf_read_error | PDF 无文本层（扫描件）时抛 RuntimeError | 返回字典包含 `_error` 键 |
 | 4 | TestOcrExtractInvoice | test_deepseek_failure_returns_error | DeepSeek 调用失败（超时/API错误）时返回错误 | 返回字典包含 `_error` 键 |
 
-### 1.2 异常检测（test_anomaly_check.py · 16 项）
+### 1.2 异常检测（test_anomaly_check.py · 15 项）
 
 **被测模块**：`skill/tools/tool_anomaly_check.py` → `_rule_based_check()` / `_summarize()` / `detect_anomaly()`
 
@@ -97,7 +100,7 @@
 | 19 | test_call_deepseek_when_rules_pass | 规则检查通过时调用 DeepSeek 做语义补充 | DeepSeek 被调用1次，`总体结论 == "通过"` |
 | 20 | test_merge_rule_and_deepseek_results | 规则引擎与 DeepSeek 结果应合并，取更严格结论 | 异常数 ≥ 1，结论为「拦截」或「预警」 |
 
-### 1.3 分类限额（test_classify_limit.py · 3 项）
+### 1.3 分类限额（test_classify_limit.py · 4 项）
 
 **被测模块**：`skill/tools/tool_classify_limit.py` → `classify_and_check_limit()`
 
@@ -135,7 +138,7 @@
 | 36 | test_continuity_warning | 行程间隔9天 > 72小时 → 预警 | `校验结论 == "预警"`，含「间隔」 |
 | 37 | test_missing_dates_block | 日期缺失 → 拦截 | `校验结论 == "拦截"` |
 
-### 1.5 审批工作流（test_workflow.py · 23 项）
+### 1.5 审批工作流（test_workflow.py · 25 项，含 1 项安全见第四章）
 
 **被测模块**：`skill/workflow.py` → `compute_route()` / `submit_approval()` / `submit_finance()` / 列表查询 / 统计
 
@@ -194,7 +197,7 @@
 
 ---
 
-### 1.6 系统配置端到端（test_system_config_e2e.py · 19 项）
+### 1.6 系统配置端到端（test_system_config_e2e.py · 19 项，含 2 项安全见第四章）
 
 **被测模块**：`web/app.py` 管理员配置 API + `skill/utils/admin_store.py` + `skill/config.py` + `skill/orchestrator/nodes/verify_node.py` + `skill/tools/tool_approval_routing.py`
 
@@ -254,11 +257,51 @@
 | 219 | test_other_limit_overrides_yaml | 其他限额覆盖 YAML 默认 | `get_category_limits()["其他"] == 800.0` |
 | 220 | test_all_category_limits_override | 全部分类限额覆盖生效 | 交通/住宿/餐饮/办公/其他均按新值 |
 
+### 1.7 发票真伪查验（test_verify_invoice.py · 6 项）
+
+**被测模块**：`skill/tools/tool_verify_invoice.py` → `verify_invoice()`（Mock Provider）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 221 | test_mock_normal_passes | 正常发票（INV-1001）查验 | 查验状态「正常」、总体结论「通过」 |
+| 222 | test_mock_void_blocks | 作废发票（INV-VOID-1）查验 | 查验状态「作废」、总体结论「拦截」 |
+| 223 | test_mock_red_blocks | 红冲发票（INV-RED-1）查验 | 查验状态「红冲」、总体结论「拦截」 |
+| 224 | test_mock_fake_blocks | 查无此票（INV-FAKE-1）查验 | 查验状态「查无此票」、总体结论「拦截」 |
+| 225 | test_block_on_fake_false_downgrades_to_warn | `block_on_fake=False` 时降级为预警 | 总体结论「预警」 |
+| 226 | test_unknown_provider_falls_back_to_mock | 未知 provider 回退 mock | 查验平台「mock」、状态「正常」 |
+
+### 1.8 模型配置自检（test_model_config_selfcheck.py · 9 项）
+
+**被测模块**：`skill/config.py` → `self_check_model_config()`、`skill/utils/admin_store.py` → `calc_cost_cny`、`skill_manifest.yaml`
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 227 | test_selfcheck_default_ok | 健康配置自检 | `ok is True`、issues 为空、模型与定价常量正确 |
+| 228 | test_selfcheck_missing_api_key | 缺失 DEEPSEEK_API_KEY | `ok is False`、issue 含 `DEEPSEEK_API_KEY` |
+| 229 | test_selfcheck_legacy_text_model | 文本模型为退役模型 deepseek-chat | `ok is False`、issue 含「退役」 |
+| 230 | test_selfcheck_legacy_vision_model | 视觉模型为退役模型 deepseek-reasoner | `ok is False`、issue 含「退役」 |
+| 231 | test_selfcheck_invalid_base_url | base_url 非 https | `ok is False`、issue 含 `https` |
+| 232 | test_price_override_reflected_in_admin_store | 定价经环境变量覆盖后 admin_store 复用 | `calc_cost_cny(1000,1000) == 0.015` |
+| 233 | test_calc_cost_default_pricing | 默认定价费用估算 | `calc_cost_cny(1000,1000) == 0.003` |
+| 234 | test_admin_store_no_legacy_vl_constant | 已无 deepseek-vl 硬编码 | `DEEPSEEK_VISION_MODEL == "deepseek-v4-flash"` |
+| 235 | test_manifest_aligns_with_config_default | manifest 与 config 默认模型对齐 | manifest 的 deepseek_model / vision_model 与 config 一致 |
+
+### 1.9 视觉模型接线（test_vision_model_wiring.py · 2 项）
+
+**被测模块**：`skill/tools/tool_ocr_extract.py` / `tool_itinerary_ocr.py` → OCR 视觉调用接线（C1/C3 验收，mock `requests.post`）
+
+| # | 测试方法 | 用例说明 | 预期结果 |
+|---|---------|---------|---------|
+| 236 | test_invoice_vision_uses_vision_model_and_records_latency | 发票 OCR 走 Vision API | payload.model == DEEPSEEK_VISION_MODEL；用量记录 model 正确、latency_ms 为非负整数 |
+| 237 | test_itinerary_vision_uses_vision_model_and_records_latency | 行程单 OCR 走 Vision API | payload.model == DEEPSEEK_VISION_MODEL；用量记录 model 正确、latency_ms 为非负整数 |
+
 ---
 
-## 二、集成测试用例（54 项）
+## 二、集成测试用例（46 项）
 
 > 通过 Flask `test_client` 与 mock AI 工具，验证 Web 层路由、StateGraph 编排、API、数据库持久化的端到端协同。
+
+> **安全用例已拆分**：本节各子节的认证（`*_requires_login`）、授权（`*_forbidden_*`）用例已归入[第四章安全测试](#四安全测试用例18-项)，下表计数已扣除，与安全章不重复计算。职责分离用例（`test_finance_segregation_api` / `test_segregation_violation_same_person`）亦在第四章。
 
 ### 2.1 Agent 编排（test_agent.py · 12 项）
 
@@ -286,7 +329,7 @@
 | 71 | test_route_after_anomaly_skip | 金额50 ≤ 100 → skip（小额免审） | `route_after_anomaly({ocr_result: {发票金额: 50}}) == "skip"` |
 | 72 | test_route_after_anomaly_boundary | 金额恰好100 → skip（边界值，> 100 才分类） | `route_after_anomaly({ocr_result: {发票金额: 100}}) == "skip"` |
 
-### 2.2 行程单 Agent（test_itinerary_agent.py · 8 项）
+### 2.2 行程单 Agent（test_itinerary_agent.py · 10 项）
 
 **被测模块**：`skill/agents/itinerary_agent.py` → `ItineraryAgent.run()` + `skill/orchestrator/graph.py` → `route_by_ticket_type()`
 
@@ -308,7 +351,7 @@
 | 79 | test_route_itinerary | 行程单类型 → itinerary 节点 | `route_by_ticket_type({ticket_type: "行程单"}) == "行程单"` |
 | 80 | test_route_default | 默认 → 发票 | `route_by_ticket_type({}) == "发票"` |
 
-### 2.3 审批/财务 API（test_api_approve_finance.py · 18 项）
+### 2.3 审批/财务 API（test_api_approve_finance.py · 23 项，含 7 项安全见第四章）
 
 **被测模块**：`web/app.py` 审批/财务路由 + `skill/workflow.py`
 
@@ -352,7 +395,7 @@
 
 > **职责分离说明（前端原型层）**：`prototype.html` V1.5 已将「财务人员」拆为 **财务复核（FIN-001）** 与 **出纳（FIN-002）** 两个互斥角色，并在打款动作强制校验「打款人 ≠ 归档人」，同一人归档+打款将被拦截。该防舞弊约束当前由**前端原型**承载；后端 `skill/workflow.py::submit_finance()` 尚未强制此约束（仍接受单一 `finance_id` 同时归档与打款），建议后续后端补全 `archived_by` / `paid_by` 比对校验，并相应补充自动化用例（见第七节）。
 
-### 2.4 管理员后台（test_admin.py · 16 项）
+### 2.4 管理员后台（test_admin.py · 16 项，含 8 项安全见第四章）
 
 **被测模块**：`web/app.py` 管理员路由 + `skill/utils/admin_store.py`
 
@@ -407,68 +450,71 @@
 
 ---
 
-## 四、安全测试用例（22 项）
+## 四、安全测试用例（18 项）
 
-> 安全测试覆盖认证、授权、越权防护、CSRF、注入防护、RCE防护、文件上传安全、会话安全等。
+> 安全测试覆盖**认证（登录校验）**、**授权（越权拦截）**、**职责分离**三类控制点，用例取自 `test_api_approve_finance.py`、`test_admin.py`、`test_system_config_e2e.py`（登录校验开关）与 `test_workflow.py`（职责分离），原散落于「集成测试 / 功能测试」维度，现独立成维度（与 `test_report.html` 一致）。CSRF / 注入 / RCE / 文件上传等以**静态代码审查**验证，见 4.4 节，不计入 18 项动态用例。
 
-### 4.1 认证与会话安全（6 项）
+### 4.1 认证（登录校验）（8 项）
 
 | # | 测试方法 | 来源文件 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|---------|
-| 117 | test_approve_list_requires_login | test_api_approve_finance.py | 待审列表 API 未登录 → 401 | `status_code == 401` |
+| 117 | test_admin_page_requires_login | test_admin.py | 管理页未登录 → 重定向 | `status_code == 302` |
 | 118 | test_config_requires_login | test_admin.py | 系统配置 API 未登录 → 401 | `status_code == 401` |
 | 119 | test_audit_requires_login | test_admin.py | 审计日志 API 未登录 → 401 | `status_code == 401` |
 | 120 | test_usage_requires_login | test_admin.py | 用量统计 API 未登录 → 401 | `status_code == 401` |
-| 121 | test_admin_page_requires_login | test_admin.py | 管理页未登录 → 重定向登录 | `status_code == 302` |
-| 122 | test_approve_page_requires_login | test_api_approve_finance.py | 审批页未登录 → 重定向登录 | `status_code == 302` |
+| 121 | test_approve_page_requires_login | test_api_approve_finance.py | 审批页未登录 → 重定向登录 | `status_code == 302` |
+| 122 | test_approve_list_requires_login | test_api_approve_finance.py | 待审列表 API 未登录 → 401 | `status_code == 401` |
+| 123 | test_auth_disabled_skips_verify | test_system_config_e2e.py | `rule_invoice_auth=False` 时 verify 节点跳过查验 | 结论「通过」，摘要含「停用」 |
+| 124 | test_auth_enabled_runs_verify | test_system_config_e2e.py | 默认启用时 verify 节点执行查验 | 查验状态「正常」 |
 
-> **静态验证**：密码使用 werkzeug `generate_password_hash` 哈希存储（实测算法 scrypt:32768:8:1），非明文；Flask Secret Key 通过环境变量配置，未设置时生成随机临时密钥并警告；Session Cookie HTTPONLY=True / SAMESITE=Lax / SECURE 按 OA_ENV=production 启用。
+> **静态验证**：密码经 werkzeug `generate_password_hash`（scrypt）哈希存储，非明文；Flask Secret Key 经环境变量配置，未设置时生成随机临时密钥并警告；Session Cookie `HTTPONLY=True / SAMESITE=Lax / SECURE` 按 `OA_ENV=production` 启用。
 
-### 4.2 授权与越权防护（8 项）
+### 4.2 授权（越权拦截）（8 项）
 
 | # | 测试方法 | 来源文件 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|---------|
-| 123 | test_approve_forbidden_for_employee | test_api_approve_finance.py | 员工无权审批 → 403 | `status_code == 403` |
-| 124 | test_finance_forbidden_for_approver | test_api_approve_finance.py | 审批人无权财务操作 → 403 | `status_code == 403` |
-| 125 | test_config_forbidden_for_employee | test_admin.py | 员工无权访问配置 → 403 | `status_code == 403` |
-| 126 | test_audit_forbidden_for_employee | test_admin.py | 员工无权查看审计 → 403 | `status_code == 403` |
-| 127 | test_usage_forbidden_for_employee | test_admin.py | 员工无权查看用量 → 403 | `status_code == 403` |
-| 128 | test_approve_page_forbidden_for_employee | test_api_approve_finance.py | 员工访问审批页 → 提示无权限 | 含「无审批权限」 |
-| 129 | test_admin_page_forbidden_for_employee | test_admin.py | 员工访问管理页 → 提示无权限 | 含「无系统管理权限」 |
-| 130 | test_approve_invalid_action | test_api_approve_finance.py | 非法审批动作 → 400 | `status_code == 400` |
+| 125 | test_admin_page_forbidden_for_employee | test_admin.py | 员工访问管理页 → 提示无权限 | 含「无系统管理权限」 |
+| 126 | test_config_forbidden_for_employee | test_admin.py | 员工无权访问配置 → 403 | `status_code == 403` |
+| 127 | test_audit_forbidden_for_employee | test_admin.py | 员工无权查看审计 → 403 | `status_code == 403` |
+| 128 | test_usage_forbidden_for_employee | test_admin.py | 员工无权查看用量 → 403 | `status_code == 403` |
+| 129 | test_approve_page_forbidden_for_employee | test_api_approve_finance.py | 员工访问审批页 → 提示无权限 | 含「无审批权限」 |
+| 130 | test_approve_forbidden_for_employee | test_api_approve_finance.py | 员工无权审批 → 403 | `status_code == 403` |
+| 131 | test_finance_forbidden_for_approver | test_api_approve_finance.py | 审批人无权财务操作 → 403 | `status_code == 403` |
+| 132 | test_update_forbidden_for_other_employee | test_api_approve_finance.py | 他人报销单不可被修改 → 403 | `status_code == 403` |
 
 > **静态验证**：普通员工数据归属校验 [S-004]（`reb.employee_id != session["account"]` → 403）；审批/财务状态机约束（已驳回不可重复审批、未归档不可打款、已打款不可重复打款）。
 
-### 4.3 CSRF 防护（1 项动态 + 静态验证）
+### 4.3 职责分离（2 项）
 
 | # | 测试方法 | 来源文件 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|---------|
-| 131 | test_approve_pass | test_api_approve_finance.py | 审批 API POST 携带正确 CSRF token（TESTING 模式跳过校验） | `workflow_status == "待复核"` |
+| 133 | test_finance_segregation_api | test_api_approve_finance.py | 同一账号既归档又打款 → 403 舞弊拦截 | `status_code == 403`，错误含「舞弊」/「归档人」 |
+| 134 | test_segregation_violation_same_person | test_workflow.py | 同一人归档+打款违反职责分离 → 拦截 | 抛出 `ValueError` / 拦截 |
 
-> **静态验证**：`_csrf_protect()` 拦截所有 POST/PUT/DELETE/PATCH，校验 session token 与表单/请求头一致性；CSRF Token 通过 `secrets.token_hex(32)` 生成 256 位随机值；登录表单单独校验 CSRF。
+> **说明**：原型层 `prototype.html` 已拆分「财务复核(FIN-001)」与「出纳(FIN-002)」互斥角色并强制「打款人 ≠ 归档人」；后端 `skill/workflow.py::submit_finance()` 的职责分离由本节动态用例覆盖，详见第七章前端清单。
 
-### 4.4 注入与 RCE 防护（静态扫描 · 4 项）
+### 4.4 静态安全验证（不计入 18 项动态用例）
 
-| # | 检查项 | 扫描方式 | 用例说明 | 预期结果 |
-|---|--------|---------|---------|---------|
-| 132 | SQL 注入防护 | 代码扫描 `text()/execute()/.raw()` | 全量使用 SQLAlchemy ORM 参数化查询 | 唯一 `text()` 为 ALTER TABLE 迁移 DDL，无用户输入拼接 |
-| 133 | XSS 防护 | Jinja2 autoescape 验证 | Flask Jinja2 默认开启自动转义 | `.html` 模板输出自动 HTML 转义 |
-| 134 | RCE 防护 | 代码扫描 `eval()/exec()/os.system()/subprocess/` | 无任意代码执行风险 | 0 处命中 |
-| 135 | 命令注入防护 | 代码扫描 `shell=True/pickle.load` | 无命令注入风险 | 0 处命中 |
+> 以下以代码审查 / 静态扫描验证，无独立 pytest 函数，故不计入动态用例计数，但与 4.1–4.3 共同构成安全防线。
 
-### 4.5 文件上传与调试安全（3 项静态验证）
+#### CSRF 防护（静态）
+- `_csrf_protect()` 拦截所有 POST/PUT/DELETE/PATCH，校验 session token 与表单/请求头一致性；CSRF Token 经 `secrets.token_hex(32)` 生成 256 位随机值；登录表单单独校验 CSRF。（TESTING 模式下跳过校验，故动态用例 `test_approve_pass` 等仅在启用 CSRF 时验证 token 携带）
 
-| # | 检查项 | 验证方式 | 用例说明 | 预期结果 |
-|---|--------|---------|---------|---------|
-| 136 | 文件类型白名单 | 代码审查 `allowed_file()` | 仅允许 .pdf/.jpg/.jpeg/.png | 扩展名校验生效 |
-| 137 | 文件大小限制 | 代码审查 `MAX_CONTENT_LENGTH` | 超过 10MB 返回 413 | `MAX_CONTENT_LENGTH == 10485760` |
-| 138 | Debug 模式默认关闭 | 代码审查 `run_web.py` | Werkzeug debugger RCE 风险规避 | `FLASK_DEBUG` 默认 0（关闭） |
+#### 注入与 RCE 防护（静态扫描）
+- **SQL 注入**：全量使用 SQLAlchemy ORM 参数化查询；唯一 `text()` 为 ALTER TABLE 迁移 DDL，无用户输入拼接。
+- **XSS 防护**：Flask Jinja2 默认开启自动转义，`.html` 模板输出自动 HTML 转义。
+- **RCE 防护**：代码扫描 `eval()/exec()/os.system()/subprocess/`，0 处命中。
+- **命令注入防护**：扫描 `shell=True/pickle.load`，0 处命中。
 
-> **附加静态验证**：上传文件重命名为 `uuid4().hex + ext`，消除路径遍历风险；AI 校验后 `save_path.unlink()` 删除临时文件；API Key 通过 `os.getenv` 读取，全量扫描硬编码密钥 0 命中。
+#### 文件上传与调试安全（静态）
+- **文件类型白名单**：`allowed_file()` 仅允许 .pdf/.jpg/.jpeg/.png。
+- **文件大小限制**：`MAX_CONTENT_LENGTH == 10485760`（10MB），超限返回 413。
+- **Debug 模式默认关闭**：`run_web.py` 中 `FLASK_DEBUG` 默认 0，规避 Werkzeug debugger RCE；并已于 `app.py` 移除尾部 `app.run(debug=False, host="0.0.0.0")`，改由 `run_web.py` 启动，避免 0.0.0.0 暴露。
+- **附加**：上传文件重命名为 `uuid4().hex + ext`（消除路径遍历）；AI 校验后 `save_path.unlink()` 删除临时文件；API Key 经 `os.getenv` 读取，全量扫描硬编码密钥 0 命中。
 
 ---
 
-## 五、数据隐私保护测试用例（22 项）
+## 五、数据隐私保护测试用例（29 项）
 
 **被测模块**：`skill/utils/mask_sensitive.py` → `mask_phone()` / `mask_tax_id()` / `mask_ip()` / `mask_ocr_result()`
 
@@ -706,25 +752,28 @@ if os.path.exists(_TEST_DB_PATH):
 | 测试文件 | 测试类型 | 用例数 |
 |---------|---------|-------|
 | test_ocr_extract.py | 功能 | 4 |
-| test_anomaly_check.py | 功能 | 16 |
-| test_classify_limit.py | 功能 | 3 |
+| test_anomaly_check.py | 功能 | 15 |
+| test_classify_limit.py | 功能 | 4 |
 | test_itinerary_verify.py | 功能 | 14 |
-| test_workflow.py | 功能 | 23 |
-| test_system_config_e2e.py | 功能 | 19 |
+| test_workflow.py | 功能 | 25（含 1 安全，见第四章） |
+| test_system_config_e2e.py | 功能 | 19（含 2 安全，见第四章） |
+| test_verify_invoice.py | 功能 | 6 |
+| test_model_config_selfcheck.py | 功能 | 9 |
+| test_vision_model_wiring.py | 功能 | 2 |
 | test_agent.py | 集成 | 12 |
-| test_itinerary_agent.py | 集成 | 8 |
-| test_api_approve_finance.py | 集成 | 18 |
-| test_admin.py | 集成 | 16 |
+| test_itinerary_agent.py | 集成 | 10 |
+| test_api_approve_finance.py | 集成 | 23（含 7 安全，见第四章） |
+| test_admin.py | 集成 | 16（含 8 安全，见第四章） |
 | test_e2e.py | 端到端 | 2 |
-| test_mask_sensitive.py | 隐私 | 22 |
+| test_mask_sensitive.py | 隐私 | 29 |
 | test_performance.py | 性能 | 41 |
-| **合计** | — | **198** |
+| **合计** | — | **231** |
 
 ---
 
 ## 七、前端原型防舞弊验证清单（prototype.html · 非自动化）
 
-> 本节为 `prototype.html` V1.5 防舞弊改造的**人工/交互验证清单**，不计入上方 198 项自动化用例。验证目标：财务职责分离（四眼原则）、归档→打款顺序、银行回单回写归档。
+> 本节为 `prototype.html` V1.5 防舞弊改造的**人工/交互验证清单**，不计入上方 231 项自动化用例。验证目标：财务职责分离（四眼原则）、归档→打款顺序、银行回单回写归档。
 
 ### 7.1 角色与登录（5 角色）
 
@@ -758,4 +807,4 @@ if os.path.exists(_TEST_DB_PATH):
 
 ---
 
-*文档生成于 2026-07-19 · pytest 8.3.4 · Python 3.10.4*
+*文档生成于 2026-07-22 · pytest 8.3.4 · Python 3.10.4*

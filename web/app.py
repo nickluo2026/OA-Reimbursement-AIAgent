@@ -91,6 +91,20 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("OA_ENV") == "production",
 )
 
+# ── 运行环境 & 模板/静态缓存策略（缓存修复）──
+# OA_ENV 取值：production（默认，生产）/ development（开发/演示）
+# APP_VERSION 为发布版本号，用于静态资源 URL 的缓存破坏（cache-busting），发布时自增。
+# [缓存修复-②] 开发/演示环境开启 Jinja 模板自动重载：磁盘上的 *.html 改动后立即重新编译，
+#              无需重启进程即可看到更新（debug=False 时此开关默认关闭，是“页面不刷新”的根因）。
+# [缓存修复-③] 开发/演示环境关闭静态资源缓存（SEND_FILE_MAX_AGE_DEFAULT=0），
+#              浏览器每次都重新拉取 /static/*.js *.css，杜绝浏览器侧陈旧。
+# 生产环境保持默认（模板不自动重载以保性能，静态资源长缓存），更新内容必须靠「部署即重启」刷新。
+OA_ENV = os.environ.get("OA_ENV", "production")
+APP_VERSION = os.environ.get("APP_VERSION", "20260722")
+if OA_ENV != "production" or os.environ.get("FLASK_DEBUG") == "1":
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
 # ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
 # 角色定义：对应 design.md §1.1 / §17.2 与 constitution.md §2.6
 ROLE_INFO = {
@@ -155,8 +169,8 @@ def _get_csrf_token() -> str:
 
 @app.context_processor
 def _inject_csrf_token():
-    """向所有模板注入 csrf_token 变量。"""
-    return {"csrf_token": _get_csrf_token()}
+    """向所有模板注入 csrf_token 与 app_version 变量（app_version 用于静态资源缓存破坏）。"""
+    return {"csrf_token": _get_csrf_token(), "app_version": APP_VERSION}
 
 
 @app.before_request
@@ -753,5 +767,10 @@ def request_entity_too_large(_e):
     return jsonify({"status": "错误", "summary": "文件大小超过 10MB 限制"}), 413
 
 
-if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5001)
+@app.route("/result")
+def result_page():
+    """独立校验结果页（由 upload.js 在提交后读取 URL hash 数据渲染）。
+
+    通过 render_template 渲染以便注入 app_version，使 /static 引用带版本号缓存破坏。
+    """
+    return render_template("result.html")

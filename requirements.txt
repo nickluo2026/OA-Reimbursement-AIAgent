@@ -3,6 +3,7 @@ requests==2.32.3
 python-dotenv==1.0.1
 pyyaml==6.0.2
 flask==3.1.0
+gunicorn==23.0.0
 sqlalchemy==2.0.36
 structlog==24.4.0
 langgraph>=0.2.0
