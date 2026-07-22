@@ -39,6 +39,71 @@
         </div>
     </div>
     {% else %}
+    <!-- ========== 角色权限说明面板（折叠） ========== -->
+    <details class="role-guide" id="roleGuide">
+        <summary>📖 角色权限与使用场景说明（点击展开）</summary>
+        <div class="rg-body">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:120px;">角色</th>
+                        <th>主要操作</th>
+                        <th style="width:30%;">使用场景</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="rg-role">👤 普通员工</td>
+                        <td class="rg-ops">
+                            <span class="step">手动选择票据类型</span> →
+                            <span class="step">上传票据</span> →
+                            <span class="step">提交校验</span> →
+                            <span class="step">智能体流水线执行</span> →
+                            <span class="step">回写申请金额 / 申请日期 / 费用类型 / 报销事由</span> →
+                            <span class="step">提交审批</span>
+                        </td>
+                        <td class="rg-scenario">提交日常差旅、餐饮、住宿等报销</td>
+                    </tr>
+                    <tr>
+                        <td class="rg-role">👔 审批领导</td>
+                        <td class="rg-ops">
+                            <span class="step">查看待审报销单</span> →
+                            <span class="step">查看 AI 校验结果与预警</span> →
+                            <span class="step">通过 / 驳回 / 转审</span>
+                        </td>
+                        <td class="rg-scenario">审核下属报销申请</td>
+                    </tr>
+                    <tr>
+                        <td class="rg-role">💼 财务复核</td>
+                        <td class="rg-ops">
+                            <span class="step">复核 AI 校验结果</span> →
+                            <span class="step">确认归档</span>
+                            <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-001，仅复核/归档）</span>
+                        </td>
+                        <td class="rg-scenario">财务复核与归档</td>
+                    </tr>
+                    <tr>
+                        <td class="rg-role">🏦 出纳</td>
+                        <td class="rg-ops">
+                            <span class="step">发起费用发放</span> →
+                            <span class="step">银行回单归档</span>
+                            <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-002，须与归档人不同人）</span>
+                        </td>
+                        <td class="rg-scenario">打款与回单归档</td>
+                    </tr>
+                    <tr>
+                        <td class="rg-role">⚙️ 系统管理员</td>
+                        <td class="rg-ops">
+                            <span class="step">配置费用限额 / 异常规则 / 审批权限</span> →
+                            <span class="step">查看审计日志</span>
+                        </td>
+                        <td class="rg-scenario">维护报销制度规则</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </details>
+
     <!-- ========== Tab 导航 ========== -->
     <div class="tab-nav">
         <button class="tab-btn active" data-tab="tab-admin" onclick="switchTab('tab-admin')">⚙️ 系统配置</button>

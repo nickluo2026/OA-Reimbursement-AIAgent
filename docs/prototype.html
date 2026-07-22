@@ -887,7 +887,7 @@ select.form-input { appearance: auto; }
                 <h4>🤖 启用/停用Deepseek大模型<div class="cfg-toggle on" id="ds-enabled" onclick="toggleDeepSeek(this)" title="启用/停用 AI 校验"></div></h4>
                 <div class="config-row">
                     <div class="cfg-label">API 密钥<span class="cfg-env">DEEPSEEK_API_KEY</span></div>
-                    <input type="password" class="cfg-input wide cfg-secret" value="" placeholder="your_api_key_here" data-default="">
+                    <input type="password" class="cfg-input wide cfg-secret" value="" placeholder="留空则使用环境变量默认值" data-default="">
                     <button class="cfg-secret-btn" onclick="toggleSecret(this)" title="显示/隐藏">👁</button>
                 </div>
                 <div class="config-row">
@@ -1237,6 +1237,10 @@ function doLogin() {
 
     // 按角色渲染 Tab 导航
     renderTabsForRole(currentRole);
+
+    // 角色权限说明面板仅系统管理员可见，其他角色登录后隐藏
+    var rg = document.getElementById('roleGuide');
+    if (rg) rg.style.display = (currentRole === 'admin') ? '' : 'none';
 
     // 默认进入第一个 Tab
     var tabs = ROLE_TABS[currentRole] || [];
