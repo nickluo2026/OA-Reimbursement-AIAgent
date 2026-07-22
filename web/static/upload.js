@@ -42,7 +42,7 @@
     var selectedFiles = [];
 
     /* ── 当前票据类型 ── */
-    var currentTicketType = '发票';
+    var currentTicketType = '';
 
     /* ========================================
        智能体执行流水线（对应后端 LangGraph 节点）
@@ -158,7 +158,7 @@
     var ticketTypeInput = document.getElementById('ticket_type');
     if (ticketTypeSelect) {
         ticketTypeSelect.addEventListener('change', function () {
-            currentTicketType = ticketTypeSelect.value || '发票';
+            currentTicketType = ticketTypeSelect.value || '';
             if (ticketTypeInput) { ticketTypeInput.value = currentTicketType; }
             // 切换提示文案
             if (uploadHint) {
@@ -168,6 +168,10 @@
                     uploadHint.textContent = '支持 PDF、JPG、PNG 格式，单文件最大 10MB，支持多文件';
                 }
             }
+            // 切换票据类型后重置按钮状态并隐藏回写字段
+            setSubmitMode('check');
+            lastCheckPassed = false;
+            hideAutoFields();
         });
     }
 
@@ -285,11 +289,14 @@
        ======================================== */
     var lastCheckPassed = false;
     var lastRequestIds = [];
+    var submitSuccessModalMode = '';
 
     function setSubmitMode(mode) {
         submitBtn.setAttribute('data-mode', mode);
         var txt = submitBtn.querySelector('.btn-text');
-        if (txt) { txt.textContent = mode === 'approve' ? '✅ 提交审批' : '提交'; }
+        if (txt) { txt.textContent = mode === 'approve' ? '✅ 提交审批' : '🚀 提交校验'; }
+        // 回到「提交校验」模式时隐藏 AI 回写字段，以便重新提交
+        if (mode === 'check') { hideAutoFields(); }
     }
 
     window.onSubmitClick = function () {
@@ -315,29 +322,182 @@
         });
     }
 
+    // 点击遮罩层关闭提交结果弹窗
+    var submitMask = document.getElementById('submitSuccessModal');
+    if (submitMask) {
+        submitMask.addEventListener('click', function (e) {
+            if (e.target === submitMask) { window.closeSubmitSuccessModal(); }
+        });
+    }
+
     function submitApproval() {
-        var rid = (lastRequestIds && lastRequestIds[0]) ? lastRequestIds[0] : '（未知）';
-        alert('✅ 已提交审批\n报销单号：' + rid + '\n审批人将在审批工作台处理');
-        setSubmitMode('check');
-        lastCheckPassed = false;
-        lastRequestIds = [];
-        loadMyList();
-        // 提交后自动切到「我的报销」查看进度
-        if (typeof window.switchTab === 'function') { window.switchTab('my'); }
+        var rid = (lastRequestIds && lastRequestIds[0]) ? lastRequestIds[0] : '';
+        if (!rid) {
+            alert('未找到报销单号，请重新提交校验');
+            return;
+        }
+        // 收集表单当前值（可能已被 AI 回写），先 PATCH 落库再提示
+        var payload = {
+            apply_amount: document.getElementById('apply_amount').value.trim() || null,
+            apply_date: document.getElementById('apply_date').value.trim() || null,
+            expense_category: document.getElementById('expense_category').value.trim() || null,
+            reason: document.getElementById('reason').value.trim() || null,
+        };
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var csrfToken = csrfMeta ? csrfMeta.content : '';
+        fetch('/api/reimbursement/' + encodeURIComponent(rid) + '/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+            body: JSON.stringify(payload),
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+                if (!res.ok || res.d.error) {
+                    showSubmitSuccessModal({
+                        success: false,
+                        requestId: rid,
+                        message: (res.d.error || '未知错误') + '（报销单号：' + rid + '）',
+                    });
+                    return;
+                }
+                showSubmitSuccessModal({
+                    success: true,
+                    requestId: rid,
+                    ticketType: currentTicketType,
+                    amount: payload.apply_amount,
+                    category: payload.expense_category,
+                    reason: payload.reason,
+                });
+                loadMyList();
+            })
+            .catch(function () {
+                showSubmitSuccessModal({ success: false, requestId: rid, message: '请求失败，请重试' });
+            });
+    }
+
+    /* ── 提交审批结果弹窗（替代浏览器原生 alert）── */
+    function showSubmitSuccessModal(opts) {
+        var modal = document.getElementById('submitSuccessModal');
+        if (!modal) return;
+
+        var isError = !opts.success;
+        modal.classList.toggle('is-error', isError);
+
+        var iconEl = document.getElementById('submitSuccessIcon');
+        var titleEl = document.getElementById('submitSuccessTitle');
+        var hintEl = document.getElementById('submitSuccessHint');
+        if (iconEl) { iconEl.textContent = isError ? '❌' : '✅'; }
+        if (titleEl) { titleEl.textContent = isError ? '提交失败' : '提交成功'; }
+        if (hintEl) {
+            hintEl.textContent = isError
+                ? '请检查后重试，或联系系统管理员。'
+                : '您的报销单已提交，审批人将在审批工作台处理；可前往「我的报销」查看进度。';
+        }
+
+        var grid = document.getElementById('submitSuccessGrid');
+        if (grid) {
+            var items = isError
+                ? [
+                    { k: '报销单号', v: opts.requestId || '—' },
+                    { k: '错误信息', v: opts.message || '未知错误' },
+                ]
+                : [
+                    { k: '报销单号', v: opts.requestId || '—' },
+                    { k: '票据类型', v: opts.ticketType || '—' },
+                    { k: '申请金额', v: (opts.amount != null && opts.amount !== '') ? ('¥' + Number(opts.amount).toFixed(2)) : '—' },
+                    { k: '费用类型', v: opts.category || '—' },
+                    { k: '报销事由', v: opts.reason || '—' },
+                    { k: '当前状态', v: '待审批' },
+                ];
+            grid.innerHTML = items.map(function (it) {
+                return '<div class="info-item"><div class="info-key">' + escHtml(it.k) +
+                    '</div><div class="info-value">' + escHtml(it.v) + '</div></div>';
+            }).join('');
+        }
+
+        submitSuccessModalMode = isError ? 'error' : 'success';
+        modal.style.display = 'flex';
+    }
+
+    window.closeSubmitSuccessModal = function () {
+        var modal = document.getElementById('submitSuccessModal');
+        if (modal) { modal.style.display = 'none'; }
+        // 仅成功提交后关闭才重置表单并切到「我的报销」查看进度
+        if (submitSuccessModalMode === 'success') {
+            setSubmitMode('check');
+            lastCheckPassed = false;
+            lastRequestIds = [];
+            hideAutoFields();
+            if (typeof window.switchTab === 'function') { window.switchTab('my'); }
+        }
+    };
+
+    /* ── AI 回写：校验通过后从首个结果回写金额/费用类型/申请日期，并展示此前隐藏的字段 ── */
+    function applyAiWriteback(results) {
+        if (!results || !results.length) return;
+        var r = results[0];
+        // 申请金额：优先发票金额，兜底价税合计_小写
+        var ocr = r.ocr_result || {};
+        var amt = ocr['发票金额'] != null ? ocr['发票金额'] : ocr['价税合计_小写'];
+        var amtEl = document.getElementById('apply_amount');
+        if (amtEl && amt != null && amt !== '') {
+            amtEl.value = amt;
+            amtEl.classList.add('auto-filled');
+        }
+        // 费用类型：分类结果
+        var cls = r.classify_result || {};
+        var cat = cls['费用分类'];
+        var catEl = document.getElementById('expense_category');
+        if (catEl && cat) {
+            // 尝试匹配下拉项
+            var matched = false;
+            for (var i = 0; i < catEl.options.length; i++) {
+                if (catEl.options[i].value === cat) { catEl.selectedIndex = i; matched = true; break; }
+            }
+            if (!matched && catEl.options[0]) { catEl.options[0].text = '🤖 ' + cat; catEl.selectedIndex = 0; }
+            catEl.classList.add('auto-filled');
+        }
+        // 申请日期：空则填系统日期
+        var dateEl = document.getElementById('apply_date');
+        if (dateEl && !dateEl.value) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            dateEl.value = yyyy + '-' + mm + '-' + dd;
+            dateEl.classList.add('auto-filled');
+        }
+        // 回写完成后展示此前隐藏的 autoFields 区域（带动画）
+        var af = document.getElementById('autoFields');
+        if (af) {
+            af.style.display = '';
+            af.classList.add('auto-fields-visible');
+        }
+    }
+
+    /* ── 隐藏 autoFields 并清除回写数据（切换票据类型 / 重置时调用）── */
+    function hideAutoFields() {
+        var af = document.getElementById('autoFields');
+        if (af) {
+            af.style.display = 'none';
+            af.classList.remove('auto-fields-visible');
+        }
+        // 清除回写值并移除高亮
+        ['apply_amount', 'apply_date', 'expense_category'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) { el.value = ''; el.classList.remove('auto-filled', 'ai-writeback'); }
+        });
     }
 
     function runCheck() {
-        // 表单校验
+        // 表单校验：仅需选择票据类型并上传文件；金额/日期/事由/费用类型由 AI 回写，提交审批时落库
+        if (!currentTicketType) {
+            alert('请先选择票据类型');
+            return;
+        }
         if (selectedFiles.length === 0) {
             alert(currentTicketType === '行程单' ? '请先选择行程单文件' : '请先选择发票文件');
             return;
         }
-        var amt = document.getElementById('apply_amount').value.trim();
-        if (!amt) { alert('请填写申请金额'); return; }
-        var dt = document.getElementById('apply_date').value.trim();
-        if (!dt) { alert('请选择申请日期'); return; }
-        var reason = document.getElementById('reason').value.trim();
-        if (!reason) { alert('请填写报销事由'); return; }
 
         // 按钮加载态
         submitBtn.disabled = true;
@@ -404,6 +564,9 @@
 
         lastCheckPassed = (worstStatus === '通过');
         lastRequestIds = results.map(function (r) { return r._request_id; }).filter(Boolean);
+
+        // 校验通过 → AI 回写金额/费用类型/申请日期
+        if (lastCheckPassed) { applyAiWriteback(results); }
 
         var rs = document.getElementById('pipelineResultStatus');
         if (rs) {
@@ -817,18 +980,34 @@
             }
             box.innerHTML = items.map(function (it) {
                 var wsText = {
-                    '待审批': '⏳ 待审批', '审批中': '🔄 审批中', '已通过': '✓ 已通过',
-                    '已驳回': '✕ 已驳回', '已归档': '📦 已归档', '已发放': '💰 已发放',
+                    '待审批': '⏳ 待审批', '审批中': '🔄 审批中', '待复核': '✓ 待复核',
+                    '已驳回': '✕ 已驳回', '已复核并归档': '📦 已复核并归档', '已打款': '💰 已打款',
                 }[it.workflow_status] || it.workflow_status;
                 var wsCls = {
-                    '待审批': 'status-pending', '审批中': 'status-inreview', '已通过': 'status-paid',
-                    '已驳回': 'status-rejected', '已归档': 'status-archived', '已发放': 'status-paid',
+                    '待审批': 'status-pending', '审批中': 'status-inreview', '待复核': 'status-paid',
+                    '已驳回': 'status-rejected', '已复核并归档': 'status-archived', '已打款': 'status-paid',
                 }[it.workflow_status] || '';
+                var ticketCls = (it.ticket_type === '行程单') ? 'itinerary' : 'invoice';
+                var ticketIcon = (it.ticket_type === '行程单') ? '🚕' : '🧾';
+                var ticketText = (it.ticket_type === '行程单') ? '行程单' : '发票';
+                var rid = escHtml(it.request_id);
                 return '<div class="my-item">' +
-                    '<div><div class="my-id">报销单号：' + escHtml(it.request_id) + '</div>' +
+                    '<div class="my-item-head">' +
+                        '<span class="my-id">报销单号: ' + rid + '</span>' +
+                        '<span class="my-amount">' + money(it.apply_amount) + '</span>' +
+                    '</div>' +
                     '<div class="my-reason">' + escHtml(it.reason || '—') + '</div>' +
-                    '<span class="tag ' + wsCls + '" style="margin-top:6px;">' + wsText + '</span></div>' +
-                    '<div class="my-amount">' + money(it.apply_amount) + '</div>' +
+                    '<div class="my-meta">' +
+                        '<span class="my-meta-item"><span class="meta-key">提交时间</span><span class="meta-value">' + escHtml(fmtTime(it.created_at)) + '</span></span>' +
+                        '<span class="my-meta-item"><span class="meta-key">费用类型</span><span class="meta-value">' + escHtml(it.expense_category || '—') + '</span></span>' +
+                    '</div>' +
+                    '<div class="my-item-footer">' +
+                        '<div class="my-tags">' +
+                            '<span class="tag ' + ticketCls + '">' + ticketIcon + ' ' + ticketText + '</span>' +
+                            '<span class="tag ' + wsCls + '">' + wsText + '</span>' +
+                        '</div>' +
+                        '<button type="button" class="btn-detail" onclick="viewDetail(\'' + rid + '\')">📄 查看明细</button>' +
+                    '</div>' +
                 '</div>';
             }).join('');
         }).catch(function () { box.innerHTML = ''; });
@@ -837,6 +1016,126 @@
     function money(v) {
         if (v == null) return '—';
         return '¥' + Number(v).toFixed(2);
+    }
+
+    /* 将 ISO 时间转为 YYYY-MM-DD HH:MM:SS（失败则原样返回） */
+    function fmtTime(iso) {
+        if (!iso) return '—';
+        // 兼容 "2026-07-22T12:11:55" 或 "2026-07-22 12:11:55" 或带时区
+        var s = String(iso).replace('T', ' ').replace(/\.\d+.*$/, '');
+        var parts = s.split(' ');
+        if (parts[0] && parts[0].length === 10 && !parts[1]) { return s + ' 00:00:00'; }
+        if (parts[1] && parts[1].length === 8) { return s; }
+        if (parts[1] && parts[1].length >= 5) { return parts[0] + ' ' + parts[1].slice(0, 8); }
+        return s;
+    }
+
+    /* ── 查看报销单明细弹窗 ── */
+    window.viewDetail = function (requestId) {
+        var modal = document.getElementById('myDetailModal');
+        var body = document.getElementById('myDetailBody');
+        if (!modal || !body) return;
+        body.innerHTML = '<div class="detail-loading">加载中…</div>';
+        modal.style.display = 'flex';
+
+        fetch('/api/reimbursement/' + encodeURIComponent(requestId)).then(function (r) {
+            return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+            if (!res.ok || res.d.error) {
+                body.innerHTML = '<div class="error-msg">加载失败：' + escHtml(res.d.error || '未知错误') + '</div>';
+                return;
+            }
+            body.innerHTML = renderMyDetail(res.d, requestId);
+            body.scrollTop = 0;
+        }).catch(function () {
+            body.innerHTML = '<div class="error-msg">请求失败，请重试</div>';
+        });
+    };
+
+    function renderMyDetail(d, requestId) {
+        var html = '';
+
+        // 基本信息
+        var basic = [
+            { k: '报销单号', v: d.request_id || requestId },
+            { k: '申请金额', v: money(d.apply_amount) },
+            { k: '报销事由', v: d.reason || '—' },
+            { k: '费用类型', v: d.expense_category || '—' },
+            { k: '申请日期', v: fmtTime(d.apply_date) },
+            { k: '当前状态', v: d.workflow_status || '—' },
+            { k: '提交时间', v: fmtTime(d.created_at) },
+        ];
+        html += '<div class="detail-section">' +
+            '<div class="detail-section-title"><span class="ds-icon">📋</span>基本信息</div>' +
+            '<div class="info-grid">' + basic.map(function (it) {
+                return '<div class="info-item"><div class="info-key">' + escHtml(it.k) +
+                    '</div><div class="info-value">' + escHtml(it.v) + '</div></div>';
+            }).join('') + '</div></div>';
+
+        // 审批记录
+        var records = d.approval_records || [];
+        html += '<div class="detail-section"><div class="detail-section-title"><span class="ds-icon">📝</span>审批记录</div>';
+        if (records.length) {
+            html += '<div class="approval-timeline">';
+            records.forEach(function (rec) {
+                var action = rec.action || '—';
+                var actCls = action.indexOf('通过') >= 0 ? 'pass' : action.indexOf('驳回') >= 0 ? 'reject' : action.indexOf('转审') >= 0 ? 'transfer' : '';
+                var dotCls = actCls || '';
+                html += '<div class="approval-node">' +
+                    '<div class="approval-dot ' + dotCls + '"></div>' +
+                    '<div class="approval-body">' +
+                        '<div class="approval-node-head">' +
+                            '<strong>' + escHtml(rec.approver_name || rec.approver_id || '—') + '</strong>' +
+                            '<span class="approval-action ' + actCls + '">' + escHtml(action) + '</span>' +
+                            (rec.approval_node ? '<span class="approval-node-meta">节点：' + escHtml(rec.approval_node) + '</span>' : '') +
+                        '</div>' +
+                        '<div class="approval-node-meta">时间：' + escHtml(fmtTime(rec.action_time)) + '</div>' +
+                        (rec.comment ? '<div class="approval-comment">意见：' + escHtml(rec.comment) + '</div>' : '') +
+                    '</div>' +
+                '</div>';
+            });
+            html += '</div>';
+        } else {
+            html += '<div class="empty-hint">暂无审批记录</div>';
+        }
+        html += '</div>';
+
+        // 发票列表
+        var invoices = d.invoices || [];
+        html += '<div class="detail-section"><div class="detail-section-title"><span class="ds-icon">🧾</span>发票列表</div>';
+        if (invoices.length) {
+            html += '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+                '<th>发票号码</th><th>类型</th><th>金额(元)</th><th>销售方</th><th>开票日期</th>' +
+                '</tr></thead><tbody>';
+            invoices.forEach(function (inv) {
+                html += '<tr>' +
+                    '<td>' + escHtml(inv.invoice_number || '—') + '</td>' +
+                    '<td>' + escHtml(inv.invoice_type || '—') + '</td>' +
+                    '<td>' + escHtml(inv.invoice_amount != null ? money(inv.invoice_amount) : '—') + '</td>' +
+                    '<td>' + escHtml(inv.seller_name || '—') + '</td>' +
+                    '<td>' + escHtml(fmtTime(inv.invoice_date)) + '</td>' +
+                '</tr>';
+            });
+            html += '</tbody></table></div>';
+        } else {
+            html += '<div class="empty-hint">暂无可展示的发票（行程单类报销单无发票明细）</div>';
+        }
+        html += '</div>';
+
+        return html;
+    }
+
+    window.closeMyDetailModal = function () {
+        var modal = document.getElementById('myDetailModal');
+        if (modal) { modal.style.display = 'none'; }
+    };
+
+    /* 点击遮罩层关闭我的报销明细弹窗 */
+    var myDetailMask = document.getElementById('myDetailModal');
+    if (myDetailMask) {
+        myDetailMask.addEventListener('click', function (e) {
+            if (e.target === myDetailMask) { window.closeMyDetailModal(); }
+        });
     }
 
     window.loadMyList = loadMyList;

@@ -1268,7 +1268,7 @@ function logout() {
     selectRole('employee');
     document.getElementById('loginPassword').value = '123456';
     resetResults();
-    // 注意：不再调用 restoreMockData()，否则会清空 FIN-001 已归档的数据，
+    // 注意：不再调用 restoreMockData()，否则会清空 FIN-001 已复核并归档的数据，
     // 导致 FIN-002 重新登录后看不到待打款报销单（破坏职责分离演示流程）。
     // 内存状态在单次会话的多次登录间保持连续；刷新页面即可恢复初始 Mock 数据。
 }
@@ -2186,7 +2186,7 @@ function renderFinPayList() {
     } else {
         list.forEach(function (item) {
             var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
-            var statusTag = '<span class="tag status-archived">📦 已归档</span>';
+            var statusTag = '<span class="tag status-archived">📦 已复核并归档</span>';
             html += '<div class="reimburse-item">' +
                 '<div class="reimburse-item-head">' +
                     '<div><div class="reimburse-item-id">' + item.id + '</div>' +
@@ -2223,7 +2223,7 @@ function handleFinance(id, action) {
         item.archiveStatus = 'archived';
         item.archivedBy = currentAccount;   // 记录归档人，供打款校验
         addAuditLog('ARCHIVE', id + ' · ¥' + item.amount.toFixed(2) + ' · 归档人 ' + currentAccount, '成功');
-        alert('已归档：' + id + '\n（请切换「出纳岗 FIN-002」登录后发起打款）');
+        alert('已复核并归档：' + id + '\n（请切换「出纳岗 FIN-002」登录后发起打款）');
         renderFinReviewList();
         renderFinPayList();
         return;
@@ -2256,7 +2256,7 @@ function handleFinance(id, action) {
             myItem.paidBy = item.paidBy || myItem.paidBy;
         }
         MOCK_FINAL_LIST = MOCK_FINAL_LIST.filter(function (x) { return x.id !== id; });
-        alert('已打款：' + id + '\n（费用已发放；银行回单已自动回写归档）');
+        alert('已打款：' + id + '\n（费用已打款；银行回单已自动回写归档）');
         renderFinReviewList();
         renderFinPayList();
         renderMyList();

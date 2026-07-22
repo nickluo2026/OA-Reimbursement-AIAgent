@@ -546,7 +546,7 @@ def api_approve():
 # ═══════════════════════════════════════════════
 @app.route("/api/finance/list")
 def api_finance_list():
-    """财务列表（已通过 / 已归档）。"""
+    """财务列表（待复核 / 已复核并归档）。"""
     err = _require_finance()
     if err:
         return err
@@ -635,6 +635,37 @@ def api_reimbursement_detail(request_id):
     if not detail:
         return jsonify({"error": "报销单不存在"}), 404
     return jsonify(detail)
+
+
+@app.route("/api/reimbursement/<request_id>/update", methods=["POST"])
+def api_reimbursement_update(request_id):
+    """更新报销单字段（AI 回写后人工确认落库）。
+
+    - 员工仅可改本人「待审批」报销单；审批领导/财务/管理员可改任意待审批单
+    - 仅「待审批」状态可改（workflow 层强制）
+    """
+    err = _require_login()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    # 越权防护：员工仅可改本人待审批单
+    role = session.get("role", "employee")
+    reb = wf.get_reimbursement(request_id)
+    if not reb:
+        return jsonify({"error": "报销单不存在"}), 404
+    if role == "employee" and reb.employee_id != session["account"]:
+        return jsonify({"error": "无权修改此报销单"}), 403
+    try:
+        updated = wf.update_reimbursement(
+            request_id,
+            apply_amount=data.get("apply_amount"),
+            apply_date=data.get("apply_date"),
+            expense_category=data.get("expense_category"),
+            reason=data.get("reason"),
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(updated)
 
 
 @app.route("/api/my")

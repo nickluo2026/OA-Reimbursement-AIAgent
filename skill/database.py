@@ -107,7 +107,7 @@ class Reimbursement(Base):
         String(16),
         default="待审批",
         index=True,
-        comment="工作流状态: 待审批/审批中/已通过/已驳回/已归档",
+        comment="工作流状态: 待审批/审批中/待复核/已驳回/已复核并归档/已打款",
     )
     remark = Column(String(256), comment="备注")
     archived_by = Column(String(32), comment="归档人(财务复核岗工号)")

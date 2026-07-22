@@ -343,7 +343,7 @@
           <tr><td>TestComputeRoute</td><td class="center">6</td><td>金额阶梯（3000/10000/50000）+ 会签阈值（≥10000）+ CEO 级别</td></tr>
           <tr><td>TestSubmitApproval</td><td class="center">6</td><td>通过/驳回/转审/驳回后不可再审批/未知动作/单号不存在</td></tr>
           <tr><td>TestCountersign</td><td class="center">2</td><td>会签需两人/单人签核保持审批中</td></tr>
-          <tr><td>TestSubmitFinance</td><td class="center">4</td><td>归档需已通过/打款需已归档/归档后打款/重复打款报错</td></tr>
+          <tr><td>TestSubmitFinance</td><td class="center">4</td><td>归档需待复核/打款需已复核并归档/归档后打款/重复打款报错</td></tr>
           <tr><td>TestListQueries</td><td class="center">3</td><td>待审列表/按员工查询/明细（含发票+审批记录）</td></tr>
           <tr><td>TestStats</td><td class="center">2</td><td>本月审批数统计/按状态统计</td></tr>
         </tbody>
@@ -435,13 +435,13 @@
    → 返回 status=通过，报销单落库（待审批 + AI 通过）
 ③ 审批领导 APR-001 登录
 ④ POST /api/approve action=通过
-   → 工作流状态：待审批 → 已通过
+   → 工作流状态：待审批 → 待复核
    → 待审列表清空，财务列表出现该单
 ⑤ 财务 FIN-001 登录
 ⑥ POST /api/finance action=归档
-   → 工作流状态：已通过 → 已归档
+   → 工作流状态：待复核 → 已复核并归档
 ⑦ POST /api/finance action=打款
-   → 工作流状态：已归档 → 已发放
+   → 工作流状态：已复核并归档 → 已打款
    → 发票标记已报销（防重生效，check_duplicate_invoice 返回 True）
    → 财务待处理列表清空</pre>
       <div class="callout pass"><b>断言全部通过</b>：报销单落库、状态流转、发票防重、列表过滤均符合预期。</div>
@@ -473,7 +473,7 @@
       <h3>6.2 授权与越权防护</h3>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>角色权限隔离（_require_role）</b><small>approver/finance/admin 各自独立校验，跨角色访问返回 403。18 项测试覆盖（test_approve_forbidden_for_employee / test_finance_forbidden_for_approver / test_config_forbidden_for_employee 等）。</small></div></div>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>[S-004] 数据归属校验</b><small>普通员工仅能查看本人提交的报销单（<code class="inline">reb.employee_id != session["account"]</code> 返回 403），审批领导/财务可查看全部。</small></div></div>
-      <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>审批/财务状态机约束</b><small>已驳回单不可重复审批、未归档不可打款、已发放不可重复打款，均抛 ValueError 返回 400。</small></div></div>
+      <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>审批/财务状态机约束</b><small>已驳回单不可重复审批、未归档不可打款、已打款不可重复打款，均抛 ValueError 返回 400。</small></div></div>
 
       <h3>6.3 CSRF 防护</h3>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>[S-007] CSRF Token 校验</b><small><code class="inline">before_request</code> 拦截所有 POST/PUT/DELETE/PATCH，校验 session token 与表单/请求头一致性；登录表单单独处理（渲染错误页）；测试模式跳过。</small></div></div>
@@ -550,7 +550,7 @@
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>原始数据不被修改（数据库完整性）</b><small><code class="inline">mask_ocr_result</code> 使用 <code class="inline">copy.deepcopy</code>，脱敏不修改原始字典。test_original_data_not_mutated 验证 OCR 原始手机号/税号脱敏后仍完整保留。</small></div></div>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>API 响应层脱敏，数据库保留完整</b><small><code class="inline">web/app.py</code> 在返回前 <code class="inline">result["ocr_result"] = mask_ocr_result(_ocr)</code>；<code class="inline">workflow.get_detail</code> 对 AI 校验详情同样脱敏。数据库 ocr_raw 字段保留完整数据用于审计。</small></div></div>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>审计日志 IP 脱敏</b><small><code class="inline">admin_store._audit_to_dict</code> 返回时 <code class="inline">mask_ip(r.ip)</code>，审计日志展示脱敏 IP。</small></div></div>
-      <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>数据归属权限隔离</b><small>员工只能查看本人报销单（[S-004]）；审批领导看本部门待审；财务看已通过/已归档；管理员看全部配置。22 项权限测试验证。</small></div></div>
+      <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>数据归属权限隔离</b><small>员工只能查看本人报销单（[S-004]）；审批领导看本部门待审；财务看待复核/已复核并归档；管理员看全部配置。22 项权限测试验证。</small></div></div>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>审计日志仅追加不可删</b><small><code class="inline">AuditLog</code> 表无 DELETE 接口，<code class="inline">add_audit_log</code> 仅 INSERT。符合「审计日志不可删除」合规要求。</small></div></div>
       <div class="check-item"><span class="ic ok">✓</span><div class="desc"><b>request_id 全链路追踪</b><small><code class="inline">structured_log.ContextVar</code> 注入 request_id，所有日志与审计记录关联报销单号，支持事后追溯。</small></div></div>
 

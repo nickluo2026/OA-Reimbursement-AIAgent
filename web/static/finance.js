@@ -18,7 +18,7 @@
     };
     function displayName(id) {
         if (!id) return '';
-        return NAME_MAP[id] || id;
+        return NAME_MAP[id] ? NAME_MAP[id] + '（' + id + '）' : id;
     }
 
     var AI_MAP = {
@@ -30,10 +30,10 @@
     var WS_MAP = {
         '待审批': { cls: 'status-pending', text: '⏳ 待审' },
         '审批中': { cls: 'status-inreview', text: '🔄 审批中(会签)' },
-        '已通过': { cls: 'status-paid', text: '✓ 已通过(待归档)' },
+        '待复核': { cls: 'status-paid', text: '✓ 待复核' },
         '已驳回': { cls: 'status-rejected', text: '✕ 已驳回' },
-        '已归档': { cls: 'status-archived', text: '📦 已归档(待打款)' },
-        '已发放': { cls: 'status-paid', text: '💰 已发放' },
+        '已复核并归档': { cls: 'status-archived', text: '📦 已复核并归档(待打款)' },
+        '已打款': { cls: 'status-paid', text: '💰 已打款' },
     };
 
     function esc(s) {
@@ -81,10 +81,10 @@
             : '<span class="tag invoice">🧾 发票</span>';
 
         var actions = '<button class="btn-mini primary" onclick="viewDetail(\'' + esc(it.request_id) + '\')">📄 查看明细</button>';
-        // 职责分离：仅财务复核岗可「确认归档」，仅出纳岗可「发起打款」
-        if (it.workflow_status === '已通过' && USER_ROLE === 'finance_review') {
-            actions += '<button class="btn-mini success" onclick="openAction(\'' + esc(it.request_id) + '\',\'归档\')">📦 确认归档</button>';
-        } else if (it.workflow_status === '已归档' && USER_ROLE === 'finance_pay') {
+        // 职责分离：仅财务复核岗可「确认复核并归档」，仅出纳岗可「发起打款」
+        if (it.workflow_status === '待复核' && USER_ROLE === 'finance_review') {
+            actions += '<button class="btn-mini success" onclick="openAction(\'' + esc(it.request_id) + '\',\'归档\')">📦 确认复核并归档</button>';
+        } else if (it.workflow_status === '已复核并归档' && USER_ROLE === 'finance_pay') {
             actions += '<button class="btn-mini primary" style="border-color:var(--green);color:var(--green);" onclick="openAction(\'' + esc(it.request_id) + '\',\'打款\')">💰 发起打款</button>';
         }
 
@@ -98,7 +98,7 @@
                 '<span><span class="meta-key">提交人:</span><span class="meta-value">' + esc(it.employee_name) + '</span></span>' +
                 '<span><span class="meta-key">费用类型:</span><span class="meta-value">' + esc(it.expense_category || '—') + '</span></span>' +
                 '<span><span class="meta-key">AI 状态:</span><span class="meta-value">' + esc(it.ai_status) + '</span></span>' +
-                (it.workflow_status === '已归档' && it.archived_by ? '<span><span class="meta-key">归档人:</span><span class="meta-value">' + esc(displayName(it.archived_by)) + '</span></span>' : '') +
+                (it.workflow_status === '已复核并归档' && it.archived_by ? '<span><span class="meta-key">归档人:</span><span class="meta-value">' + esc(displayName(it.archived_by)) + '</span></span>' : '') +
             '</div>' +
             '<div class="ai-summary-box">🤖 <strong>AI 复核：</strong>' + esc(it.ai_summary) + '</div>' +
             '<div class="reimburse-item-footer">' +
@@ -119,12 +119,25 @@
 
     function renderDetail(d) {
         var route = d.route || {};
+        // 审批人：取首条「通过」记录的审批人编码
+        var approverId = '';
+        if (d.approval_records && d.approval_records.length) {
+            for (var i = 0; i < d.approval_records.length; i++) {
+                if (d.approval_records[i].action === '通过') {
+                    approverId = d.approval_records[i].approver_id;
+                    break;
+                }
+            }
+        }
         var html = '<div class="info-grid">' +
             infoItem('报销单号', d.request_id) +
             infoItem('票据类型', d.ticket_type || '发票') +
             infoItem('申请金额', money(d.apply_amount)) +
             infoItem('费用类型', d.expense_category || '—') +
-            infoItem('提交人', d.employee_name) +
+            infoItem('提交人', displayName(d.employee_id)) +
+            infoItem('审批人', approverId ? displayName(approverId) : '—') +
+            infoItem('复核人', d.archived_by ? displayName(d.archived_by) : '—') +
+            infoItem('打款人', d.paid_by ? displayName(d.paid_by) : '—') +
             infoItem('工作流状态', d.workflow_status) +
             infoItem('审批层级', (route['审批人'] || '—') + (route['需要会签'] ? '（需会签）' : '')) +
         '</div>';
@@ -161,7 +174,7 @@
     window.openAction = function (requestId, action) {
         pendingAction = { requestId: requestId, action: action };
         var hint = {
-            '归档': '确认归档报销单（报销单号：' + requestId + '）？归档后方可发起打款。',
+            '归档': '确认复核并归档报销单（报销单号：' + requestId + '）？归档后方可发起打款。',
             '打款': '确认打款报销单（报销单号：' + requestId + '）？打款后费用将发放给员工。',
         }[action] || '';
         document.getElementById('actionTitle').textContent = '财务 · ' + action;

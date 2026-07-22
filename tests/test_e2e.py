@@ -121,7 +121,7 @@ class TestEndToEndFlow:
         # 发票已标记报销（防重生效）
         assert check_duplicate_invoice("E2E-INV-001") is True
 
-        # 财务列表已清空（已发放不出现在待处理列表）
+        # 财务列表已清空（已打款不出现在待处理列表）
         assert wf.list_for_finance() == []
 
     def test_employee_reject_flow(self, mock_ocr, mock_anomaly, mock_classify, client, fresh_db):

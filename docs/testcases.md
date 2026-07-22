@@ -154,7 +154,7 @@
 
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
-| 44 | test_pass | 审批通过 | `workflow_status == "已通过"`，`transferred is False` |
+| 44 | test_pass | 审批通过 | `workflow_status == "待复核"`，`transferred is False` |
 | 45 | test_reject | 审批驳回 | `workflow_status == "已驳回"` |
 | 46 | test_transfer_keeps_status | 转审不改变工作流状态，仅留痕 | `workflow_status == "待审批"`，`transferred is True` |
 | 47 | test_reject_then_approve_raises | 驳回后不可再审批 | 抛出 `ValueError` |
@@ -165,7 +165,7 @@
 
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
-| 50 | test_two_signers_required | 金额60000需两人会签，第一人通过后仍「审批中」，第二人通过后「已通过」 | 第一人：`WS_IN_REVIEW`，`countersign_passed == 1`；第二人：`WS_APPROVED`，`countersign_passed == 2` |
+| 50 | test_two_signers_required | 金额60000需两人会签，第一人通过后仍「审批中」，第二人通过后「待复核」 | 第一人：`WS_IN_REVIEW`，`countersign_passed == 1`；第二人：`WS_APPROVED`，`countersign_passed == 2` |
 | 51 | test_single_signer_stays_in_review | 金额80000仅一人签核，仍在审批中，不在财务列表 | `list_for_finance() == []` |
 
 #### TestSubmitFinance（财务终审与发放 · 4 项）
@@ -181,7 +181,7 @@
 
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
-| 56 | test_pending_excludes_approved | 待审列表排除已通过，财务列表含已通过 | 审批前 `list_pending()` 有1项；审批后为空，`list_for_finance()` 有1项 |
+| 56 | test_pending_excludes_approved | 待审列表排除待复核，财务列表含待复核 | 审批前 `list_pending()` 有1项；审批后为空，`list_for_finance()` 有1项 |
 | 57 | test_list_by_employee | 按员工查询报销单 | EMP-2026 有1项，EMP-OTHER 为空 |
 | 58 | test_get_detail | 报销单明细含发票与审批记录 | 明细含1张发票（号码88886666），路由1级；审批后含1条审批记录 |
 
@@ -190,7 +190,7 @@
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
 | 59 | test_count_decisions_this_month | 本月审批数统计 | 审批后 `after == before + 1` |
-| 60 | test_count_by_status | 按状态统计报销单数量 | 待审批1项；审批+归档+打款后已发放1项 |
+| 60 | test_count_by_status | 按状态统计报销单数量 | 待审批1项；审批+归档+打款后已打款1项 |
 
 ---
 
@@ -335,7 +335,7 @@
 
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
-| 90 | test_approve_pass | 审批通过 | `workflow_status == "已通过"` |
+| 90 | test_approve_pass | 审批通过 | `workflow_status == "待复核"` |
 | 91 | test_approve_reject | 审批驳回 | `workflow_status == "已驳回"` |
 | 92 | test_approve_forbidden_for_employee | 员工无权审批 → 403 | `status_code == 403` |
 | 93 | test_approve_invalid_action | 非法审批动作 → 400 | `status_code == 400` |
@@ -346,7 +346,7 @@
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
 | 95 | test_finance_list_after_approve | 审批通过后财务列表出现该单 | `pending_archive == 1` |
-| 96 | test_finance_archive_and_pay | 归档后打款 | 归档→`已归档`，打款→`已发放` |
+| 96 | test_finance_archive_and_pay | 归档后打款 | 归档→`已复核并归档`，打款→`已打款` |
 | 97 | test_finance_pay_before_archive | 未归档直接打款 → 400 | `status_code == 400`，错误含「归档」 |
 | 98 | test_finance_forbidden_for_approver | 审批人无权财务操作 → 403 | `status_code == 403` |
 
@@ -402,7 +402,7 @@
 
 | # | 测试类 | 测试方法 | 用例说明 | 预期结果 |
 |---|--------|---------|---------|---------|
-| 115 | TestEndToEndFlow | test_employee_to_finance_full_flow | **员工→审批→财务完整流程**：① 员工 EMP-2026 上传发票（358.50元）→ AI 校验通过 → 报销单落库（待审批+AI通过）② 审批领导 APR-001 通过 → 待审列表清空，财务列表出现 ③ 财务 FIN-001 归档 → 已归档 ④ 财务打款 → 已发放，发票标记已报销（防重生效），财务列表清空 | 全链路状态流转正确，报销单落库、发票防重、列表过滤均符合预期 |
+| 115 | TestEndToEndFlow | test_employee_to_finance_full_flow | **员工→审批→财务完整流程**：① 员工 EMP-2026 上传发票（358.50元）→ AI 校验通过 → 报销单落库（待审批+AI通过）② 审批领导 APR-001 通过 → 待审列表清空，财务列表出现 ③ 财务 FIN-001 归档 → 已复核并归档 ④ 财务打款 → 已打款，发票标记已报销（防重生效），财务列表清空 | 全链路状态流转正确，报销单落库、发票防重、列表过滤均符合预期 |
 | 116 | TestEndToEndFlow | test_employee_reject_flow | **审批驳回流程**：① 员工提交报销 → 待审批 ② 审批领导驳回 → 已驳回 ③ 驳回单不出现在财务待处理列表 | 驳回后工作流终止，不可进入财务流程 |
 
 ---
@@ -437,13 +437,13 @@
 | 129 | test_admin_page_forbidden_for_employee | test_admin.py | 员工访问管理页 → 提示无权限 | 含「无系统管理权限」 |
 | 130 | test_approve_invalid_action | test_api_approve_finance.py | 非法审批动作 → 400 | `status_code == 400` |
 
-> **静态验证**：普通员工数据归属校验 [S-004]（`reb.employee_id != session["account"]` → 403）；审批/财务状态机约束（已驳回不可重复审批、未归档不可打款、已发放不可重复打款）。
+> **静态验证**：普通员工数据归属校验 [S-004]（`reb.employee_id != session["account"]` → 403）；审批/财务状态机约束（已驳回不可重复审批、未归档不可打款、已打款不可重复打款）。
 
 ### 4.3 CSRF 防护（1 项动态 + 静态验证）
 
 | # | 测试方法 | 来源文件 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|---------|
-| 131 | test_approve_pass | test_api_approve_finance.py | 审批 API POST 携带正确 CSRF token（TESTING 模式跳过校验） | `workflow_status == "已通过"` |
+| 131 | test_approve_pass | test_api_approve_finance.py | 审批 API POST 携带正确 CSRF token（TESTING 模式跳过校验） | `workflow_status == "待复核"` |
 
 > **静态验证**：`_csrf_protect()` 拦截所有 POST/PUT/DELETE/PATCH，校验 session token 与表单/请求头一致性；CSRF Token 通过 `secrets.token_hex(32)` 生成 256 位随机值；登录表单单独校验 CSRF。
 
@@ -745,7 +745,7 @@ if os.path.exists(_TEST_DB_PATH):
 
 | # | 验证项 | 操作步骤 | 预期结果 |
 |---|--------|---------|---------|
-| V6 | 仅见已归档单 | FIN-002 进入「出纳打款」 | 列表仅含已归档单据，并显示「归档人 FIN-001」 |
+| V6 | 仅见已复核并归档单 | FIN-002 进入「出纳打款」 | 列表仅含已复核并归档单据，并显示「归档人 FIN-001」 |
 | V7 | 打款成功 + 回单归档 | 点「发起打款」确认 | 审计日志依次记 `PAYMENT_INIT`(打款人 FIN-002)、`RECEIPT_ARCHIVE`；单据移出列表；统计「本月已打款 +1」 |
 | V8 | **舞弊拦截（打款人=归档人）** | 用同一账号 FIN-001 既归档又打款 | 打款被拦截，提示「归档人与打款人不能为同一人，请切换出纳岗 FIN-002」 |
 | V9 | 顺序约束 | 未归档直接打款 | 提示「请先由财务复核岗确认归档，再发起打款」 |

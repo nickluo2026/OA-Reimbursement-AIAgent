@@ -71,13 +71,14 @@ class ItineraryAgent(BaseAgent):
         logger.info("✓ 行程单 OCR 完成, 总金额: %s, 行程数: %d", total_amount, trip_count)
 
         # ── 持久化：保存报销单 + 行程单 OCR 结果 ──
-        if request_id and apply_amount is not None:
+        # 修复：与 ocr_node.py 对齐，允许 apply_amount 为空时也落库（0 占位），保证 update 阶段能找到记录
+        if request_id:
             try:
                 save_reimbursement(
                     request_id=request_id,
                     employee_id=state.get("employee_id", "unknown"),
-                    apply_amount=apply_amount,
-                    apply_date=apply_date,
+                    apply_amount=apply_amount if apply_amount is not None else 0.0,
+                    apply_date=apply_date or "",
                     reason=state.get("reason", ""),
                     expense_category=state.get("expense_category", ""),
                 )

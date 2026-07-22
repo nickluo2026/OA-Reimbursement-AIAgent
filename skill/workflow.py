@@ -32,14 +32,14 @@ logger = logging.getLogger(__name__)
 # ── 工作流状态常量 ──
 WS_PENDING = "待审批"
 WS_IN_REVIEW = "审批中"
-WS_APPROVED = "已通过"
+WS_APPROVED = "待复核"
 WS_REJECTED = "已驳回"
-WS_ARCHIVED = "已归档"
-WS_PAID = "已发放"
+WS_ARCHIVED = "已复核并归档"
+WS_PAID = "已打款"
 
 # 审批领导可见（待处理）状态
 PENDING_STATUSES = (WS_PENDING, WS_IN_REVIEW)
-# 财务可见（已审批通过 / 已归档待打款）状态
+# 财务可见（待复核 / 已复核并归档待打款）状态
 FINANCE_STATUSES = (WS_APPROVED, WS_ARCHIVED)
 
 # 终结状态（不可再被审批）
@@ -79,7 +79,7 @@ def list_pending() -> list:
 
 
 def list_for_finance() -> list:
-    """已通过 / 已归档的报销单（财务工作台列表）"""
+    """待复核 / 已复核并归档的报销单（财务工作台列表）"""
     from .database import Reimbursement
 
     with get_session() as s:
@@ -246,6 +246,46 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
     }
 
 
+def update_reimbursement(
+    request_id: str,
+    *,
+    apply_amount: float | None = None,
+    apply_date: str | None = None,
+    expense_category: str | None = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """更新报销单字段（仅「待审批」状态可改，用于 AI 回写后人工确认落库）。
+
+    - apply_amount / apply_date / expense_category / reason 任一非 None 则更新
+    - apply_date 传空串视为清空；传 ISO 日期串则解析
+    """
+    from datetime import date
+
+    from .database import Reimbursement
+
+    with get_session() as s:
+        r = s.query(Reimbursement).filter_by(request_id=request_id).first()
+        if not r:
+            raise ValueError(f"报销单（报销单号：{request_id}）不存在")
+        if r.workflow_status != WS_PENDING:
+            raise ValueError(
+                f"报销单（报销单号：{request_id}）当前状态「{r.workflow_status}」不可修改，仅「待审批」可改"
+            )
+        if apply_amount is not None:
+            r.apply_amount = float(apply_amount)
+        if apply_date is not None:
+            r.apply_date = date.fromisoformat(apply_date) if apply_date else None
+        if expense_category is not None:
+            r.expense_category = expense_category or None
+        if reason is not None:
+            r.reason = reason
+        s.commit()
+        logger.info("更新报销单 %s: amount=%s date=%s category=%s", request_id, apply_amount, apply_date, expense_category)
+        # 重新查询以获取最新状态序列化
+        s.refresh(r)
+        return serialize(r)
+
+
 # ═══════════════════════════════════════════════
 # 审批决策（审批领导）
 # ═══════════════════════════════════════════════
@@ -313,8 +353,8 @@ def submit_finance(
 ) -> dict[str, Any]:
     """财务复核归档 / 出纳打款（职责分离）
 
-    - 归档（财务复核岗）：仅「已通过」可归档，置「已归档」，记录归档人
-    - 打款（出纳岗）：仅「已归档」可打款，置「已发放」并标记发票已报销（防重）；
+    - 归档（财务复核岗）：仅「待复核」可归档，置「已复核并归档」，记录归档人
+    - 打款（出纳岗）：仅「已复核并归档」可打款，置「已打款」并标记发票已报销（防重）；
       系统强制 **打款人 ≠ 归档人**（职责分离），违规直接拦截
     """
     if action not in ("归档", "打款"):

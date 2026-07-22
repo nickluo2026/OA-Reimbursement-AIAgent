@@ -497,7 +497,7 @@ GET /api/oa/workflow/{request_id}/status
 Response:
 {
   "request_id": "string",
-  "status": "string — 待审批/审批中/已通过/已驳回",
+  "status": "string — 待审批/审批中/待复核/已驳回",
   "current_node": "string — 当前审批节点",
   "current_approver": "string — 当前审批人",
   "history": [
@@ -518,7 +518,7 @@ Content-Type: application/json
   "payment_info": {
     "bank_account": "string — 收款账号（脱敏）",
     "payment_amount": "number",
-    "payment_status": "string — 待发放/已发放/发放失败"
+    "payment_status": "string — 待发放/已打款/发放失败"
   }
 }
 ```
@@ -673,7 +673,7 @@ erDiagram
         string reason "报销事由"
         string expense_category "费用分类"
         string ai_status "AI校验状态: 通过/预警/拦截/错误"
-        string workflow_status "工作流状态: 待审批/审批中/已通过/已驳回/已归档"
+        string workflow_status "工作流状态: 待审批/审批中/待复核/已驳回/已复核并归档"
         datetime created_at "创建时间"
         datetime updated_at "更新时间"
     }
@@ -1172,7 +1172,7 @@ class OAWorkflowResponse:
 class OAApprovalResult:
     """统一的审批结果模型"""
     request_id: str
-    status: str                   # 待审批 / 审批中 / 已通过 / 已驳回
+    status: str                   # 待审批 / 审批中 / 待复核 / 已驳回
     current_node: str
     current_approver: str
     history: list[dict]

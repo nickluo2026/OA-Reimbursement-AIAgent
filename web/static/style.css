@@ -372,6 +372,28 @@ select.form-input { appearance: auto; }
 .modal-close:hover { background: var(--red-bg); color: var(--red); }
 .modal-body { padding: 20px 22px; overflow-y: auto; }
 
+/* ── 提交审批结果弹窗（替代浏览器 alert） ── */
+.submit-success-box { max-width: 560px; }
+.submit-success-head { border-bottom: 3px solid var(--green); }
+.submit-success-box.is-error .submit-success-head { border-bottom-color: var(--red); }
+.submit-success-icon { font-size: 24px; line-height: 1; }
+.submit-success-head h3 { color: var(--green); }
+.submit-success-box.is-error .submit-success-head h3 { color: var(--red); }
+.submit-hint {
+    margin-top: 18px;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--text);
+    background: var(--orange-bg);
+    border-left: 4px solid var(--orange);
+    border-radius: 8px;
+    line-height: 1.6;
+}
+.submit-success-box.is-error .submit-hint {
+    background: var(--red-bg);
+    border-left-color: var(--red);
+}
+
 /* 弹窗内的流水线：去卡片化 */
 #pipelineModal .pipeline {
     padding: 0;
@@ -845,3 +867,142 @@ select.form-input { appearance: auto; }
     .header-user { position: static; margin-bottom: 12px; justify-content: center; }
     .login-card { padding: 28px 20px; }
 }
+
+/* ── AI 回写徽标与提示 ── */
+.field-badge {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px;
+    border-radius: 9px; margin-left: 6px; vertical-align: middle; line-height: 1.6;
+}
+.ai-badge { background: var(--primary-light); color: var(--primary); }
+.sys-badge { background: var(--green-bg); color: var(--green); }
+.manual-badge { background: var(--orange-bg); color: var(--orange); }
+.ai-note {
+    background: #fffbeb; border: 1px solid #fde68a; border-left: 3px solid var(--orange);
+    color: #92400e; font-size: 13px; line-height: 1.6; padding: 10px 14px;
+    border-radius: 6px; margin: 14px 0;
+}
+.ai-writeback {
+    background: var(--primary-light) !important; transition: background 0.3s;
+}
+
+/* ── autoFields 隐藏 → 回写后显示过渡动画 ── */
+#autoFields {
+    animation: autoFieldsIn 0.45s ease;
+}
+#autoFields.auto-fields-visible {
+    /* 首次显示时播放动画 */
+}
+@keyframes autoFieldsIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── AI 回填高亮样式 ── */
+.form-input.auto-filled {
+    border-color: var(--primary);
+    background: rgba(37,99,235,0.06);
+    animation: flashFill 0.9s ease;
+}
+@keyframes flashFill {
+    0% { background: rgba(37,99,235,0.22); }
+    100% { background: rgba(37,99,235,0.06); }
+}
+
+/* ── AI 回写徽标（autoFields 内标记）── */
+.ai-writeback-badge {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px;
+    border-radius: 9px; margin-left: 6px; vertical-align: middle; line-height: 1.6;
+    background: var(--primary-light); color: var(--primary);
+}
+
+/* ============================================
+   我的报销（员工首页内嵌）卡片样式
+   ============================================ */
+.my-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+
+/* 报销单卡片（对照「我的报销」Tab 截图） */
+.my-item {
+    border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
+    background: var(--card-bg); display: flex; flex-direction: column; gap: 10px;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+.my-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-color: var(--primary); }
+
+/* 顶部行：单号（左） + 金额（右） */
+.my-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.my-id { font-size: 13px; color: var(--text-light); font-family: monospace; }
+.my-amount { font-size: 22px; font-weight: 700; color: var(--primary); white-space: nowrap; }
+
+/* 事由 */
+.my-reason { font-size: 15px; font-weight: 600; color: var(--text); }
+
+/* 元信息行：提交时间 / 费用类型 */
+.my-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-light); }
+.my-meta .meta-key { margin-right: 4px; }
+.my-meta .meta-value { color: var(--text); font-weight: 600; }
+
+/* 底部行：标签组（左） + 查看明细（右） */
+.my-item-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 2px; }
+.my-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* 标签（与 workbench.css 配色保持一致） */
+.tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 600;
+    background: var(--bg); color: var(--text-light); white-space: nowrap;
+}
+.tag.invoice { background: #eff6ff; color: #1d4ed8; }
+.tag.itinerary { background: var(--itinerary-light); color: var(--itinerary-dark); }
+.tag.status-pending { background: var(--orange-bg); color: var(--orange); }
+.tag.status-transferred { background: #ede9fe; color: #6d28d9; }
+.tag.status-archived { background: #cffafe; color: #0e7490; }
+.tag.status-paid { background: var(--green-bg); color: var(--green); }
+.tag.status-rejected { background: var(--red-bg); color: var(--red); }
+.tag.status-inreview { background: #fef9c3; color: #a16207; }
+
+/* 「查看明细」描边按钮 */
+.btn-detail {
+    border: 1.5px solid var(--primary); background: var(--card-bg); color: var(--primary);
+    padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: 0.18s; white-space: nowrap;
+}
+.btn-detail:hover { background: var(--primary); color: #fff; }
+
+/* 明细弹窗：加载 / 分组区块 */
+.detail-loading { text-align: center; color: var(--text-light); padding: 30px 0; }
+.detail-section { margin-bottom: 20px; }
+.detail-section:last-child { margin-bottom: 0; }
+.detail-section-title {
+    font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+}
+.detail-section-title .ds-icon { font-size: 16px; }
+
+/* 审批记录时间线 */
+.approval-timeline { display: flex; flex-direction: column; gap: 0; }
+.approval-node {
+    display: flex; gap: 12px; padding-bottom: 14px; position: relative;
+}
+.approval-node:last-child { padding-bottom: 0; }
+.approval-dot {
+    width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+    border: 2px solid var(--border); background: var(--card-bg);
+}
+.approval-dot.pass { background: var(--green); border-color: var(--green); }
+.approval-dot.reject { background: var(--red); border-color: var(--red); }
+.approval-dot.transfer { background: #6d28d9; border-color: #6d28d9; }
+.approval-body { flex: 1; }
+.approval-node-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.approval-action { font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 8px; }
+.approval-action.pass { background: var(--green-bg); color: var(--green); }
+.approval-action.reject { background: var(--red-bg); color: var(--red); }
+.approval-action.transfer { background: #ede9fe; color: #6d28d9; }
+.approval-node-meta { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+.approval-comment { font-size: 13px; color: var(--text); margin-top: 4px; }
+.empty-hint { color: var(--text-light); font-size: 13px; padding: 4px 0; }

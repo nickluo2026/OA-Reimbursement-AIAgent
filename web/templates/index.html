@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>企业报销智能化系统 — 发票上传</title>
+    <title>企业报销智能化系统 — 票据上传与报销申请</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -55,9 +55,9 @@
     <div class="card">
         <div class="card-header">
             <span class="card-icon">📄</span>
-            <h2>报销申请</h2>
+            <h2>票据上传</h2>
         </div>
-        <p class="card-desc">上传发票文件，填写报销信息，AI 自动完成 OCR 识别、异常检测与分类限额校验。</p>
+        <p class="card-desc">先选择票据类型并上传票据，提交校验后 AI 自动完成 OCR 识别、异常检测与分类限额校验；校验成功后<b>回写</b>费用类型、金额、申请日期，待人工确认后提交审批。</p>
 
         <form id="uploadForm" enctype="multipart/form-data">
 
@@ -65,10 +65,11 @@
             <div class="form-section">
                 <label class="form-label" for="ticket_type_select">票据类型 <span class="required">*</span></label>
                 <select id="ticket_type_select" class="form-input">
+                    <option value="" selected>— 请手动选择票据类型 —</option>
                     <option value="发票">📄 发票</option>
                     <option value="行程单">🚕 行程单</option>
                 </select>
-                <input type="hidden" id="ticket_type" name="ticket_type" value="发票">
+                <input type="hidden" id="ticket_type" name="ticket_type" value="">
             </div>
 
             <!-- 文件上传区域 -->
@@ -87,28 +88,29 @@
                 </div>
             </div>
 
-            <!-- 表单字段 -->
+            <!-- AI 回写字段（初始隐藏，校验通过后回写展示） -->
+            <div id="autoFields" style="display:none;">
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="apply_amount">申请金额（元） <span class="required">*</span></label>
+                    <label class="form-label" for="apply_amount">
+                        申请金额（元） <span id="badge_apply_amount" class="ai-writeback-badge">🤖 AI 回写·请核对</span>
+                    </label>
                     <input type="number" id="apply_amount" name="apply_amount" class="form-input"
-                           placeholder="请输入报销金额" min="0" step="0.01" required>
+                           placeholder="提交校验后由 AI 自动回写，可手动修改" min="0" step="0.01">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="apply_date">申请日期 <span class="required">*</span></label>
-                    <input type="date" id="apply_date" name="apply_date" class="form-input" required>
+                    <label class="form-label" for="apply_date">
+                        申请日期 <span id="badge_apply_date" class="ai-writeback-badge">📅 系统日期</span>
+                    </label>
+                    <input type="date" id="apply_date" name="apply_date" class="form-input">
                 </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="reason">报销事由 <span class="required">*</span></label>
-                <input type="text" id="reason" name="reason" class="form-input"
-                       placeholder="例如：北京出差住宿费" required>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="expense_category">费用类型</label>
+                    <label class="form-label" for="expense_category">
+                        费用类型 <span id="badge_expense_category" class="ai-writeback-badge">🤖 AI 识别</span>
+                    </label>
                     <select id="expense_category" name="expense_category" class="form-input">
                         <option value="">— AI 将自动识别 —</option>
                         <option value="差旅">差旅</option>
@@ -119,16 +121,21 @@
                         <option value="其他">其他</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="remark">备注</label>
-                    <input type="text" id="remark" name="remark" class="form-input"
-                           placeholder="补充说明（可选）">
-                </div>
+
             </div>
+
+            <div class="form-group">
+                <label class="form-label" for="reason">报销事由 <span class="field-badge manual-badge">✍️ 人工填写</span></label>
+                <input type="text" id="reason" name="reason" class="form-input"
+                       placeholder="例如：北京出差住宿费">
+            </div>
+
+            <p class="ai-note">⚠️ 以上「金额 / 申请日期 / 费用类型」由 AI 在提交校验后自动回写，请人工核对确认后提交审批；报销事由请人工填写。</p>
+            </div><!-- /autoFields -->
 
             <!-- 提交按钮（状态机：check / approve） -->
             <button type="button" class="btn-submit" id="submitBtn" data-mode="check" onclick="onSubmitClick()">
-                <span class="btn-text">提交</span>
+                <span class="btn-text">🚀 提交校验</span>
                 <span class="btn-loading" style="display:none;">
                     <span class="spinner"></span> AI 校验中...
                 </span>
@@ -176,6 +183,39 @@
     </div>
 </div>
 
-<script src="/static/upload.js"></script>
+<!-- 提交审批结果弹窗（替代浏览器 alert） -->
+<div class="modal-mask" id="submitSuccessModal" style="display:none;">
+    <div class="modal-box submit-success-box">
+        <div class="modal-head submit-success-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="submit-success-icon" id="submitSuccessIcon">✅</span>
+                <h3 id="submitSuccessTitle">提交成功</h3>
+            </div>
+            <button class="modal-close" type="button" onclick="closeSubmitSuccessModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="info-grid" id="submitSuccessGrid"></div>
+            <div class="submit-hint" id="submitSuccessHint"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 我的报销：报销单明细弹窗 -->
+<div class="modal-mask" id="myDetailModal" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="detail-title-icon">📄</span>
+                <h3>报销单明细</h3>
+            </div>
+            <button class="modal-close" type="button" onclick="closeMyDetailModal()">✕</button>
+        </div>
+        <div class="modal-body" id="myDetailBody">
+            <div class="detail-loading">加载中…</div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/upload.js?v=20260722"></script>
 </body>
 </html>

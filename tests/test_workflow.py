@@ -144,7 +144,7 @@ class TestSubmitFinance:
         wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="通过")
         wf.submit_finance(sample_reimbursement, "FIN-001", "王会计", action="归档")
         wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
-        # 再次打款：状态已是已发放，应报错（不可重复打款）
+        # 再次打款：状态已是已打款，应报错（不可重复打款）
         with pytest.raises(ValueError):
             wf.submit_finance(sample_reimbursement, "FIN-002", "李出纳", action="打款")
 

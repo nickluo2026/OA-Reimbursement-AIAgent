@@ -111,7 +111,7 @@ class TestApproveAPI:
         _login(client, "APR-001", "approver", "李总")
         resp = client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "通过"})
         assert resp.status_code == 200
-        assert resp.get_json()["data"]["workflow_status"] == "已通过"
+        assert resp.get_json()["data"]["workflow_status"] == "待复核"
 
     def test_approve_reject(self, client, fresh_db):
         _make_reimbursement()
@@ -160,13 +160,13 @@ class TestFinanceAPI:
 
         r1 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "归档"})
         assert r1.status_code == 200
-        assert r1.get_json()["data"]["workflow_status"] == "已归档"
+        assert r1.get_json()["data"]["workflow_status"] == "已复核并归档"
 
         # 打款须由出纳岗（FIN-002）执行，落实职责分离
         _login(client, "FIN-002", "finance_pay", "李出纳")
         r2 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "打款"})
         assert r2.status_code == 200
-        assert r2.get_json()["data"]["workflow_status"] == "已发放"
+        assert r2.get_json()["data"]["workflow_status"] == "已打款"
 
     def test_finance_pay_before_archive(self, client, fresh_db):
         _make_reimbursement()
@@ -198,3 +198,51 @@ class TestFinanceAPI:
         _login(client, "APR-001", "approver", "李总")
         resp = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "归档"})
         assert resp.status_code == 403
+
+
+# ── 报销单更新 API（AI 回写落库） ──
+class TestReimbursementUpdate:
+    def test_update_fields_while_pending(self, client, fresh_db):
+        _make_reimbursement()
+        _login(client, "EMP-2026", "employee", "张三")
+        resp = client.post(
+            "/api/reimbursement/REQ-API-001/update",
+            json={"apply_amount": "999.00", "apply_date": "2026-07-20",
+                  "expense_category": "住宿", "reason": "AI 回写后确认"},
+        )
+        assert resp.status_code == 200
+        d = resp.get_json()
+        assert d["apply_amount"] == 999.0
+        assert d["apply_date"] == "2026-07-20"
+        assert d["expense_category"] == "住宿"
+        assert d["reason"] == "AI 回写后确认"
+
+    def test_update_forbidden_for_other_employee(self, client, fresh_db):
+        _make_reimbursement(employee="EMP-2026")
+        _login(client, "EMP-9999", "employee", "他人")
+        resp = client.post(
+            "/api/reimbursement/REQ-API-001/update",
+            json={"apply_amount": "1.00"},
+        )
+        assert resp.status_code == 403
+
+    def test_update_rejected_after_approval(self, client, fresh_db):
+        """审批通过（待复核）后不可再修改"""
+        _make_reimbursement()
+        _login(client, "APR-001", "approver", "李总")
+        client.post("/api/approve", json={"request_id": "REQ-API-001", "action": "通过"})
+        _login(client, "EMP-2026", "employee", "张三")
+        resp = client.post(
+            "/api/reimbursement/REQ-API-001/update",
+            json={"apply_amount": "1.00"},
+        )
+        assert resp.status_code == 400
+        assert "不可修改" in resp.get_json()["error"]
+
+    def test_update_404_for_missing(self, client, fresh_db):
+        _login(client, "EMP-2026", "employee", "张三")
+        resp = client.post(
+            "/api/reimbursement/NOPE/update",
+            json={"apply_amount": "1.00"},
+        )
+        assert resp.status_code == 404

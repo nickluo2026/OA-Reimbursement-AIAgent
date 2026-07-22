@@ -4,6 +4,16 @@
 (function () {
     'use strict';
 
+    /* 工号 → 姓名（与 web/app.py DEMO_ACCOUNTS 对齐，详情页展示 姓名（编码）） */
+    var NAME_MAP = {
+        'FIN-001': '王会计', 'FIN-002': '李出纳',
+        'APR-001': '李总', 'EMP-2026': '张三', 'ADM-001': '赵管理'
+    };
+    function displayName(id) {
+        if (!id) return '';
+        return NAME_MAP[id] ? NAME_MAP[id] + '（' + id + '）' : id;
+    }
+
     var AI_MAP = {
         '通过': { cls: 'ai-pass', icon: '✓' },
         '预警': { cls: 'ai-warn', icon: '⚠️' },
@@ -13,10 +23,10 @@
     var WS_MAP = {
         '待审批': { cls: 'status-pending', text: '⏳ 待审' },
         '审批中': { cls: 'status-inreview', text: '🔄 审批中(会签)' },
-        '已通过': { cls: 'status-paid', text: '✓ 已通过' },
+        '待复核': { cls: 'status-paid', text: '✓ 待复核' },
         '已驳回': { cls: 'status-rejected', text: '✕ 已驳回' },
-        '已归档': { cls: 'status-archived', text: '📦 已归档' },
-        '已发放': { cls: 'status-paid', text: '💰 已发放' },
+        '已复核并归档': { cls: 'status-archived', text: '📦 已复核并归档' },
+        '已打款': { cls: 'status-paid', text: '💰 已打款' },
     };
 
     function esc(s) {
@@ -112,12 +122,25 @@
 
     function renderDetail(d) {
         var route = d.route || {};
+        // 审批人：取首条「通过」记录的审批人编码
+        var approverId = '';
+        if (d.approval_records && d.approval_records.length) {
+            for (var i = 0; i < d.approval_records.length; i++) {
+                if (d.approval_records[i].action === '通过') {
+                    approverId = d.approval_records[i].approver_id;
+                    break;
+                }
+            }
+        }
         var html = '<div class="info-grid">' +
             infoItem('报销单号', d.request_id) +
             infoItem('票据类型', d.ticket_type || '发票') +
             infoItem('申请金额', money(d.apply_amount)) +
             infoItem('费用类型', d.expense_category || '—') +
-            infoItem('提交人', d.employee_name) +
+            infoItem('提交人', displayName(d.employee_id)) +
+            infoItem('审批人', approverId ? displayName(approverId) : '—') +
+            infoItem('复核人', d.archived_by ? displayName(d.archived_by) : '—') +
+            infoItem('打款人', d.paid_by ? displayName(d.paid_by) : '—') +
             infoItem('工作流状态', d.workflow_status) +
             infoItem('审批层级', (route['审批人'] || '—') + (route['需要会签'] ? '（需会签）' : '')) +
         '</div>';

@@ -44,17 +44,17 @@
             <h2><span class="card-icon">💼</span> 待终审报销单</h2>
             <div style="font-size:13px;color:var(--text-light);">
                 <span style="margin-right:14px;">⏳ 待终审：<strong style="color:var(--primary);" id="financePendingCount">—</strong></span>
-                <span style="margin-right:14px;">📦 待归档：<strong style="color:var(--orange);" id="financeArchiveCount">—</strong></span>
+                <span style="margin-right:14px;">📦 待打款：<strong style="color:var(--orange);" id="financeArchiveCount">—</strong></span>
                 <span>💰 已打款：<strong style="color:var(--green);" id="financePaidCount">—</strong></span>
             </div>
         </div>
         <p class="card-desc">
             {% if role_key == 'finance_review' %}
-                审批领导已通过的报销单。复核 AI 校验结果 → 确认归档。
+                审批领导已通过（待复核）的报销单。复核 AI 校验结果 → 确认复核并归档。
             {% elif role_key == 'finance_pay' %}
-                已归档待发放的报销单。确认信息无误后发起打款（打款人须与归档人不同）。
+                已复核并归档待打款的报销单。确认信息无误后发起打款（打款人须与归档人不同）。
             {% else %}
-                审批领导已通过的报销单。复核 AI 校验结果 → 确认归档 → 发起费用发放。
+                审批领导已通过（待复核）的报销单。复核 AI 校验结果 → 确认复核并归档 → 发起打款。
             {% endif %}
         </p>
         <div class="reimburse-list" id="financeList"></div>
