@@ -81,7 +81,7 @@ class Employee(Base):
     name = Column(String(64), nullable=False, comment="姓名")
     department = Column(String(128), comment="部门")
     role = Column(
-        String(32), default="员工", comment="角色: 员工/审批领导/财务复核/出纳打款/系统管理员"
+        String(32), default="员工", comment="角色: 员工/主管/财务/出纳/系统管理员"
     )
     created_at = Column(DateTime, default=utcnow)
 
@@ -110,7 +110,7 @@ class Reimbursement(Base):
         comment="工作流状态: 待审批/审批中/待复核/已驳回/已复核并归档/已打款",
     )
     remark = Column(String(256), comment="备注")
-    archived_by = Column(String(32), comment="归档人(财务复核岗工号)")
+    archived_by = Column(String(32), comment="归档人(财务岗工号)")
     paid_by = Column(String(32), comment="打款人(出纳岗工号)")
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -172,7 +172,7 @@ class ApprovalRecord(Base):
     approver_id = Column(String(32), comment="审批人工号")
     approver_name = Column(String(64), comment="审批人姓名")
     approval_node = Column(
-        String(32), comment="审批节点: 直属领导/部门总监/VP/CEO/财务复核/出纳打款"
+        String(32), comment="审批节点: 直属领导/部门总监/VP/CEO/财务/出纳"
     )
     action = Column(String(16), comment="动作: 通过/驳回/转审")
     comment = Column(String(512), comment="审批意见")

@@ -1,4 +1,4 @@
-"""端到端测试：普通员工提交 → 审批领导通过 → 财务归档打款
+"""端到端测试：员工提交 → 主管通过 → 财务归档打款
 
 通过 mock 底层 AI 工具（OCR / 异常检测 / 分类限额），让真实的 LangGraph
 流水线照常执行并把报销单持久化到数据库，从而完整验证
@@ -94,7 +94,7 @@ class TestEndToEndFlow:
         assert reb.ai_status == "通过"
         assert reb.employee_id == "EMP-2026"
 
-        # ── 2) 审批领导通过 ──
+        # ── 2) 主管通过 ──
         _login(client, "APR-001", "approver", "李总")
         r_approve = client.post(
             "/api/approve", json={"request_id": rid, "action": "通过", "comment": "同意"}
@@ -106,13 +106,13 @@ class TestEndToEndFlow:
         assert wf.list_pending() == []
         assert len(wf.list_for_finance()) == 1
 
-        # ── 3) 财务复核归档 ──
+        # ── 3) 财务归档 ──
         _login(client, "FIN-001", "finance_review", "王会计")
         r_archive = client.post("/api/finance", json={"request_id": rid, "action": "归档"})
         assert r_archive.status_code == 200
         assert r_archive.get_json()["data"]["workflow_status"] == wf.WS_ARCHIVED
 
-        # ── 4) 出纳打款（职责分离：须与归档人不同账号） ──
+        # ── 4) 出纳（职责分离：须与归档人不同账号） ──
         _login(client, "FIN-002", "finance_pay", "李出纳")
         r_pay = client.post("/api/finance", json={"request_id": rid, "action": "打款"})
         assert r_pay.status_code == 200

@@ -4,7 +4,7 @@
 (function () {
     'use strict';
 
-    /* 当前登录角色的财务子角色：finance_review（财务复核）/ finance_pay（出纳打款） */
+    /* 当前登录角色的财务子角色：finance_review（财务）/ finance_pay（出纳） */
     var USER_ROLE = '';
     var _roleMeta = document.querySelector('meta[name="user-role"]');
     if (_roleMeta) {
@@ -81,7 +81,7 @@
             : '<span class="tag invoice">🧾 发票</span>';
 
         var actions = '<button class="btn-mini primary" onclick="viewDetail(\'' + esc(it.request_id) + '\')">📄 查看明细</button>';
-        // 职责分离：仅财务复核岗可「确认复核并归档」，仅出纳岗可「发起打款」
+        // 职责分离：仅财务岗可「确认复核并归档」，仅出纳岗可「发起打款」
         if (it.workflow_status === '待复核' && USER_ROLE === 'finance_review') {
             actions += '<button class="btn-mini success" onclick="openAction(\'' + esc(it.request_id) + '\',\'归档\')">📦 确认复核并归档</button>';
         } else if (it.workflow_status === '已复核并归档' && USER_ROLE === 'finance_pay') {

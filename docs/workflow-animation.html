@@ -461,28 +461,28 @@
         <div class="stage">
             <div style="text-align: center; margin-bottom: 40px;">
                 <div class="scene-title" style="font-size: 28px; margin-bottom: 12px;">全链路角色场景</div>
-                <div class="scene-subtitle">覆盖报销申请、审批、财务复核、出纳打款、审计全生命周期</div>
+                <div class="scene-subtitle">覆盖报销申请、审批、财务、出纳、审计全生命周期</div>
             </div>
             <div class="roles-grid">
                 <div class="role-card">
                     <div class="role-icon">👤</div>
-                    <div class="role-name">普通员工</div>
+                    <div class="role-name">员工</div>
                     <div class="role-desc">提交日常差旅、餐饮、住宿等报销</div>
                 </div>
                 <div class="role-card">
                     <div class="role-icon">👔</div>
-                    <div class="role-name">审批领导</div>
+                    <div class="role-name">主管</div>
                     <div class="role-desc">审核下属报销申请</div>
                 </div>
                 <div class="role-card">
                     <div class="role-icon">💼</div>
-                    <div class="role-name">财务复核</div>
+                    <div class="role-name">财务</div>
                     <div class="role-account">FIN-001 · 王会计</div>
                     <div class="role-desc">复核 AI 结果 · 确认归档</div>
                 </div>
                 <div class="role-card">
                     <div class="role-icon">🏦</div>
-                    <div class="role-name">出纳打款</div>
+                    <div class="role-name">出纳</div>
                     <div class="role-account">FIN-002 · 李出纳</div>
                     <div class="role-desc">发起费用发放 · 回单归档</div>
                 </div>
@@ -498,7 +498,7 @@
     <!-- Phase 2: Employee workflow -->
     <div class="phase phase-employee">
         <div class="stage" style="flex-direction: column;">
-            <div class="scene-title">👤 普通员工 · 报销提交</div>
+            <div class="scene-title">👤 员工 · 报销提交</div>
             <div class="scene-subtitle">上传票据 → 填写事由与金额 → 提交校验 → 等待审批结果</div>
             <div class="steps-row">
                 <div class="step-box">
@@ -547,7 +547,7 @@
     <!-- Phase 3: Approver workflow -->
     <div class="phase phase-approver">
         <div class="stage" style="flex-direction: column;">
-            <div class="scene-title">👔 审批领导 · 智能审批</div>
+            <div class="scene-title">👔 主管 · 智能审批</div>
             <div class="scene-subtitle">查看待审报销单 → 查看 AI 校验结果与预警 → 通过 / 驳回 / 转审</div>
             <div class="steps-row">
                 <div class="step-box">
@@ -585,11 +585,11 @@
         </div>
     </div>
 
-    <!-- Phase 4: Finance workflow (职责分离：财务复核 FIN-001 + 出纳 FIN-002) -->
+    <!-- Phase 4: Finance workflow (职责分离：财务 FIN-001 + 出纳 FIN-002) -->
     <div class="phase phase-finance">
         <div class="stage" style="flex-direction: column;">
-            <div class="scene-title">💼 财务复核 / 🏦 出纳 · 职责分离打款</div>
-            <div class="scene-subtitle">复核 AI 结果 → 财务复核确认归档 → 出纳发起费用发放 → 回单归档（四眼原则：归档人 ≠ 打款人）</div>
+            <div class="scene-title">💼 财务 / 🏦 出纳 · 职责分离打款</div>
+            <div class="scene-subtitle">复核 AI 结果 → 财务确认归档 → 出纳发起费用发放 → 回单归档（四眼原则：归档人 ≠ 打款人）</div>
             <div class="steps-row">
                 <div class="step-box">
                     <div class="step-icon">🤖</div>
@@ -600,13 +600,13 @@
                 <div class="step-box teal">
                     <div class="step-icon">📦</div>
                     <div class="step-label">确认归档</div>
-                    <div class="step-desc">FIN-001 财务复核</div>
+                    <div class="step-desc">FIN-001 财务</div>
                 </div>
                 <div class="arrow">→</div>
                 <div class="step-box success">
                     <div class="step-icon">💰</div>
                     <div class="step-label">发起费用发放</div>
-                    <div class="step-desc">FIN-002 出纳打款</div>
+                    <div class="step-desc">FIN-002 出纳</div>
                 </div>
                 <div class="arrow">→</div>
                 <div class="step-box">
@@ -617,7 +617,7 @@
             </div>
             <div class="ui-mockup">
                 <div class="ui-panel">
-                    <div class="ui-panel-title">💼 财务复核 (FIN-001) · 待归档</div>
+                    <div class="ui-panel-title">💼 财务 (FIN-001) · 待归档</div>
                     <div class="ui-row"><span>单号</span><span>RB-20260713-001</span></div>
                     <div class="ui-row"><span>金额</span><span>¥ 358.50</span></div>
                     <div class="ui-row"><span>状态</span><span>审批通过，待复核归档</span><span class="ui-badge badge-blue">复核中</span></div>

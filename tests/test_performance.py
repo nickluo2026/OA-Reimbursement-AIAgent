@@ -852,7 +852,7 @@ class TestAdminQueryPerformance:
         for i in range(100):
             admin_store.add_audit_log(
                 user="测试用户",
-                role="普通员工",
+                role="员工",
                 action="SUBMIT",
                 target=f"REQ-AUDIT-{i}",
                 result="成功",

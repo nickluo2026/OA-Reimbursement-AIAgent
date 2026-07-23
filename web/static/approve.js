@@ -1,5 +1,5 @@
 /* ============================================
-   审批领导工作台 — 前端交互
+   主管工作台 — 前端交互
    ============================================ */
 (function () {
     'use strict';
@@ -72,7 +72,7 @@
     function renderItem(it) {
         var route = it.route || {};
         var level = route['审批级别'] || 1;
-        var levelText = '🧭 审批层级：' + esc(route['审批人'] || '审批领导') +
+        var levelText = '🧭 审批层级：' + esc(route['审批人'] || '主管') +
             (route['级别描述'] ? '（' + esc(route['级别描述']) + '）' : '');
         var cosign = it.needs_countersign
             ? '<span class="tag cosign">🤝 需会签' +

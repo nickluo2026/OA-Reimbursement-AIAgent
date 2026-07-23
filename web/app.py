@@ -108,17 +108,17 @@ if OA_ENV != "production" or os.environ.get("FLASK_DEBUG") == "1":
 # ── 演示账号与角色配置（对应 prototype.html，原型演示无需密码校验）──
 # 角色定义：对应 design.md §1.1 / §17.2 与 constitution.md §2.6
 ROLE_INFO = {
-    "employee": {"icon": "👤", "name": "普通员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
-    "approver": {"icon": "👔", "name": "审批领导", "desc": "审核下属报销申请"},
-    "finance_review": {"icon": "📋", "name": "财务复核", "desc": "复核 AI 校验结果并确认归档"},
-    "finance_pay": {"icon": "💰", "name": "出纳打款", "desc": "发起费用发放（须与归档人不同）"},
+    "employee": {"icon": "👤", "name": "员工", "desc": "提交日常差旅、餐饮、住宿等报销"},
+    "approver": {"icon": "👔", "name": "主管", "desc": "审核下属报销申请"},
+    "finance_review": {"icon": "📋", "name": "财务", "desc": "复核 AI 校验结果并确认归档"},
+    "finance_pay": {"icon": "💰", "name": "出纳", "desc": "发起费用发放（须与归档人不同）"},
     "admin": {"icon": "⚙️", "name": "系统管理员", "desc": "维护报销制度规则"},
 }
 
 # 演示账号映射（工号 → 姓名 / 角色 / 密码哈希）
 # [S-001] 密码使用 werkzeug PBKDF2 哈希存储，不再接受任意密码。
 #         演示密码统一为 "123456"，生产环境应替换为真实密码库。
-# 财务职责分离：FIN-001 财务复核（仅归档）、FIN-002 出纳打款（仅打款），
+# 财务职责分离：FIN-001 财务（仅归档）、FIN-002 出纳（仅打款），
 # 且系统强制「打款人 ≠ 归档人」。
 DEMO_ACCOUNTS = {
     "EMP-2026": {
@@ -148,7 +148,7 @@ DEMO_ACCOUNTS = {
     },
 }
 
-# 财务两类角色（财务复核 / 出纳打款）共享财务工作台与财务 API 权限
+# 财务两类角色（财务 / 出纳）共享财务工作台与财务 API 权限
 FINANCE_ROLES = ("finance_review", "finance_pay")
 
 
@@ -414,7 +414,7 @@ def _require_role(role: str):
 def _require_finance():
     """财务工作台/财务 API 准入：未登录 401；非财务角色 403；否则 None。
 
-    财务复核（finance_review）与出纳打款（finance_pay）均放行，
+    财务（finance_review）与出纳（finance_pay）均放行，
     具体动作（归档 / 打款）的职责分离由 ``workflow.submit_finance`` 强制校验。
     """
     err = _require_login()
@@ -437,11 +437,11 @@ def _serialize_with_name(r):
 
 
 # ═══════════════════════════════════════════════
-# 审批领导 / 财务 / 管理员 工作台页面
+# 主管 / 财务 / 管理员 工作台页面
 # ═══════════════════════════════════════════════
 @app.route("/approve")
 def approve_page():
-    """审批领导工作台：需登录且角色为 approver，否则展示无权限提示。"""
+    """主管工作台：需登录且角色为 approver，否则展示无权限提示。"""
     if "account" not in session:
         return redirect(url_for("login"))
     role = session.get("role", "employee")
@@ -460,7 +460,7 @@ def approve_page():
 
 @app.route("/finance")
 def finance_page():
-    """财务工作台：需登录且角色为财务复核 / 出纳打款。"""
+    """财务工作台：需登录且角色为财务 / 出纳。"""
     if "account" not in session:
         return redirect(url_for("login"))
     role = session.get("role", "employee")
@@ -497,11 +497,11 @@ def admin_page():
 
 
 # ═══════════════════════════════════════════════
-# 审批领导工作台 API
+# 主管工作台 API
 # ═══════════════════════════════════════════════
 @app.route("/api/approve/list")
 def api_approve_list():
-    """待审列表（审批领导）。"""
+    """待审列表（主管）。"""
     err = _require_role("approver")
     if err:
         return err
@@ -542,8 +542,8 @@ def api_approve():
         amt = result.get("apply_amount") if isinstance(result, dict) else None
         amt_str = (" " + mask_amount(amt)) if amt is not None else ""
         admin_store.add_audit_log(
-            session.get("name", "审批领导"),
-            session.get("role", "审批领导"),
+            session.get("name", "主管"),
+            session.get("role", "主管"),
             audit_action,
             f"{request_id}{amt_str}",
             "成功",
@@ -578,7 +578,7 @@ def api_finance_list():
 
 @app.route("/api/finance", methods=["POST"])
 def api_finance():
-    """财务操作：归档（财务复核）/ 打款（出纳打款）。"""
+    """财务操作：归档（财务）/ 打款（出纳）。"""
     err = _require_finance()
     if err:
         return err
@@ -597,7 +597,7 @@ def api_finance():
     # 审计日志：ARCHIVE / PAYMENT_INIT（按财务子角色区分，落实职责分离留痕）
     try:
         audit_action = {"归档": "ARCHIVE", "打款": "PAYMENT_INIT"}.get(action, action or "")
-        audit_role = {"归档": "财务复核", "打款": "出纳打款"}.get(
+        audit_role = {"归档": "财务", "打款": "出纳"}.get(
             action, session.get("role", "财务人员")
         )
         audit_name = session.get("name", audit_role)
@@ -633,13 +633,13 @@ def api_finance():
 def api_reimbursement_detail(request_id):
     """报销单完整明细（发票 / AI 校验 / 审批记录 / 路由）。
 
-    [S-004] 数据归属校验：普通员工仅可查看本人提交的报销单；
-            审批领导 / 财务 / 管理员可查看全部（职责范围内）。
+    [S-004] 数据归属校验：员工仅可查看本人提交的报销单；
+            主管 / 财务 / 管理员可查看全部（职责范围内）。
     """
     err = _require_login()
     if err:
         return err
-    # 普通员工越权防护：只能查看自己的报销单
+    # 员工越权防护：只能查看自己的报销单
     role = session.get("role", "employee")
     if role == "employee":
         reb = wf.get_reimbursement(request_id)
@@ -655,7 +655,7 @@ def api_reimbursement_detail(request_id):
 def api_reimbursement_update(request_id):
     """更新报销单字段（AI 回写后人工确认落库）。
 
-    - 员工仅可改本人「待审批」报销单；审批领导/财务/管理员可改任意待审批单
+    - 员工仅可改本人「待审批」报销单；主管/财务/管理员可改任意待审批单
     - 仅「待审批」状态可改（workflow 层强制）
     """
     err = _require_login()

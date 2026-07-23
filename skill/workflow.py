@@ -4,7 +4,7 @@
 组合为端到端工作流，供 ``web/app.py`` 的审批 / 财务路由调用。
 
 对应设计：
-    - design.md §2.5   审批领导（通过 / 驳回 / 转审）
+    - design.md §2.5   主管（通过 / 驳回 / 转审）
     - design.md §2.6   财务终审与发放（归档 / 打款）
     - constitution.md §2.6  AI 辅助、人类决策（审批决策权在人类）
 """
@@ -48,7 +48,7 @@ WS_REJECTED = "已驳回"
 WS_ARCHIVED = "已复核并归档"
 WS_PAID = "已打款"
 
-# 审批领导可见（待处理）状态
+# 主管可见（待处理）状态
 PENDING_STATUSES = (WS_PENDING, WS_IN_REVIEW)
 # 财务可见（待复核 / 已复核并归档待打款）状态
 FINANCE_STATUSES = (WS_APPROVED, WS_ARCHIVED)
@@ -77,7 +77,7 @@ def get_reimbursement(request_id: str):
 
 
 def list_pending() -> list:
-    """待审批 / 审批中的报销单（审批领导工作台列表）"""
+    """待审批 / 审批中的报销单（主管工作台列表）"""
     from .database import Reimbursement
 
     with get_session() as s:
@@ -298,7 +298,7 @@ def update_reimbursement(
 
 
 # ═══════════════════════════════════════════════
-# 审批决策（审批领导）
+# 审批决策（主管）
 # ═══════════════════════════════════════════════
 def submit_approval(
     request_id: str,
@@ -325,7 +325,7 @@ def submit_approval(
         raise ValueError(f"报销单（报销单号：{request_id}）当前状态「{r.workflow_status}」不可审批")
 
     route = compute_route(r.apply_amount)
-    node = route.get("审批人", "审批领导")
+    node = route.get("审批人", "主管")
     save_approval_record(
         request_id=request_id,
         approver_id=approver_id,
@@ -362,9 +362,9 @@ def submit_finance(
     action: str = "归档",
     comment: str = "",
 ) -> dict[str, Any]:
-    """财务复核归档 / 出纳打款（职责分离）
+    """财务归档 / 出纳（职责分离）
 
-    - 归档（财务复核岗）：仅「待复核」可归档，置「已复核并归档」，记录归档人
+    - 归档（财务岗）：仅「待复核」可归档，置「已复核并归档」，记录归档人
     - 打款（出纳岗）：仅「已复核并归档」可打款，置「已打款」并标记发票已报销（防重）；
       系统强制 **打款人 ≠ 归档人**（职责分离），违规直接拦截
     """
@@ -384,14 +384,14 @@ def submit_finance(
             request_id=request_id,
             approver_id=finance_id,
             approver_name=finance_name,
-            approval_node="财务复核",
+            approval_node="财务",
             action="归档",
             comment=comment,
         )
-        # 记录归档人（财务复核岗工号），供职责分离校验
+        # 记录归档人（财务岗工号），供职责分离校验
         set_finance_operators(request_id, archived_by=finance_id)
         update_workflow_status(request_id, WS_ARCHIVED)
-        logger.info("财务复核归档 %s by=%s", request_id, finance_id)
+        logger.info("财务归档 %s by=%s", request_id, finance_id)
     else:  # 打款（出纳岗）
         if r.workflow_status != WS_ARCHIVED:
             raise ValueError(f"报销单（报销单号：{request_id}）尚未归档，请先确认归档再打款")
@@ -405,7 +405,7 @@ def submit_finance(
             request_id=request_id,
             approver_id=finance_id,
             approver_name=finance_name,
-            approval_node="出纳打款",
+            approval_node="出纳",
             action="打款",
             comment=comment,
         )
@@ -423,10 +423,10 @@ def submit_finance(
             request_id=request_id,
             approver_id=finance_id,
             approver_name=finance_name,
-            approval_node="出纳打款",
+            approval_node="出纳",
             action="回单归档",
             comment=comment,
         )
-        logger.info("出纳打款 %s 金额=%.2f by=%s", request_id, r.apply_amount, finance_id)
+        logger.info("出纳 %s 金额=%.2f by=%s", request_id, r.apply_amount, finance_id)
 
     return serialize(get_reimbursement(request_id))

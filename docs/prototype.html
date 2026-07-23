@@ -616,10 +616,10 @@ select.form-input { appearance: auto; }
         <div class="form-section">
             <label class="form-label" for="loginRole">选择身份（5 角色）</label>
             <select id="loginRole" class="form-input" onchange="selectRole(this.value)">
-                <option value="employee">👤 普通员工（申请报销）</option>
-                <option value="approver">👔 审批领导（审批报销）</option>
-                <option value="finance_review">💼 财务（复核和归档）</option>
-                <option value="finance_pay">🏦 出纳（打款）</option>
+                <option value="employee">👤 员工</option>
+                <option value="approver">👔 主管</option>
+                <option value="finance_review">💼 财务</option>
+                <option value="finance_pay">🏦 出纳</option>
                 <option value="admin">⚙️ 系统管理员</option>
             </select>
         </div>
@@ -637,9 +637,9 @@ select.form-input { appearance: auto; }
 
         <div class="login-hint">
             <strong>演示账号：</strong><br>
-            普通员工 <code>EMP-2026</code> · 审批领导 <code>APR-001</code><br>
-            财务复核 <code>FIN-001</code> · 出纳 <code>FIN-002</code> · 系统管理员 <code>ADM-001</code><br>
-            （密码：123456；财务复核与打款须由不同财务人员操作，防舞弊）<br>
+            员工 <code>EMP-2026</code> · 主管 <code>APR-001</code><br>
+            财务 <code>FIN-001</code> · 出纳 <code>FIN-002</code> · 系统管理员 <code>ADM-001</code><br>
+            （密码：123456，财务与出纳须由不同财务人员操作，防舞弊）<br>
         </div>
     </div>
 </div>
@@ -660,7 +660,7 @@ select.form-input { appearance: auto; }
     <div class="subtitle">V1.5 多角色多智能体协同工作台</div>
     <div class="role-banner" id="roleBanner">
         <span class="rb-icon" id="rbIcon">👤</span>
-        <span class="rb-name" id="rbName">普通员工</span>
+        <span class="rb-name" id="rbName">员工</span>
         <span class="rb-sep">·</span>
         <span class="rb-desc" id="rbDesc">提交日常差旅、餐饮、住宿等报销</span>
     </div>
@@ -682,7 +682,7 @@ select.form-input { appearance: auto; }
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="rg-role">👤 普通员工</td>
+                        <td class="rg-role">👤 员工</td>
                         <td class="rg-ops">
                             <span class="step">手动选择票据类型</span> →
                             <span class="step">上传票据</span> →
@@ -694,7 +694,7 @@ select.form-input { appearance: auto; }
                         <td class="rg-scenario">提交日常差旅、餐饮、住宿等报销</td>
                     </tr>
                     <tr>
-                        <td class="rg-role">👔 审批领导</td>
+                        <td class="rg-role">👔 主管</td>
                         <td class="rg-ops">
                             <span class="step">查看待审报销单</span> →
                             <span class="step">查看 AI 校验结果与预警</span> →
@@ -703,13 +703,13 @@ select.form-input { appearance: auto; }
                         <td class="rg-scenario">审核下属报销申请</td>
                     </tr>
                     <tr>
-                        <td class="rg-role">💼 财务复核</td>
+                        <td class="rg-role">💼 财务</td>
                         <td class="rg-ops">
                             <span class="step">复核 AI 校验结果</span> →
                             <span class="step">确认归档</span>
                             <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-001，仅复核/归档）</span>
                         </td>
-                        <td class="rg-scenario">财务复核与归档</td>
+                        <td class="rg-scenario">财务与归档</td>
                     </tr>
                     <tr>
                         <td class="rg-role">🏦 出纳</td>
@@ -738,7 +738,7 @@ select.form-input { appearance: auto; }
         <!-- Tab 按钮由 JS 动态生成 -->
     </div>
 
-    <!-- ========== Tab 1: 报销申请（普通员工） ========== -->
+    <!-- ========== Tab 1: 报销申请（员工） ========== -->
     <div id="tab-reimburse" class="tab-panel">
     <div class="card">
         <div class="card-header">
@@ -817,7 +817,7 @@ select.form-input { appearance: auto; }
 
     </div><!-- /tab-reimburse -->
 
-    <!-- ========== Tab: 我的报销（普通员工） ========== -->
+    <!-- ========== Tab: 我的报销（员工） ========== -->
     <div id="tab-my" class="tab-panel">
         <div class="card">
             <div class="card-title-row">
@@ -829,7 +829,7 @@ select.form-input { appearance: auto; }
         </div>
     </div><!-- /tab-my -->
 
-    <!-- ========== Tab: 审批工作台（审批领导） ========== -->
+    <!-- ========== Tab: 审批工作台（主管） ========== -->
     <div id="tab-approve" class="tab-panel">
         <div class="card">
             <div class="card-title-row">
@@ -844,7 +844,7 @@ select.form-input { appearance: auto; }
         </div>
     </div><!-- /tab-approve -->
 
-    <!-- ========== Tab: 财务复核（财务复核岗 FIN-001） ========== -->
+    <!-- ========== Tab: 财务（财务岗 FIN-001） ========== -->
     <div id="tab-fin-review" class="tab-panel">
         <div class="card">
             <div class="card-title-row">
@@ -854,12 +854,12 @@ select.form-input { appearance: auto; }
                     <span>📦 待归档：<strong style="color:var(--orange);" id="finReviewArchive">—</strong></span>
                 </div>
             </div>
-            <p class="card-desc">审批领导已通过的报销单。复核 AI 校验结果 → 确认归档（本岗 FIN-001 仅可复核/归档，<b>不可打款</b>）。</p>
+            <p class="card-desc">主管已通过的报销单。复核 AI 校验结果 → 确认归档（本岗 FIN-001 仅可复核/归档，<b>不可打款</b>）。</p>
             <div class="reimburse-list" id="finReviewList"></div>
         </div>
     </div><!-- /tab-fin-review -->
 
-    <!-- ========== Tab: 出纳打款（出纳岗 FIN-002） ========== -->
+    <!-- ========== Tab: 出纳（出纳岗 FIN-002） ========== -->
     <div id="tab-fin-pay" class="tab-panel">
         <div class="card">
             <div class="card-title-row">
@@ -869,7 +869,7 @@ select.form-input { appearance: auto; }
                     <span>✅ 本月已打款：<strong style="color:var(--green);" id="finPayDone">—</strong></span>
                 </div>
             </div>
-            <p class="card-desc">已由财务复核岗（FIN-001）归档的报销单。<b>须由出纳岗（FIN-002）发起打款</b>，与归档人不同人，防舞弊 → 打款后自动回单归档。</p>
+            <p class="card-desc">已由财务岗（FIN-001）归档的报销单。<b>须由出纳岗（FIN-002）发起打款</b>，与归档人不同人，防舞弊 → 打款后自动回单归档。</p>
             <div class="reimburse-list" id="finPayList"></div>
         </div>
     </div><!-- /tab-fin-pay -->
@@ -1156,19 +1156,19 @@ var lastAiStatus = 'pass';      // 最近一次 AI 校验状态（pass/warn/bloc
 var lastAiSummary = '';         // 最近一次 AI 校验摘要，提交时回填待审队列
 
 /* 计数与状态（用于实时统计） */
-var approveDoneTotal = 42;   // 审批领导本月已审（累计）
+var approveDoneTotal = 42;   // 主管本月已审（累计）
 var financePaidTotal = 86;   // 出纳本月打款（累计）
-var MOCK_MY_LIST = [];       // 普通员工已提交的报销单
+var MOCK_MY_LIST = [];       // 员工已提交的报销单
 var INITIAL_PENDING, INITIAL_FINAL, INITIAL_AUDIT, INITIAL_COUNTERS; // 登出重置用快照
 
 /* ============================================
    角色定义
    ============================================ */
 var ROLES = {
-    employee:  { icon: '👤', name: '普通员工',   desc: '提交日常差旅、餐饮、住宿等报销', user: '张三',  account: 'EMP-2026' },
-    approver:  { icon: '👔', name: '审批领导',   desc: '审核下属报销申请',               user: '李总',  account: 'APR-001' },
-    finance_review: { icon: '💼', name: '财务复核', desc: '复核AI结果·确认归档',          user: '王会计', account: 'FIN-001' },
-    finance_pay:    { icon: '🏦', name: '出纳打款', desc: '发起费用发放·回单归档',        user: '李出纳', account: 'FIN-002' },
+    employee:  { icon: '👤', name: '员工',   desc: '提交日常差旅、餐饮、住宿等报销', user: '张三',  account: 'EMP-2026' },
+    approver:  { icon: '👔', name: '主管',   desc: '审核下属报销申请',               user: '李总',  account: 'APR-001' },
+    finance_review: { icon: '💼', name: '财务', desc: '复核AI结果·确认归档',          user: '王会计', account: 'FIN-001' },
+    finance_pay:    { icon: '🏦', name: '出纳', desc: '发起费用发放·回单归档',        user: '李出纳', account: 'FIN-002' },
     admin:     { icon: '⚙️', name: '系统管理员', desc: '维护报销制度规则',               user: '赵管理', account: 'ADM-001' }
 };
 
@@ -1182,10 +1182,10 @@ var ROLE_TABS = {
         { id: 'approve', icon: '📥', label: '待审工作台' }
     ],
     finance_review: [
-        { id: 'fin-review', icon: '💼', label: '财务复核' }
+        { id: 'fin-review', icon: '💼', label: '财务' }
     ],
     finance_pay: [
-        { id: 'fin-pay', icon: '🏦', label: '出纳打款' }
+        { id: 'fin-pay', icon: '🏦', label: '出纳' }
     ],
     admin: [
         { id: 'admin',    icon: '⚙️', label: '系统配置' },
@@ -1437,7 +1437,7 @@ function handleAction(status) {
             reason: reason, status: '待审批', submitTime: nowStr()
         };
         MOCK_MY_LIST.unshift(item);
-        // 路由至审批领导待审队列（补齐 submitter / AI 校验字段供渲染）
+        // 路由至主管待审队列（补齐 submitter / AI 校验字段供渲染）
         var cfg = ROLES.employee;
         var pendingItem = Object.assign({}, item, {
             submitter: cfg.user + '（' + cfg.account + '）',
@@ -1474,7 +1474,7 @@ function showSubmitSuccess(item) {
     html += infoItem('报销事由', item.reason || '—');
     html += infoItem('当前状态', '待审批');
     html += '</div>';
-    html += '<p class="remark-hint" style="margin-top:16px;">提交成功，系统已路由至审批领导，可在「我的报销」中查看审批进度。</p>';
+    html += '<p class="remark-hint" style="margin-top:16px;">提交成功，系统已路由至主管，可在「我的报销」中查看审批进度。</p>';
     document.getElementById('submitSuccessBody').innerHTML = html;
     document.getElementById('submitSuccessModal').classList.add('visible');
 }
@@ -1872,7 +1872,7 @@ function switchTab(tabName) {
 }
 
 /* ============================================
-   审批工作台（审批领导）
+   审批工作台（主管）
    ============================================ */
 var MOCK_PENDING_LIST = [
     {
@@ -2057,7 +2057,7 @@ function closeDetail() {
     document.getElementById('detailModal').classList.remove('visible');
 }
 
-/* ── 我的报销（普通员工） ── */
+/* ── 我的报销（员工） ── */
 function renderMyList() {
     var el = document.getElementById('myList');
     if (!el) return;
@@ -2097,7 +2097,7 @@ function renderMyList() {
 }
 
 /* ============================================
-   财务复核 / 出纳打款（职责分离）
+   财务 / 出纳（职责分离）
    ============================================ */
 var MOCK_FINAL_LIST = [
     {
@@ -2186,7 +2186,7 @@ function renderFinPayList() {
     var list = MOCK_FINAL_LIST.filter(function (x) { return x.archiveStatus === 'archived' && !x.paid; });
     var html = '';
     if (list.length === 0) {
-        html = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无待打款的报销单（请先由财务复核岗归档）</div></div>';
+        html = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无待打款的报销单（请先由财务岗归档）</div></div>';
     } else {
         list.forEach(function (item) {
             var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
@@ -2235,7 +2235,7 @@ function handleFinance(id, action) {
 
     if (action === '打款') {
         if (item.archiveStatus !== 'archived') {
-            alert('请先由「财务复核岗（FIN-001）」确认归档，再发起打款。');
+            alert('请先由「财务岗（FIN-001）」确认归档，再发起打款。');
             return;
         }
         // 防舞弊：打款人必须与归档人不同
@@ -2273,20 +2273,20 @@ function handleFinance(id, action) {
    ============================================ */
 var MOCK_AUDIT_LOG = [
     { time: '2026-07-14 14:32:18', user: '赵管理',   role: '系统管理员', action: 'CONFIG_UPDATE',   target: '住宿 月度限额: 5000 → 6000',  result: '成功', ip: '10.0.1.32' },
-    { time: '2026-07-14 14:28:05', user: '李出纳',   role: '出纳打款',   action: 'PAYMENT_INIT',    target: 'RB-2026-0713-021 · ¥425.80',      result: '成功', ip: '10.0.1.19' },
-    { time: '2026-07-14 14:25:42', user: '李总',     role: '审批领导',   action: 'APPROVE',         target: 'RB-2026-0714-004 · ¥4520.00',     result: '成功', ip: '10.0.1.12' },
-    { time: '2026-07-14 14:20:11', user: '李总',     role: '审批领导',   action: 'APPROVE',         target: 'RB-2026-0714-002 · ¥186.50',      result: '成功', ip: '10.0.1.12' },
-    { time: '2026-07-14 14:15:33', user: '王会计',   role: '财务复核',   action: 'ARCHIVE',         target: 'RB-2026-0713-018 · ¥680.00',      result: '成功', ip: '10.0.1.18' },
-    { time: '2026-07-14 14:10:08', user: '李总',     role: '审批领导',   action: 'REJECT',          target: 'RB-2026-0714-005 · ¥3280.00',     result: '成功', ip: '10.0.1.12' },
-    { time: '2026-07-14 13:58:22', user: '张三',     role: '普通员工',   action: 'SUBMIT',          target: 'RB-2026-0714-001 · ¥358.50',      result: '成功', ip: '10.0.1.45' },
+    { time: '2026-07-14 14:28:05', user: '李出纳',   role: '出纳',   action: 'PAYMENT_INIT',    target: 'RB-2026-0713-021 · ¥425.80',      result: '成功', ip: '10.0.1.19' },
+    { time: '2026-07-14 14:25:42', user: '李总',     role: '主管',   action: 'APPROVE',         target: 'RB-2026-0714-004 · ¥4520.00',     result: '成功', ip: '10.0.1.12' },
+    { time: '2026-07-14 14:20:11', user: '李总',     role: '主管',   action: 'APPROVE',         target: 'RB-2026-0714-002 · ¥186.50',      result: '成功', ip: '10.0.1.12' },
+    { time: '2026-07-14 14:15:33', user: '王会计',   role: '财务',   action: 'ARCHIVE',         target: 'RB-2026-0713-018 · ¥680.00',      result: '成功', ip: '10.0.1.18' },
+    { time: '2026-07-14 14:10:08', user: '李总',     role: '主管',   action: 'REJECT',          target: 'RB-2026-0714-005 · ¥3280.00',     result: '成功', ip: '10.0.1.12' },
+    { time: '2026-07-14 13:58:22', user: '张三',     role: '员工',   action: 'SUBMIT',          target: 'RB-2026-0714-001 · ¥358.50',      result: '成功', ip: '10.0.1.45' },
     { time: '2026-07-14 13:45:17', user: '赵管理',   role: '系统管理员', action: 'RULE_TOGGLE',     target: '检测金额异常 → 启用',              result: '成功', ip: '10.0.1.32' },
-    { time: '2026-07-14 11:20:05', user: '李总',     role: '审批领导',   action: 'LOGIN',           target: '工号 APR-001',                    result: '成功', ip: '10.0.1.12' },
-    { time: '2026-07-14 10:35:41', user: '李出纳',   role: '出纳打款',   action: 'PAYMENT_INIT',    target: 'RB-2026-0713-015 · ¥1280.00',     result: '成功', ip: '10.0.1.19' },
-    { time: '2026-07-14 09:18:33', user: '赵管理',   role: '系统管理员', action: 'PERMISSION_GRANT',target: '王会计 → 财务复核权限',            result: '成功', ip: '10.0.1.32' },
-    { time: '2026-07-13 18:42:09', user: '李总',     role: '审批领导',   action: 'TRANSFER',        target: 'RB-2026-0713-019 · ¥5800.00 → 部门总监', result: '成功', ip: '10.0.1.12' },
-    { time: '2026-07-13 17:30:21', user: '李四',     role: '普通员工',   action: 'SUBMIT',          target: 'RB-2026-0714-002 · ¥186.50',      result: '成功', ip: '10.0.1.48' },
-    { time: '2026-07-13 16:15:48', user: '李总',     role: '审批领导',   action: 'LOGIN_FAILED',    target: '工号 APR-001 · 密码错误',          result: '失败', ip: '10.0.1.12' },
-    { time: '2026-07-13 14:22:11', user: '王会计',   role: '财务复核',   action: 'LOGIN',           target: '工号 FIN-001',                    result: '成功', ip: '10.0.1.18' }
+    { time: '2026-07-14 11:20:05', user: '李总',     role: '主管',   action: 'LOGIN',           target: '工号 APR-001',                    result: '成功', ip: '10.0.1.12' },
+    { time: '2026-07-14 10:35:41', user: '李出纳',   role: '出纳',   action: 'PAYMENT_INIT',    target: 'RB-2026-0713-015 · ¥1280.00',     result: '成功', ip: '10.0.1.19' },
+    { time: '2026-07-14 09:18:33', user: '赵管理',   role: '系统管理员', action: 'PERMISSION_GRANT',target: '王会计 → 财务权限',            result: '成功', ip: '10.0.1.32' },
+    { time: '2026-07-13 18:42:09', user: '李总',     role: '主管',   action: 'TRANSFER',        target: 'RB-2026-0713-019 · ¥5800.00 → 部门总监', result: '成功', ip: '10.0.1.12' },
+    { time: '2026-07-13 17:30:21', user: '李四',     role: '员工',   action: 'SUBMIT',          target: 'RB-2026-0714-002 · ¥186.50',      result: '成功', ip: '10.0.1.48' },
+    { time: '2026-07-13 16:15:48', user: '李总',     role: '主管',   action: 'LOGIN_FAILED',    target: '工号 APR-001 · 密码错误',          result: '失败', ip: '10.0.1.12' },
+    { time: '2026-07-13 14:22:11', user: '王会计',   role: '财务',   action: 'LOGIN',           target: '工号 FIN-001',                    result: '成功', ip: '10.0.1.18' }
 ];
 
 var AUDIT_ACTION_LABELS = {

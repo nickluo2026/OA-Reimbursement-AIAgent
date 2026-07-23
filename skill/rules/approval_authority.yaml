@@ -65,7 +65,7 @@ workflow_nodes:
     can_delegate: false
     can_reject: true
 
-  - node: "财务复核"
+  - node: "财务"
     condition: "所有审批节点通过"
     can_delegate: false
     can_reject: true

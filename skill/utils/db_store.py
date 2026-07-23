@@ -207,7 +207,7 @@ def set_finance_operators(
     archived_by: str | None = None,
     paid_by: str | None = None,
 ) -> None:
-    """持久化财务复核（归档人）/ 出纳打款（打款人）工号，落实职责分离。
+    """持久化财务（归档人）/ 出纳（打款人）工号，落实职责分离。
 
     archived_by / paid_by 分别记录，便于审计与「打款人 ≠ 归档人」校验。
     """
