@@ -110,6 +110,50 @@ class TestRuleBasedCheck:
         amount_checks = [a for a in anomalies if "超过申请金额" in a.get("异常描述", "")]
         assert len(amount_checks) == 0
 
+    @patch("skill.tools.tool_anomaly_check.check_duplicate_invoice")
+    def test_duplicate_invoice_blocked(self, mock_check, sample_invoice_data):
+        """重复发票号码应检测到重复报销并标记为严重"""
+        mock_check.return_value = True
+        anomalies = _rule_based_check(
+            sample_invoice_data,
+            apply_amount=500,
+            apply_date="2026-06-10",
+        )
+        types = [a["异常类型"] for a in anomalies]
+        assert "重复报销" in types
+        dup = next(a for a in anomalies if a["异常类型"] == "重复报销")
+        assert dup["严重程度"] == "严重"
+        assert "12345678" in dup["异常描述"]
+
+    @patch("skill.tools.tool_anomaly_check.check_duplicate_invoice")
+    def test_duplicate_invoice_absent_not_blocked(self, mock_check, sample_invoice_data):
+        """未重复发票号码应通过"""
+        mock_check.return_value = False
+        anomalies = _rule_based_check(
+            sample_invoice_data,
+            apply_amount=500,
+            apply_date="2026-06-10",
+        )
+        types = [a["异常类型"] for a in anomalies]
+        assert "重复报销" not in types
+
+    @patch("skill.tools.tool_anomaly_check.check_duplicate_invoice")
+    def test_duplicate_check_skipped_when_invoice_number_missing(self, mock_check):
+        """发票号码缺失时跳过重复检查（避免无效查询）"""
+        invoice = {
+            "发票号码": "",
+            "开票日期": "2026-06-01",
+            "发票金额": 100,
+            "销售方名称": "XX公司",
+            "购买方名称": "YY公司",
+        }
+        anomalies = _rule_based_check(invoice, apply_amount=100, apply_date="2026-06-10")
+        # 重复检查未调用
+        mock_check.assert_not_called()
+        # 但应检测到字段缺失
+        types = [a["异常类型"] for a in anomalies]
+        assert "字段缺失" in types
+
 
 class TestSummarize:
     """异常结论判定测试"""

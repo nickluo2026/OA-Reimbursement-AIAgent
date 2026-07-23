@@ -23,6 +23,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from skill import run_reimbursement_skill
 from skill import workflow as wf
+from skill.config import get_deepseek_enabled
 from skill.database import init_db
 from skill.utils import admin_store
 from skill.utils.mask_sensitive import mask_amount, mask_ocr_result
@@ -711,6 +712,18 @@ def api_my():
 # ═══════════════════════════════════════════════
 # 系统管理员后台 API
 # ═══════════════════════════════════════════════
+@app.route("/api/deepseek/status")
+def api_deepseek_status():
+    """DeepSeek 大模型启用状态（供前端在提交校验前探测，避免无谓的流水线动画）。
+
+    返回 {"enabled": true/false}，无需管理员权限，登录即可访问。
+    """
+    err = _require_login()
+    if err:
+        return err
+    return jsonify({"enabled": bool(get_deepseek_enabled())})
+
+
 @app.route("/api/admin/config", methods=["GET", "POST"])
 def api_admin_config():
     """系统配置：GET 返回 schema + 当前值；POST 保存配置（落库 + 写审计）。"""

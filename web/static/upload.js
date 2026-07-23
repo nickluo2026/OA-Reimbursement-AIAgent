@@ -71,9 +71,14 @@
     var pipelineTimer = null;
     var pipelineCurrentIdx = 0;
     var pipelineStepsData = [];
+    var pipelineStarted = false;
 
     function startPipeline(ticketType) {
         if (!pipelineEl) return;
+        // 重置可能因「DeepSeek 停用」弹窗而隐藏/修改的样式（保证下次正常显示）
+        pipelineEl.style.display = '';
+        if (pipelineAgentBadgeEl) { pipelineAgentBadgeEl.style.display = ''; }
+        pipelineStarted = true;
         pipelineStepsData = (PIPELINE_STEPS[ticketType] || PIPELINE_STEPS['发票']).slice();
         var isItinerary = ticketType === '行程单';
 
@@ -523,11 +528,16 @@
         submitBtn.querySelector('.btn-text').style.display = 'none';
         submitBtn.querySelector('.btn-loading').style.display = 'flex';
 
-        // 启动流水线动画（弹窗）
-        startPipeline(currentTicketType);
+        pipelineStarted = false;
+        var dsDisabled = false;
+        var resolvedResults = null;
 
-        // 多文件：每个文件单独发送请求
-        var promises = selectedFiles.map(function (file) {
+        // 并行：状态探测（DeepSeek 是否停用）+ 上传校验
+        var statusPromise = fetch('/api/deepseek/status')
+            .then(function (r) { return r.json(); })
+            .catch(function () { return { enabled: true }; });
+
+        var uploadPromise = Promise.all(selectedFiles.map(function (file) {
             var formData = new FormData(uploadForm);
             formData.set('file', file);
             var csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -539,24 +549,73 @@
                         return d;
                     });
                 });
-        });
+        }));
 
-        Promise.all(promises)
-            .then(function (results) {
+        // 根据最终结论展示结果：停用 → 不显示流水线动画；正常 → 走动画 + 结果
+        function present(results) {
+            if (dsDisabled) {
+                showDisabledModal(results);
+            } else {
                 finishPipeline();
                 setTimeout(function () { showPipelineResult(results); }, 400);
+            }
+        }
+
+        // 状态探测先返回：停用时不再启动流水线动画
+        statusPromise.then(function (cfg) {
+            dsDisabled = !cfg.enabled;
+            if (!dsDisabled) {
+                startPipeline(currentTicketType);
+            }
+            if (resolvedResults) { present(resolvedResults); }
+        });
+
+        uploadPromise
+            .then(function (results) {
+                resolvedResults = results;
+                if (dsDisabled || pipelineStarted) { present(results); }
+                // 否则等待 statusPromise 回调启动动画后再 present
             })
             .catch(function (err) {
-                finishPipeline();
-                setTimeout(function () {
-                    showPipelineResult([{ status: '错误', summary: err.message || '请求失败，请重试' }]);
-                }, 400);
+                resolvedResults = [{ status: '错误', summary: err.message || '请求失败，请重试' }];
+                if (dsDisabled || pipelineStarted) { present(resolvedResults); }
             })
             .finally(function () {
                 submitBtn.disabled = false;
                 submitBtn.querySelector('.btn-text').style.display = 'inline';
                 submitBtn.querySelector('.btn-loading').style.display = 'none';
             });
+    }
+
+    /* ── DeepSeek 停用时的替代弹窗：不显示流水线动画，仅说明原因 ── */
+    function showDisabledModal(results) {
+        var modal = document.getElementById('pipelineModal');
+        if (!modal) return;
+
+        // 隐藏流水线动画，重置标题/智能体徽标
+        if (pipelineEl) { pipelineEl.style.display = 'none'; }
+        if (pipelineTitleEl) { pipelineTitleEl.textContent = 'AI 校验不可用'; }
+        if (pipelineAgentIconEl) { pipelineAgentIconEl.textContent = '⚠️'; }
+        if (pipelineAgentBadgeEl) { pipelineAgentBadgeEl.style.display = 'none'; }
+
+        var summary = 'DeepSeek 大模型已停用（系统配置），无法执行发票 OCR 与 AI 校验，请联系系统管理，确保系统配置中启用 DeepSeek 大模型。';
+        if (results && results.length && results[0].summary) {
+            // 优先采用后端返回的原始说明
+            summary = String(results[0].summary).replace(/^OCR 提取失败:\s*/, '');
+        }
+
+        var rs = document.getElementById('pipelineResultStatus');
+        if (rs) {
+            rs.className = 'result-status warning';
+            rs.style.display = 'flex';
+            document.getElementById('pipelineStatusIcon').textContent = '⚠️';
+            document.getElementById('pipelineStatusLabel').textContent = 'AI 校验已停用';
+            document.getElementById('pipelineStatusSummary').textContent = summary;
+        }
+
+        modal.style.display = 'flex';
+        var body = modal.querySelector('.modal-body');
+        if (body) { body.scrollTop = 0; }
     }
 
     /* ========================================

@@ -211,13 +211,15 @@ class TestAnomalyCheckPerformance:
 
     def test_duplicate_check_performance(self, fresh_db):
         """重复报销查重性能（数据库查询）"""
-        from skill.utils.db_store import check_duplicate_invoice, save_invoice
+        from skill.utils.db_store import check_duplicate_invoice, save_invoice, save_reimbursement
 
-        # 预置 100 条发票
+        # 预置 100 条发票 + 对应报销单（check_duplicate_invoice 会 JOIN Reimbursement）
         for i in range(100):
+            rid = f"REQ-DUP-{i}"
+            save_reimbursement(rid, "EMP001", 100 + i, "2026-07-01")
             save_invoice(
                 {"发票号码": f"DUP-{i:04d}", "发票金额": 100 + i, "销售方名称": "X"},
-                f"REQ-DUP-{i}",
+                rid,
                 "",
             )
 

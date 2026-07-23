@@ -132,24 +132,35 @@ def save_ai_check_result(
 
 
 def check_duplicate_invoice(invoice_number: str, window_days: int = 30) -> bool:
-    """检查发票是否重复报销"""
+    """检查发票是否重复报销
+
+    检查范围：
+    1. ``InvoiceHistory``（已打款报销记录）— 任何匹配即视为重复
+    2. ``InvoiceRecord``（已上传发票记录）— 仅当关联的 ``Reimbursement``
+       仍然存在时才计为重复，避免因报销单被删除而残留的孤儿记录误报
+
+    Args:
+        invoice_number: 发票号码
+        window_days: 未使用（保留参数兼容性）
+
+    Returns:
+        True 表示重复报销，应拦截
+    """
     with get_session() as s:
+        # 1. 已打款的发票 → 绝对重复
         exists = (
             s.query(InvoiceHistory)
-            .filter_by(
-                invoice_number=invoice_number,
-            )
+            .filter_by(invoice_number=invoice_number)
             .first()
         )
         if exists:
             return True
 
-        # 同时检查发票记录表中是否有同一号码
+        # 2. 已上传的发票 → 仅当关联报销单仍然存在才算重复
         existing = (
             s.query(InvoiceRecord)
-            .filter_by(
-                invoice_number=invoice_number,
-            )
+            .join(Reimbursement, Reimbursement.request_id == InvoiceRecord.request_id)
+            .filter(InvoiceRecord.invoice_number == invoice_number)
             .first()
         )
         return existing is not None

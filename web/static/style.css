@@ -886,11 +886,8 @@ select.form-input { appearance: auto; }
 }
 
 /* ── autoFields 隐藏 → 回写后显示过渡动画 ── */
-#autoFields {
-    animation: autoFieldsIn 0.45s ease;
-}
 #autoFields.auto-fields-visible {
-    /* 首次显示时播放动画 */
+    animation: autoFieldsIn 0.45s ease;
 }
 @keyframes autoFieldsIn {
     from {
