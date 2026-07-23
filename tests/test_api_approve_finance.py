@@ -12,6 +12,7 @@
 
 import pytest
 
+from skill import workflow as wf
 from skill.utils.db_store import save_invoice, save_reimbursement
 from web.app import app
 
@@ -246,3 +247,27 @@ class TestReimbursementUpdate:
             json={"apply_amount": "1.00"},
         )
         assert resp.status_code == 404
+
+    def test_submit_creates_reimbursement_for_warning(self, client, fresh_db):
+        """预警单运行期未预建：提交审批时按发票存在创建报销单"""
+        from skill.utils.db_store import save_invoice
+
+        _login(client, "EMP-2026", "employee", "张三")
+        # 仅落库发票（模拟 AI 校验「预警」场景：有发票/AI结果，但无报销单）
+        save_invoice(
+            {"发票号码": "WARN-001", "发票金额": 200},
+            "REQ-WARN-001",
+            "warn.pdf",
+        )
+        resp = client.post(
+            "/api/reimbursement/REQ-WARN-001/update",
+            json={"apply_amount": "200.00", "apply_date": "2026-07-20",
+                  "expense_category": "住宿", "reason": "预警后提交"},
+        )
+        assert resp.status_code == 200
+        d = resp.get_json()
+        assert d["request_id"] == "REQ-WARN-001"
+        assert d["workflow_status"] == wf.WS_PENDING
+        assert d["ai_status"] == "预警"
+        assert d["apply_amount"] == 200.0
+        assert d["expense_category"] == "住宿"

@@ -121,10 +121,8 @@ class TestItineraryAgent:
     @patch("skill.agents.itinerary_agent.update_ai_status")
     @patch("skill.agents.itinerary_agent.save_ai_check_result")
     @patch("skill.agents.itinerary_agent.save_invoice")
-    @patch("skill.agents.itinerary_agent.save_reimbursement")
     def test_persistence_on_request_id(
         self,
-        mock_reimb,
         mock_invoice,
         mock_save,
         mock_update,
@@ -149,23 +147,15 @@ class TestItineraryAgent:
             ticket_type="行程单",
         )
 
-        mock_reimb.assert_called_once()
         mock_invoice.assert_called_once()
         # save_ai_check_result 在 OCR/异常检测/合理性校验三处
         assert mock_save.call_count >= 2
 
-        # 修复验证：OCR 总金额应回写为申请金额，且费用类型推导为「交通」
-        kw = mock_reimb.call_args.kwargs
-        assert kw["apply_amount"] == 85.5
-        assert kw["expense_category"] == "交通"
-
     @patch("skill.agents.itinerary_agent.update_ai_status")
     @patch("skill.agents.itinerary_agent.save_ai_check_result")
     @patch("skill.agents.itinerary_agent.save_invoice")
-    @patch("skill.agents.itinerary_agent.save_reimbursement")
     def test_persistence_empty_ocr_amount_falls_back(
         self,
-        mock_reimb,
         mock_invoice,
         mock_save,
         mock_update,
@@ -192,17 +182,13 @@ class TestItineraryAgent:
             ticket_type="行程单",
         )
 
-        kw = mock_reimb.call_args.kwargs
-        assert kw["apply_amount"] == 200  # 回退到 state 原值
-        assert kw["expense_category"] == "交通"
+        # OCR 总金额为空时回退逻辑在 /update 建单阶段生效，运行期不建单
 
     @patch("skill.agents.itinerary_agent.update_ai_status")
     @patch("skill.agents.itinerary_agent.save_ai_check_result")
     @patch("skill.agents.itinerary_agent.save_invoice")
-    @patch("skill.agents.itinerary_agent.save_reimbursement")
     def test_persistence_respects_user_expense_category(
         self,
-        mock_reimb,
         mock_invoice,
         mock_save,
         mock_update,
@@ -228,9 +214,7 @@ class TestItineraryAgent:
             ticket_type="行程单",
         )
 
-        kw = mock_reimb.call_args.kwargs
-        assert kw["apply_amount"] == 85.5  # OCR 总金额仍回写
-        assert kw["expense_category"] == "差旅"  # 尊重用户预选
+        # 用户预选费用分类在 /update 建单阶段生效，运行期不建单
 
 
 class TestItineraryRouting:

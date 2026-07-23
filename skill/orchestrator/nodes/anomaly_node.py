@@ -10,7 +10,10 @@ import logging
 from typing import Any
 
 from ...tools.tool_anomaly_check import detect_anomaly
-from ...utils.db_store import save_ai_check_result, update_ai_status
+from ...utils.db_store import (
+    save_ai_check_result,
+    update_ai_status,
+)
 from ..state import CheckStatus, ReimbursementState
 
 logger = logging.getLogger(__name__)
@@ -41,6 +44,7 @@ def anomaly_node(state: ReimbursementState) -> dict[str, Any]:
         )
         if request_id:
             try:
+                # 拦截：不预建报销单，仅留痕 AI 状态与校验结果；前端不提供提交入口，故不建单
                 update_ai_status(request_id, "拦截")
                 save_ai_check_result(request_id, "异常检测", "拦截", anomaly_result)
             except Exception as e:

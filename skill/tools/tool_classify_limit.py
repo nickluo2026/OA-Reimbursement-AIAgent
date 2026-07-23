@@ -97,7 +97,7 @@ def classify_and_check_limit(
     if amount > limit:
         result["校验结果"] = (
             f"金额 {amount} 元 > {category}类限额 {limit} 元，"
-            f"超出 {amount - limit:.2f} 元，需人工审批"
+            f"超出 {amount - limit:.2f} 元，按照审批权限进行人工审批"
         )
     else:
         result["校验结果"] = f"金额 {amount} 元 ≤ {category}类限额 {limit} 元，通过"

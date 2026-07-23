@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from ...config import SMALL_AMOUNT_THRESHOLD
+from ...utils.db_store import save_ai_check_result, update_ai_status
 from ..state import ReimbursementState
 
 logger = logging.getLogger(__name__)
@@ -34,5 +35,17 @@ def skip_node(state: ReimbursementState) -> dict[str, Any]:
     }
     anomaly_note = f"异常检查结论: {conclusion}。" if conclusion != "通过" else "无异常。"
     summary = f"小额免审通过。发票金额 {invoice_amount} 元。{anomaly_note}"
+
+    # 留痕：小额免审整体视为「通过」，异常检查为「预警」时整体置「预警」；
+    # 与分类限额/异常检测/查验节点一致，仅写 AI 状态与校验结果，不预建报销单
+    # （报销单统一在「提交审批」时由 workflow.create_reimbursement_on_submit 创建）。
+    request_id = state.get("request_id")
+    if request_id:
+        try:
+            status = "预警" if conclusion == "预警" else "通过"
+            update_ai_status(request_id, status)
+            save_ai_check_result(request_id, "小额免审", status, classify_result)
+        except Exception as e:
+            logger.warning("持久化异常（非致命）: %s", e)
 
     return {"classify_result": classify_result, "summary": summary}

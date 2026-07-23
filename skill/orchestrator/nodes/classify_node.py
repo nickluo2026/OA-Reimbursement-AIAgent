@@ -10,7 +10,10 @@ import logging
 from typing import Any
 
 from ...tools.tool_classify_limit import classify_and_check_limit
-from ...utils.db_store import save_ai_check_result, update_ai_status
+from ...utils.db_store import (
+    save_ai_check_result,
+    update_ai_status,
+)
 from ..state import CheckStatus, ReimbursementState
 
 logger = logging.getLogger(__name__)
@@ -36,6 +39,7 @@ def classify_node(state: ReimbursementState) -> dict[str, Any]:
         )
         if request_id:
             try:
+                # 预警：不预建报销单，仅留痕 AI 校验结果，待「提交审批」时再建
                 update_ai_status(request_id, "预警")
                 save_ai_check_result(request_id, "分类限额", "预警", classify_result)
             except Exception as e:
@@ -54,6 +58,7 @@ def classify_node(state: ReimbursementState) -> dict[str, Any]:
     )
     if request_id:
         try:
+            # 通过：不预建报销单，仅留痕 AI 校验结果与状态，待「提交审批」时再建
             update_ai_status(request_id, "通过")
             save_ai_check_result(request_id, "分类限额", "通过", classify_result)
         except Exception as e:

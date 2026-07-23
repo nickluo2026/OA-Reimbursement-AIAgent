@@ -25,7 +25,6 @@ from ..tools.tool_itinerary_verify import _to_float, verify_itinerary
 from ..utils.db_store import (
     save_ai_check_result,
     save_invoice,
-    save_reimbursement,
     update_ai_status,
 )
 from .base_agent import AgentMeta, BaseAgent
@@ -86,20 +85,9 @@ class ItineraryAgent(BaseAgent):
             state.get("expense_category") or _derive_expense_category(ocr_result)
         )
 
-        # ── 持久化：保存报销单 + 行程单 OCR 结果 ──
-        # 修复：
-        #  1) 回写 OCR 总金额到申请金额（缺失/非法时回退 state 原值，再兜底 0）
-        #  2) 费用类型：尊重用户预选，否则按行程单推导为「交通」
+        # ── 持久化：仅保存行程单 OCR 结果（报销单在「提交审批」时创建，见 workflow.create_reimbursement_on_submit）──
         if request_id:
             try:
-                save_reimbursement(
-                    request_id=request_id,
-                    employee_id=state.get("employee_id", "unknown"),
-                    apply_amount=written_amount,
-                    apply_date=apply_date or "",
-                    reason=state.get("reason", ""),
-                    expense_category=written_category,
-                )
                 # 行程单复用 InvoiceRecord 表存储 OCR 原始结果
                 save_invoice(ocr_result, request_id, pdf_path)
                 save_ai_check_result(
@@ -131,6 +119,8 @@ class ItineraryAgent(BaseAgent):
             )
             if request_id:
                 try:
+                    # 拦截：仅留痕 AI 状态与校验结果，不预建报销单
+                    # 报销单统一在「提交审批」时创建（拦截单前端不提供提交入口，故不会生成）
                     update_ai_status(request_id, "拦截")
                     save_ai_check_result(request_id, "行程单异常检测", "拦截", anomaly_result)
                 except Exception as e:
@@ -181,6 +171,8 @@ class ItineraryAgent(BaseAgent):
 
         if request_id:
             try:
+                # 运行期不预建报销单：无论通过/拦截/预警，均仅留痕 AI 状态与校验结果，
+                # 报销单统一在用户点「提交审批」时由 workflow.create_reimbursement_on_submit 创建。
                 update_ai_status(request_id, verify_conclusion)
             except Exception as e:
                 logger.warning("持久化异常（非致命）: %s", e)

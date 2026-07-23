@@ -13,7 +13,6 @@ from ...tools.tool_ocr_extract import ocr_extract_invoice
 from ...utils.db_store import (
     save_ai_check_result,
     save_invoice,
-    save_reimbursement,
 )
 from ..state import CheckStatus, ReimbursementState
 
@@ -54,21 +53,11 @@ def ocr_node(state: ReimbursementState) -> dict[str, Any]:
     invoice_amount = ocr_result.get("发票金额", 0)
     logger.info("✓ 功能1 完成, 发票金额: %s", invoice_amount)
 
-    # ── 持久化：保存报销单 + 发票 + OCR 结果（若有 request_id）──
-    # 修复：前端在「提交校验」阶段不填金额（金额在 AI 回写后才填），落库时允许金额为 0 占位，
-    #     后续 /update 会用 AI 回写值覆盖；否则找不到记录，导致「落库失败：报销单不存在」。
+    # ── 持久化：仅保存发票 + OCR 结果（若有 request_id）──
+    # 报销单不再在此处创建：通过/拦截单由后续状态节点预建，预警单推迟到「提交审批」时创建。
     request_id = state.get("request_id")
-    apply_amount = state.get("apply_amount")
     if request_id:
         try:
-            save_reimbursement(
-                request_id=request_id,
-                employee_id=state.get("employee_id", "unknown"),
-                apply_amount=apply_amount if apply_amount is not None else 0.0,
-                apply_date=state.get("apply_date", "") or "",
-                reason=state.get("reason", ""),
-                expense_category=state.get("expense_category", ""),
-            )
             save_invoice(ocr_result, request_id, pdf_path)
             save_ai_check_result(
                 request_id,

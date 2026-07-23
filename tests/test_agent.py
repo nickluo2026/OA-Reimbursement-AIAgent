@@ -99,10 +99,8 @@ class TestRunReimbursementSkill:
     @patch("skill.orchestrator.nodes.anomaly_node.save_ai_check_result")
     @patch("skill.orchestrator.nodes.ocr_node.save_ai_check_result")
     @patch("skill.orchestrator.nodes.ocr_node.save_invoice")
-    @patch("skill.orchestrator.nodes.ocr_node.save_reimbursement")
     def test_persistence_on_request_id(
         self,
-        mock_reimb,
         mock_invoice,
         mock_save_ocr,
         mock_save_anomaly,
@@ -138,8 +136,7 @@ class TestRunReimbursementSkill:
             employee_id="E001",
         )
 
-        # 应调用持久化
-        mock_reimb.assert_called_once()
+        # 运行期不应预建报销单（统一在「提交审批」时由 workflow.create_reimbursement_on_submit 建单）
         mock_invoice.assert_called_once()
         # save_ai_check_result 分布在 OCR/异常检测/分类限额 三处节点
         total_save = (
@@ -152,10 +149,8 @@ class TestRunReimbursementSkill:
     @patch("skill.orchestrator.nodes.anomaly_node.save_ai_check_result")
     @patch("skill.orchestrator.nodes.ocr_node.save_ai_check_result")
     @patch("skill.orchestrator.nodes.ocr_node.save_invoice")
-    @patch("skill.orchestrator.nodes.ocr_node.save_reimbursement")
     def test_persistence_error_non_fatal(
         self,
-        mock_reimb,
         mock_invoice,
         mock_save_ocr,
         mock_save_anomaly,
@@ -180,7 +175,8 @@ class TestRunReimbursementSkill:
             "是否超限": False,
             "校验结果": "通过",
         }
-        mock_reimb.side_effect = Exception("DB error")
+        # 运行期不再调用 save_reimbursement；改为让 update_ai_status 抛异常，验证持久化异常不影响主流程
+        mock_update.side_effect = Exception("DB error")
 
         result = run_reimbursement_skill(
             pdf_path="test.pdf",

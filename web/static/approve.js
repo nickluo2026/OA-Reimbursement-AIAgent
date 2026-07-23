@@ -27,6 +27,7 @@
         '已驳回': { cls: 'status-rejected', text: '✕ 已驳回' },
         '已复核并归档': { cls: 'status-archived', text: '📦 已复核并归档' },
         '已打款': { cls: 'status-paid', text: '💰 已打款' },
+        '已转审': { cls: 'status-transferred', text: '↪️ 已转审' },
     };
 
     function esc(s) {

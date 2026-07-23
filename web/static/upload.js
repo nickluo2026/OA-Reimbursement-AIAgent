@@ -581,10 +581,10 @@
             return r.summary || (STATUS_MAP[r.status] ? STATUS_MAP[r.status].label : r.status) || '';
         }).filter(Boolean).join('；') || meta.label;
 
-        lastCheckPassed = (worstStatus === '通过');
+        lastCheckPassed = (worstStatus === '通过' || worstStatus === '预警');
         lastRequestIds = results.map(function (r) { return r._request_id; }).filter(Boolean);
 
-        // 校验通过 → AI 回写金额/费用类型/申请日期
+        // 校验通过 / 预警 → AI 回写金额/费用类型/申请日期，并展开字段表单
         if (lastCheckPassed) { applyAiWriteback(results); }
 
         var rs = document.getElementById('pipelineResultStatus');
@@ -1049,6 +1049,14 @@
         return s;
     }
 
+    /* 仅取日期部分 YYYY-MM-DD（失败则原样返回），用于开票日期等纯日期字段 */
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        var s = String(iso).replace('T', ' ').replace(/\.\d+.*$/, '');
+        var d = s.split(' ')[0];
+        return d || s;
+    }
+
     /* 仅保留年月日（YYYY-MM-DD），用于申请日期等无需具体时间的字段 */
     function fmtDate(v) {
         if (!v) return '—';
@@ -1069,6 +1077,11 @@
             if (!res.ok || res.d.error) {
                 body.innerHTML = '<div class="error-msg">加载失败：' + escHtml(res.d.error || '未知错误') + '</div>';
                 return;
+            }
+            // 按票据类型切换明细弹窗标题图标（行程单显示行程单图标）
+            var titleIcon = document.getElementById('myDetailTitleIcon');
+            if (titleIcon) {
+                titleIcon.textContent = (res.d.ticket_type === '行程单') ? '🚕' : '📄';
             }
             body.innerHTML = renderMyDetail(res.d, requestId);
             body.scrollTop = 0;
@@ -1141,7 +1154,7 @@
                     '<td>' + escHtml(inv.invoice_type || '—') + '</td>' +
                     '<td>' + escHtml(amtCell) + '</td>' +
                     '<td>' + escHtml(inv.seller_name || '—') + '</td>' +
-                    '<td>' + escHtml(fmtTime(inv.invoice_date)) + '</td>' +
+                    '<td>' + escHtml(fmtDate(inv.invoice_date)) + '</td>' +
                 '</tr>';
             });
             html += '</tbody></table></div>';

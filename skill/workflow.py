@@ -33,7 +33,9 @@ from .utils.db_store import (
     get_invoices_for_request,
     mark_invoice_reimbursed,
     save_approval_record,
+    save_reimbursement,
     set_finance_operators,
+    update_ai_status,
     update_workflow_status,
 )
 from .utils.mask_sensitive import mask_ocr_result
@@ -47,14 +49,15 @@ WS_APPROVED = "待复核"
 WS_REJECTED = "已驳回"
 WS_ARCHIVED = "已复核并归档"
 WS_PAID = "已打款"
+WS_TRANSFERRED = "已转审"
 
-# 主管可见（待处理）状态
+# 主管可见（待处理）状态：转审后进入「已转审」，不再出现在主管待审批列表
 PENDING_STATUSES = (WS_PENDING, WS_IN_REVIEW)
 # 财务可见（待复核 / 已复核并归档待打款）状态
 FINANCE_STATUSES = (WS_APPROVED, WS_ARCHIVED)
 
-# 终结状态（不可再被审批）
-TERMINAL_STATUSES = (WS_REJECTED, WS_PAID)
+# 终结状态（不可再被审批）：已转审的单据已移出主管队列，不可被原主管重复审批
+TERMINAL_STATUSES = (WS_REJECTED, WS_PAID, WS_TRANSFERRED)
 
 
 # ═══════════════════════════════════════════════
@@ -145,6 +148,15 @@ def _count_approvals(request_id: str, action: str) -> int:
 
 
 def _ticket_type_of(request_id: str) -> str:
+    """识别报销单票据类型（发票 / 行程单）。
+
+    行程单复用 InvoiceRecord 表存储 OCR 结果，但 ``invoice_type`` 字段为空（行程单 OCR 无"发票类型"字段），
+    因此除 ``invoice_type`` 外，优先以 AI 校验结果的 ``check_type`` 是否包含「行程单」前缀来判断。
+    """
+    ai_results = get_ai_results_for_request(request_id)
+    for r in ai_results:
+        if (r.check_type or "").startswith("行程单"):
+            return "行程单"
     invoices = get_invoices_for_request(request_id)
     if invoices and invoices[0].invoice_type:
         return invoices[0].invoice_type
@@ -231,6 +243,7 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
         "ai_status": r.ai_status,
         "workflow_status": r.workflow_status,
         "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
+        "ticket_type": _ticket_type_of(r.request_id),
         "route": compute_route(r.apply_amount),
         "archived_by": r.archived_by or "",
         "paid_by": r.paid_by or "",
@@ -297,6 +310,61 @@ def update_reimbursement(
         return serialize(r)
 
 
+def _aggregate_ai_status(request_id: str) -> str:
+    """根据校验阶段写入的 AICheckResult 留痕汇总整体 AI 结论。
+
+    严重度：拦截 > 预警 > 通过（「正常」等视为通过）。无任何留痕时返回「待校验」。
+    这是「提交检验仅留痕、提交审批才建单」模型下的状态来源：校验阶段报销单
+    尚不存在，update_ai_status 无法落库，故以 AICheckResult 作为唯一可信留痕。
+    """
+    results = get_ai_results_for_request(request_id)
+    if not results:
+        return "待校验"
+    if any(r.status == "拦截" for r in results):
+        return "拦截"
+    if any(r.status == "预警" for r in results):
+        return "预警"
+    return "通过"
+
+
+def create_reimbursement_on_submit(
+    request_id: str,
+    *,
+    employee_id: str,
+    apply_amount: float | None = None,
+    apply_date: str | None = None,
+    expense_category: str | None = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """提交审批时创建报销单（运行期未预建的场景）。
+
+    覆盖场景：发票与行程单的「通过」「预警」单在 AI 校验阶段仅留痕、不预建
+    报销单，统一推迟到用户点「提交审批」时由本函数创建。
+    （「拦截」单前端不提供提交入口，故不会生成报销单。）
+
+    报销单创建后，依据校验阶段写入的 AICheckResult 留痕汇总 ai_status
+    （拦截 > 预警 > 通过）；若完全没有留痕则兜底「预警」。
+    workflow_status 默认「待审批」，满足审批流转入口要求。
+    """
+    save_reimbursement(
+        request_id=request_id,
+        employee_id=employee_id,
+        apply_amount=float(apply_amount) if apply_amount not in (None, "") else 0.0,
+        apply_date=apply_date or "",
+        reason=reason or "",
+        expense_category=expense_category or "",
+    )
+
+    # 刚建的报销单 ai_status 为列默认值「待校验」；按校验留痕汇总真实结论，
+    # 避免「提交审批时建单」把状态误标（例如 通过 → 预警）。
+    aggregated = _aggregate_ai_status(request_id)
+    if aggregated in (None, "", "待校验"):
+        update_ai_status(request_id, "预警")
+    else:
+        update_ai_status(request_id, aggregated)
+    return serialize(get_reimbursement(request_id))
+
+
 # ═══════════════════════════════════════════════
 # 审批决策（主管）
 # ═══════════════════════════════════════════════
@@ -311,7 +379,7 @@ def submit_approval(
 
     - 通过：金额 ≥ 会签阈值需多人会签，未达最少签核人数时进入「审批中」
     - 驳回：工作流置「已驳回」，终止
-    - 转审：记录转审动作，工作流状态保持不变（仍待处理）
+    - 转审：工作流置「已转审」，单据移出主管待审批列表（仍保留转审留痕）
     """
     if action not in ("通过", "驳回", "转审"):
         raise ValueError(f"未知审批动作: {action}")
@@ -338,7 +406,7 @@ def submit_approval(
     if action == "驳回":
         new_status = WS_REJECTED
     elif action == "转审":
-        new_status = r.workflow_status  # 保持原状态，仅留痕
+        new_status = WS_TRANSFERRED  # 移出主管待审批列表，仅留痕
     else:  # 通过
         if route.get("需要会签"):
             min_signers = route.get("最少签核人数", 2)

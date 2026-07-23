@@ -73,13 +73,25 @@ class TestSubmitApproval:
         )
         assert result["workflow_status"] == wf.WS_REJECTED
 
-    def test_transfer_keeps_status(self, sample_reimbursement):
+    def test_transfer_moves_out_of_pending(self, sample_reimbursement):
+        # 转审前出现在主管待审批列表
+        assert any(
+            r.request_id == sample_reimbursement for r in wf.list_pending()
+        )
         result = wf.submit_approval(
             sample_reimbursement, "APR-001", "李总", action="转审", comment="转上级"
         )
-        # 转审不改变工作流状态，仅留痕
-        assert result["workflow_status"] == wf.WS_PENDING
+        # 转审后工作流状态置为「已转审」，并从主管待审批列表移除
+        assert result["workflow_status"] == wf.WS_TRANSFERRED
         assert result["transferred"] is True
+        assert not any(
+            r.request_id == sample_reimbursement for r in wf.list_pending()
+        )
+        # 转审后不可被原主管重复审批
+        with pytest.raises(ValueError):
+            wf.submit_approval(
+                sample_reimbursement, "APR-001", "李总", action="通过"
+            )
 
     def test_reject_then_approve_raises(self, sample_reimbursement):
         wf.submit_approval(sample_reimbursement, "APR-001", "李总", action="驳回")

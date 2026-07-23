@@ -666,7 +666,22 @@ def api_reimbursement_update(request_id):
     role = session.get("role", "employee")
     reb = wf.get_reimbursement(request_id)
     if not reb:
-        return jsonify({"error": "报销单不存在"}), 404
+        # 预警场景：AI 校验阶段未预建报销单，提交审批时按提交内容创建
+        # （仅当确有发票落库，避免为伪造的单号建单；无发票的非法单号仍返回 404）
+        if not wf.get_invoices_for_request(request_id):
+            return jsonify({"error": "报销单不存在"}), 404
+        try:
+            created = wf.create_reimbursement_on_submit(
+                request_id,
+                employee_id=session.get("account", "unknown"),
+                apply_amount=data.get("apply_amount"),
+                apply_date=data.get("apply_date"),
+                expense_category=data.get("expense_category"),
+                reason=data.get("reason"),
+            )
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify(created)
     if role == "employee" and reb.employee_id != session["account"]:
         return jsonify({"error": "无权修改此报销单"}), 403
     try:

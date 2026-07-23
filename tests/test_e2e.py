@@ -87,7 +87,25 @@ class TestEndToEndFlow:
         assert body["status"] == "通过"
         rid = body["_request_id"]
 
-        # 报销单已落库：待审批 + AI 通过
+        # 提交检验（/upload）不应预建报销单：此时报销单尚不存在
+        assert get_reimbursement(rid) is None
+
+        # ── 1.5) 员工「提交审批」：仅此时才创建报销单 ──
+        r_submit = client.post(
+            f"/api/reimbursement/{rid}/update",
+            json={
+                "apply_amount": "358.50",
+                "apply_date": "2026-07-14",
+                "expense_category": "差旅-住宿",
+                "reason": "北京出差住宿费",
+            },
+        )
+        assert r_submit.status_code == 200
+        submit_body = r_submit.get_json()
+        assert submit_body["workflow_status"] == wf.WS_PENDING
+        assert submit_body["ai_status"] == "通过"
+
+        # 报销单已落库：待审批 + AI 通过 + 提交人
         reb = get_reimbursement(rid)
         assert reb is not None
         assert reb.workflow_status == wf.WS_PENDING
@@ -151,6 +169,18 @@ class TestEndToEndFlow:
             os.unlink(tmp_path)
 
         rid = resp.get_json()["_request_id"]
+
+        # 提交检验后不建单，需先「提交审批」建单才能进入审批流转
+        assert get_reimbursement(rid) is None
+        r_submit = client.post(
+            f"/api/reimbursement/{rid}/update",
+            json={
+                "apply_amount": "358.50",
+                "apply_date": "2026-07-14",
+                "reason": "测试",
+            },
+        )
+        assert r_submit.status_code == 200
 
         _login(client, "APR-001", "approver", "李总")
         r = client.post(
