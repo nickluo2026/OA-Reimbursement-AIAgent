@@ -479,6 +479,7 @@ select.form-input { appearance: auto; }
 .tag.ai-pass { background: var(--green-bg); color: var(--green); }
 .tag.ai-warn { background: var(--orange-bg); color: var(--orange); }
 .tag.ai-block { background: var(--red-bg); color: var(--red); }
+.tag.manual { background: var(--orange-bg); color: var(--orange); }
 .tag.status-pending { background: var(--primary-light); color: var(--primary); }
 .tag.status-approved { background: var(--green-bg); color: var(--green); }
 .tag.status-rejected { background: var(--red-bg); color: var(--red); }
@@ -754,6 +755,8 @@ select.form-input { appearance: auto; }
                 <option value="行程单">🚕 行程单</option>
             </select>
         </div>
+
+
 
         <div class="form-section">
             <label class="form-label">票据文件 <span class="required">*</span></label>
@@ -1107,7 +1110,7 @@ select.form-input { appearance: auto; }
 <div class="modal-overlay" id="pipelineModal" onclick="if(event.target===this) userClosePipelineModal()">
     <div class="modal-box pipeline-modal-box">
         <div class="modal-head">
-            <h3 id="pipelineModalTitle">智能体执行流水线</h3>
+            <h3 id="pipelineModalTitle"><span id="pipelineModalHeadIcon" style="display:none;margin-right:8px;">⚠️</span><span id="pipelineModalTitleText">智能体执行流水线</span></h3>
             <button class="modal-close" type="button" onclick="userClosePipelineModal()">×</button>
         </div>
         <div class="modal-body">
@@ -1318,13 +1321,23 @@ function resetUploadForm() {
     var cat = document.getElementById('expense_category');
     cat.value = '';
     cat.classList.remove('auto-filled');
+    var badgeDefaults = {
+        badge_apply_amount: 'AI 回写·请核对',
+        badge_apply_date: '系统日期',
+        badge_expense_category: 'AI 识别'
+    };
     ['badge_apply_amount', 'badge_apply_date', 'badge_expense_category'].forEach(function(id) {
-        document.getElementById(id).classList.remove('visible');
+        var b = document.getElementById(id);
+        b.classList.remove('visible');
+        if (badgeDefaults[id]) b.textContent = badgeDefaults[id];
     });
     var remark = document.getElementById('reason');
     remark.value = '';
     // 切换票据类型后重新隐藏字段，待下次「提交校验」完成后再展示
     document.getElementById('autoFields').style.display = 'none';
+    // 恢复备注原文案（停用态会改写为停用说明）
+    var note = document.querySelector('#autoFields .remark-hint');
+    if (note) note.textContent = '⚠️ 以上申请金额 / 费用类型 / 申请日期由 AI 智能体在提交校验后自动回写，请人工核对无误并填写报销事由后提交审批。';
 }
 
 /* ── 上传区域点击：仅上传票据，回写延后到「提交校验」完成后 ── */
@@ -1384,6 +1397,14 @@ function resetResults() {
     document.getElementById('pipeline').classList.remove('visible');
     document.getElementById('resultStatus').classList.remove('visible');
     document.getElementById('resultContainer').innerHTML = '';
+    // 重置停用态：恢复 modal head 标题 / 隐藏 ⚠️ 图标 / 清停用标记 / 恢复 pipeline 显示
+    isDisabledMode = false;
+    var titleText = document.getElementById('pipelineModalTitleText');
+    if (titleText) titleText.textContent = '智能体执行流水线';
+    var headIcon = document.getElementById('pipelineModalHeadIcon');
+    if (headIcon) headIcon.style.display = 'none';
+    var pipelineEl = document.getElementById('pipeline');
+    if (pipelineEl) pipelineEl.style.display = '';
 }
 
 /* ── 流水线弹窗控制 ── */
@@ -1393,9 +1414,16 @@ function openPipelineModal() {
 function closePipelineModal() {
     document.getElementById('pipelineModal').classList.remove('visible');
 }
-/* 用户主动关闭弹窗：若本次校验通过，把提交按钮切换为「提交审批」 */
+/* 用户主动关闭弹窗：
+   - 停用态：展开人工填写字段区，并把提交按钮切为「提交审批」
+   - 校验通过：把提交按钮切换为「提交审批」 */
 function userClosePipelineModal() {
     closePipelineModal();
+    if (isDisabledMode) {
+        enableManualModePrototype();
+        isDisabledMode = false;
+        return;
+    }
     if (lastCheckPassed) {
         setSubmitMode('approve');
         lastCheckPassed = false;
@@ -1423,6 +1451,55 @@ function onSubmitClick() {
     }
 }
 
+/* ─────────── DeepSeek 停用态（原型演示）─────────── */
+/* 停用提示文案：与实际前端保持一致（config.DEEPSEEK_DISABLED_MSG） */
+var lastDisabledSummary = 'DeepSeek 大模型已停用（系统配置），请联系系统管理员启用DeepSeek大模型或者人工填写报销单';
+var isDisabledMode = false;
+
+/* 弹窗：复用 pipelineModal，标题切「AI 校验不可用」，状态区显示「AI 校验已停用」+ 停用说明 */
+function showDisabledPrototype() {
+    isDisabledMode = true;
+    var modal = document.getElementById('pipelineModal');
+    if (!modal) return;
+
+    // 1) 隐藏流水线动画
+    var pipelineEl = document.getElementById('pipeline');
+    if (pipelineEl) pipelineEl.style.display = 'none';
+
+    // 2) 改 modal head：标题 + 显示 ⚠️ 图标
+    document.getElementById('pipelineModalTitleText').textContent = 'AI 校验不可用';
+    var headIcon = document.getElementById('pipelineModalHeadIcon');
+    if (headIcon) headIcon.style.display = 'inline';
+
+    // 3) 状态区：橙色「AI 校验已停用」+ 停用说明
+    var rs = document.getElementById('resultStatus');
+    rs.className = 'result-status visible warning';
+    document.getElementById('statusIcon').textContent = '⚠️';
+    document.getElementById('statusLabel').textContent = 'AI 校验已停用';
+    document.getElementById('statusSummary').textContent = lastDisabledSummary;
+
+    // 4) 打开弹窗
+    openPipelineModal();
+
+    // 5) 恢复提交按钮
+    var submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = false;
+    submitBtn.querySelector('.btn-text').style.display = 'inline';
+    submitBtn.querySelector('.btn-loading').style.display = 'none';
+}
+
+/* 关闭停用弹窗后：展开人工填写字段、徽标切「✍️ 人工填写」、按钮切「提交审批」 */
+function enableManualModePrototype() {
+    document.getElementById('autoFields').style.display = 'block';
+    ['badge_apply_amount', 'badge_apply_date', 'badge_expense_category'].forEach(function(id) {
+        var b = document.getElementById(id);
+        if (b) { b.textContent = '✍️ 人工填写'; b.classList.add('visible'); }
+    });
+    var note = document.querySelector('#autoFields .remark-hint');
+    if (note) note.textContent = lastDisabledSummary;
+    setSubmitMode('approve');
+}
+
 /* ── 操作按钮点击 ── */
 function handleAction(status) {
     if (status === '通过') {
@@ -1437,12 +1514,14 @@ function handleAction(status) {
             reason: reason, status: '待审批', submitTime: nowStr()
         };
         MOCK_MY_LIST.unshift(item);
-        // 路由至主管待审队列（补齐 submitter / AI 校验字段供渲染）
+        // 路由至主管待审队列（补齐 submitter / 校验字段供渲染）
         var cfg = ROLES.employee;
+        var dsEnabled = document.querySelector('#ds-enabled') && document.querySelector('#ds-enabled').classList.contains('on');
         var pendingItem = Object.assign({}, item, {
             submitter: cfg.user + '（' + cfg.account + '）',
-            aiStatus: lastAiStatus,
-            aiSummary: lastAiSummary || 'AI 校验通过 · 金额匹配'
+            disabled: !dsEnabled,
+            aiStatus: dsEnabled ? lastAiStatus : '',
+            aiSummary: dsEnabled ? (lastAiSummary || 'AI 校验通过 · 金额匹配') : '人工填写'
         });
         MOCK_PENDING_LIST.unshift(pendingItem);
         addAuditLog('SUBMIT', newId + ' · ¥' + amount.toFixed(2), '成功');
@@ -1575,6 +1654,30 @@ var MOCK_ITINERARY = {
 
 /* ── 运行原型 ── */
 function runPrototype() {
+    var dsToggle = document.querySelector('#ds-enabled');
+    var dsEnabled = dsToggle && dsToggle.classList.contains('on');
+
+    if (!dsEnabled) {
+        // DeepSeek 停用态 → 停用弹窗 + 人工填写区
+        showDisabledPrototype();
+        return;
+    }
+
+    // DeepSeek 启用态 → 正常流水线动画
+    // 重置人工填写区（避免停用态残留）
+    document.getElementById('autoFields').style.display = 'none';
+    var badgeDefaults = {
+        badge_apply_amount: 'AI 回写·请核对',
+        badge_apply_date: '系统日期',
+        badge_expense_category: 'AI 识别'
+    };
+    ['badge_apply_amount', 'badge_apply_date', 'badge_expense_category'].forEach(function(id) {
+        var b = document.getElementById(id);
+        b.classList.remove('visible');
+        if (badgeDefaults[id]) b.textContent = badgeDefaults[id];
+    });
+    var note = document.querySelector('#autoFields .remark-hint');
+    if (note) note.textContent = '⚠️ 以上申请金额 / 费用类型 / 申请日期由 AI 智能体在提交校验后自动回写，请人工核对无误并填写报销事由后提交审批。';
     resetResults();
 
     var submitBtn = document.getElementById('submitBtn');
@@ -1876,6 +1979,45 @@ function switchTab(tabName) {
    ============================================ */
 var MOCK_PENDING_LIST = [
     {
+        id: 'RB-20260723-001',
+        submitter: '张三（EMP-2026）',
+        submitTime: '2026-07-23 09:15',
+        type: '发票',
+        category: '交通',
+        amount: 285.00,
+        reason: '市内出差打车费',
+        disabled: true,
+        aiStatus: '',
+        aiSummary: '人工填写',
+        risk: '低'
+    },
+    {
+        id: 'RB-20260723-002',
+        submitter: '李四（EMP-2024）',
+        submitTime: '2026-07-23 10:30',
+        type: '发票',
+        category: '餐饮',
+        amount: 356.00,
+        reason: '客户招待餐费',
+        disabled: true,
+        aiStatus: '',
+        aiSummary: '人工填写',
+        risk: '低'
+    },
+    {
+        id: 'RB-20260723-003',
+        submitter: '王五（EMP-2018）',
+        submitTime: '2026-07-23 11:00',
+        type: '发票',
+        category: '办公',
+        amount: 1280.00,
+        reason: '部门办公用品采购',
+        disabled: true,
+        aiStatus: '',
+        aiSummary: '人工填写',
+        risk: '低'
+    },
+    {
         id: 'RB-2026-0714-001',
         submitter: '张三（EMP-2026）',
         submitTime: '2026-07-14 10:23',
@@ -1932,9 +2074,13 @@ function renderApproveList() {
     } else {
         MOCK_PENDING_LIST.forEach(function(item) {
             var aiTag = '';
-            if (item.aiStatus === 'pass') aiTag = '<span class="tag ai-pass">✓ AI 通过</span>';
-            else if (item.aiStatus === 'warn') aiTag = '<span class="tag ai-warn">⚠️ AI 预警</span>';
-            else if (item.aiStatus === 'block') aiTag = '<span class="tag ai-block">⛔ AI 拦截</span>';
+            if (item.disabled) {
+                aiTag = '<span class="tag manual">✍️ 人工填写</span>';
+            } else {
+                if (item.aiStatus === 'pass') aiTag = '<span class="tag ai-pass">✓ AI 通过</span>';
+                else if (item.aiStatus === 'warn') aiTag = '<span class="tag ai-warn">⚠️ AI 预警</span>';
+                else if (item.aiStatus === 'block') aiTag = '<span class="tag ai-block">⛔ AI 拦截</span>';
+            }
 
             var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
 
@@ -1949,9 +2095,9 @@ function renderApproveList() {
                     '<span><span class="meta-key">提交时间:</span><span class="meta-value">' + item.submitTime + '</span></span>' +
                     '<span><span class="meta-key">费用类型:</span><span class="meta-value">' + item.category + '</span></span>' +
                 '</div>' +
-                '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;margin-bottom:12px;">' +
+                (item.disabled ? '' : '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;margin-bottom:12px;">' +
                     '🤖 <strong>AI 校验：</strong>' + item.aiSummary +
-                '</div>' +
+                '</div>') +
                 '<div class="reimburse-item-footer">' +
                     '<div class="reimburse-item-tags">' + typeTag + aiTag +
                         (item.transferred
