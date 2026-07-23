@@ -723,7 +723,7 @@ select.form-input { appearance: auto; }
                     <tr>
                         <td class="rg-role">⚙️ 系统管理员</td>
                         <td class="rg-ops">
-                            <span class="step">配置费用限额 / 异常规则 / 审批权限</span> →
+                            <span class="step">启用DeepSeek大模型 / 配置费用限额 / 异常检测规则 / 审批权限</span> →
                             <span class="step">查看审计日志</span>
                         </td>
                         <td class="rg-scenario">维护报销制度规则</td>
@@ -881,10 +881,10 @@ select.form-input { appearance: auto; }
                 <span class="card-icon">⚙️</span>
                 <h2>系统配置</h2>
             </div>
-            <p class="card-desc">启动/停用DeepSeek大模型、异常规则、费用限额、审批权限。所有变更会进入审计日志并立即生效。</p>
+            <p class="card-desc">启用DeepSeek大模型、异常检测规则、费用限额、审批权限。所有变更会进入审计日志并立即生效。</p>
 
             <div class="config-section">
-                <h4>🤖 启用/停用Deepseek大模型<div class="cfg-toggle on" id="ds-enabled" onclick="toggleDeepSeek(this)" title="启用/停用 AI 校验"></div></h4>
+                <h4>🤖 启用Deepseek大模型<div class="cfg-toggle on" id="ds-enabled" onclick="toggleDeepSeek(this)" title="启用 AI 校验"></div></h4>
                 <div class="config-row">
                     <div class="cfg-label">API 密钥<span class="cfg-env">DEEPSEEK_API_KEY</span></div>
                     <input type="password" class="cfg-input wide cfg-secret" value="" placeholder="留空则使用环境变量默认值" data-default="">

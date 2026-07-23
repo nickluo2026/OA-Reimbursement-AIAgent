@@ -38,10 +38,9 @@ def ocr_node(state: ReimbursementState) -> dict[str, Any]:
 
     # DeepSeek 大模型已停用：无法执行 OCR/校验，给出明确提示
     if ocr_result.get("_disabled"):
-        msg = (
-            "DeepSeek 大模型已停用（系统配置），无法执行发票 OCR 与 AI 校验，"
-            "请在系统配置中启用 DeepSeek 大模型"
-        )
+        from ...config import DEEPSEEK_DISABLED_MSG
+
+        msg = DEEPSEEK_DISABLED_MSG
         logger.warning("✗ 功能1 不可用: %s", msg)
         return {
             "ocr_result": ocr_result,

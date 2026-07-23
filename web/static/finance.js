@@ -97,12 +97,14 @@
             '<div class="reimburse-item-meta">' +
                 '<span><span class="meta-key">提交人:</span><span class="meta-value">' + esc(it.employee_name) + '</span></span>' +
                 '<span><span class="meta-key">费用类型:</span><span class="meta-value">' + esc(it.expense_category || '—') + '</span></span>' +
-                '<span><span class="meta-key">AI 状态:</span><span class="meta-value">' + esc(it.ai_status) + '</span></span>' +
+                (it.ai_disabled ? '<span><span class="meta-key">提交方式:</span><span class="meta-value">人工提交（AI 停用）</span></span>' : '<span><span class="meta-key">AI 状态:</span><span class="meta-value">' + esc(it.ai_status) + '</span></span>') +
                 (it.workflow_status === '已复核并归档' && it.archived_by ? '<span><span class="meta-key">归档人:</span><span class="meta-value">' + esc(displayName(it.archived_by)) + '</span></span>' : '') +
             '</div>' +
-            '<div class="ai-summary-box">🤖 <strong>AI 复核：</strong>' + esc(it.ai_summary) + '</div>' +
+            (it.ai_disabled ? '' : '<div class="ai-summary-box">🤖 <strong>AI 复核：</strong>' + esc(it.ai_summary) + '</div>') +
             '<div class="reimburse-item-footer">' +
-                '<div class="reimburse-item-tags">' + typeTag + aiTag(it.ai_status) + wsTag(it.workflow_status) + '</div>' +
+                '<div class="reimburse-item-tags">' + typeTag +
+                (it.ai_disabled ? '<span class="tag manual-submit">✍️ 人工提交</span>' : aiTag(it.ai_status)) +
+                wsTag(it.workflow_status) + '</div>' +
                 '<div class="reimburse-item-actions">' + actions + '</div>' +
             '</div>' +
         '</div>';

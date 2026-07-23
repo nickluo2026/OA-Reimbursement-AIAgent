@@ -271,3 +271,52 @@ class TestReimbursementUpdate:
         assert d["ai_status"] == "预警"
         assert d["apply_amount"] == 200.0
         assert d["expense_category"] == "住宿"
+
+    def test_disabled_manual_submit_creates_invoice(self, client, fresh_db):
+        """DeepSeek 停用态：OCR 未跑、无发票记录，用户手填发票号后提交审批应建单并落库发票号"""
+        _login(client, "EMP-2026", "employee", "张三")
+        resp = client.post(
+            "/api/reimbursement/REQ-DIS-001/update",
+            json={
+                "apply_amount": "188.00",
+                "apply_date": "2026-07-20",
+                "expense_category": "交通",
+                "reason": "停用态手填",
+                "invoice_number": "DIS-INV-001",
+            },
+        )
+        assert resp.status_code == 200
+        d = resp.get_json()
+        assert d["request_id"] == "REQ-DIS-001"
+        assert d["workflow_status"] == wf.WS_PENDING
+        assert d["apply_amount"] == 188.0
+        # 发票号已落库
+        assert d["invoices"] and d["invoices"][0]["invoice_number"] == "DIS-INV-001"
+
+    def test_disabled_duplicate_invoice_rejected(self, client, fresh_db):
+        """停用态补录的发票号若已存在应被拦截（防重）"""
+        from skill.utils.db_store import check_duplicate_invoice
+
+        _login(client, "EMP-2026", "employee", "张三")
+        # 先建一个已存在该发票号的报销单
+        client.post(
+            "/api/reimbursement/REQ-DIS-A/update",
+            json={"apply_amount": "100", "expense_category": "交通", "invoice_number": "DUP-DIS-001"},
+        )
+        assert check_duplicate_invoice("DUP-DIS-001") is True
+        # 另一个单复用同一发票号 → 409
+        resp = client.post(
+            "/api/reimbursement/REQ-DIS-B/update",
+            json={"apply_amount": "100", "expense_category": "交通", "invoice_number": "DUP-DIS-001"},
+        )
+        assert resp.status_code == 409
+        assert "重复" in resp.get_json()["error"]
+
+    def test_disabled_submit_without_invoice_number_404(self, client, fresh_db):
+        """停用态既无发票记录、又未手填发票号 → 视为非法单号（404）"""
+        _login(client, "EMP-2026", "employee", "张三")
+        resp = client.post(
+            "/api/reimbursement/REQ-DIS-X/update",
+            json={"apply_amount": "100", "expense_category": "交通"},
+        )
+        assert resp.status_code == 404

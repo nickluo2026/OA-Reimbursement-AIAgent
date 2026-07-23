@@ -129,9 +129,11 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
     # DeepSeek 大模型已停用（系统配置）→ 无法执行图片 OCR
     settings = get_deepseek_settings()
     if not settings["enabled"]:
+        from ..config import DEEPSEEK_DISABLED_MSG
+
         return {
             "_disabled": True,
-            "_warning": "DeepSeek 大模型已停用（系统配置），无法执行图片 OCR 识别",
+            "_warning": DEEPSEEK_DISABLED_MSG,
         }
 
     try:

@@ -55,16 +55,20 @@ def main():
 
         ids = [r.request_id for r in targets]
 
-        # 关联发票号（仅属于目标单的，才安全清理防重表）
-        inv_target = {
-            inv.invoice_number
-            for inv in s.query(InvoiceRecord).filter(InvoiceRecord.request_id.in_(ids)).all()
+        # 防重清理：以「打款单维度」判断，而非发票号共享维度。
+        # invoice_history 是某报销单【打款】时写入的防重记录；被删单的防重记录
+        # 应在其打款单被删除时一并清理，除非该发票号在其他【有效打款单】的
+        # 防重表中仍存在（此时仍应继续防重，避免误删真实多单打款的发票）。
+        hist_target_nums = {
+            h.invoice_number
+            for h in s.query(InvoiceHistory).filter(InvoiceHistory.request_id.in_(ids)).all()
         }
-        inv_others = {
-            inv.invoice_number
-            for inv in s.query(InvoiceRecord).filter(InvoiceRecord.request_id.notin_(ids)).all()
+        other_hist_nums = {
+            h.invoice_number
+            for h in s.query(InvoiceHistory).filter(InvoiceHistory.request_id.notin_(ids)).all()
         }
-        safe_hist_nums = inv_target - inv_others
+        # 仅清理「仅属于被删打款单、且其他打款单未持有」的发票号防重记录
+        safe_hist_nums = hist_target_nums - other_hist_nums
 
         del_inv = s.query(InvoiceRecord).filter(InvoiceRecord.request_id.in_(ids)).delete(
             synchronize_session=False
@@ -77,7 +81,10 @@ def main():
         )
         del_hist = (
             s.query(InvoiceHistory)
-            .filter(InvoiceHistory.invoice_number.in_(safe_hist_nums))
+            .filter(
+                InvoiceHistory.request_id.in_(ids),
+                InvoiceHistory.invoice_number.in_(safe_hist_nums),
+            )
             .delete(synchronize_session=False)
             if safe_hist_nums
             else 0

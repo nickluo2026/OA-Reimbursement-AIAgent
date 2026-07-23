@@ -39,6 +39,7 @@ from .utils.db_store import (
     update_workflow_status,
 )
 from .utils.mask_sensitive import mask_ocr_result
+from .config import get_deepseek_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +194,7 @@ def serialize(r) -> dict[str, Any]:
         "reason": r.reason,
         "expense_category": r.expense_category,
         "ai_status": r.ai_status,
+        "ai_disabled": bool(getattr(r, "ai_disabled", False)),
         "workflow_status": r.workflow_status,
         "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
         "ticket_type": _ticket_type_of(r.request_id),
@@ -241,6 +243,7 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
         "reason": r.reason,
         "expense_category": r.expense_category,
         "ai_status": r.ai_status,
+        "ai_disabled": bool(getattr(r, "ai_disabled", False)),
         "workflow_status": r.workflow_status,
         "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
         "ticket_type": _ticket_type_of(r.request_id),
@@ -345,7 +348,11 @@ def create_reimbursement_on_submit(
     报销单创建后，依据校验阶段写入的 AICheckResult 留痕汇总 ai_status
     （拦截 > 预警 > 通过）；若完全没有留痕则兜底「预警」。
     workflow_status 默认「待审批」，满足审批流转入口要求。
+
+    DeepSeek 停用态人工提交时标记 ``ai_disabled=True``：该单未经 AI 校验，
+    列表卡片据此隐藏 AI 摘要与 AI 状态标签。
     """
+    ai_disabled = not get_deepseek_enabled()
     save_reimbursement(
         request_id=request_id,
         employee_id=employee_id,
@@ -353,6 +360,7 @@ def create_reimbursement_on_submit(
         apply_date=apply_date or "",
         reason=reason or "",
         expense_category=expense_category or "",
+        ai_disabled=ai_disabled,
     )
 
     # 刚建的报销单 ai_status 为列默认值「待校验」；按校验留痕汇总真实结论，

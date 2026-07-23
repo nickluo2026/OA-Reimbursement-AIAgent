@@ -88,11 +88,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
 # type 取值：number / toggle / text / secret
 CONFIG_SCHEMA: list[dict[str, Any]] = [
     {
-        "group": "🤖 启用/停用Deepseek大模型",
+        "group": "🤖 启用DeepSeek大模型",
         "items": [
             {
                 "key": "ds_enabled",
-                "label": "启用/停用 DeepSeek 大模型（AI 校验）",
+                "label": "启用DeepSeek大模型（AI校验）",
                 "type": "toggle",
             },
             {

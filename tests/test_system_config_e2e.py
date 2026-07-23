@@ -46,8 +46,8 @@ class TestSystemConfigSchema:
     def test_deepseek_group_present(self, fresh_db):
         schema = admin_store.get_config_schema()
         groups = {g["group"]: g for g in schema}
-        assert "🤖 启用/停用Deepseek大模型" in groups
-        keys = {it["key"] for it in groups["🤖 启用/停用Deepseek大模型"]["items"]}
+        assert "🤖 启用DeepSeek大模型" in groups
+        keys = {it["key"] for it in groups["🤖 启用DeepSeek大模型"]["items"]}
         assert keys == {
             "ds_enabled",
             "deepseek_api_key",
@@ -58,7 +58,7 @@ class TestSystemConfigSchema:
     def test_deepseek_item_types(self, fresh_db):
         schema = admin_store.get_config_schema()
         groups = {g["group"]: g for g in schema}
-        items = {it["key"]: it for it in groups["🤖 启用/停用Deepseek大模型"]["items"]}
+        items = {it["key"]: it for it in groups["🤖 启用DeepSeek大模型"]["items"]}
         assert items["ds_enabled"]["type"] == "toggle"
         assert items["deepseek_api_key"]["type"] == "secret"
         assert items["deepseek_base_url"]["type"] == "text"
@@ -152,6 +152,10 @@ class TestDeepSeekDisabled:
             call_type="异常检测",
         )
         assert result.get("_disabled") is True
+        # 验证返回的 _warning 文案与统一常量一致
+        from skill.config import DEEPSEEK_DISABLED_MSG
+
+        assert result.get("_warning") == DEEPSEEK_DISABLED_MSG
 
     def test_call_deepseek_function_enabled_no_network(self, fresh_db):
         # 默认启用，但没有网络且未 mock → 应返回 _error（而非崩溃）

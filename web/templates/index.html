@@ -92,21 +92,29 @@
             <div id="autoFields" style="display:none;">
             <div class="form-row">
                 <div class="form-group">
+                    <label class="form-label" for="invoice_date">
+                        开票日期 <span id="badge_invoice_date" class="field-badge manual-badge">✍️ 人工填写</span>
+                    </label>
+                    <input type="date" id="invoice_date" name="invoice_date" class="form-input"
+                           placeholder="DeepSeek 停用态下请手工录入开票日期">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="invoice_number">
+                        发票号码 <span id="badge_invoice_number" class="field-badge manual-badge">✍️ 人工填写</span>
+                    </label>
+                    <input type="text" id="invoice_number" name="invoice_number" class="form-input"
+                           placeholder="DeepSeek 停用态下请手工录入发票号码">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <label class="form-label" for="apply_amount">
                         申请金额（元） <span id="badge_apply_amount" class="ai-writeback-badge">🤖 AI 回写·请核对</span>
                     </label>
                     <input type="number" id="apply_amount" name="apply_amount" class="form-input"
                            placeholder="提交校验后由 AI 自动回写，可手动修改" min="0" step="0.01">
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="apply_date">
-                        申请日期 <span id="badge_apply_date" class="ai-writeback-badge">📅 系统日期</span>
-                    </label>
-                    <input type="date" id="apply_date" name="apply_date" class="form-input">
-                </div>
-            </div>
-
-            <div class="form-row">
                 <div class="form-group">
                     <label class="form-label" for="expense_category">
                         费用类型 <span id="badge_expense_category" class="ai-writeback-badge">🤖 AI 识别</span>
@@ -124,13 +132,22 @@
 
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="apply_date">
+                        申请日期 <span id="badge_apply_date" class="ai-writeback-badge">📅 系统日期</span>
+                    </label>
+                    <input type="date" id="apply_date" name="apply_date" class="form-input">
+                </div>
+            </div>
+
             <div class="form-group">
                 <label class="form-label" for="reason">报销事由 <span class="field-badge manual-badge">✍️ 人工填写</span></label>
                 <input type="text" id="reason" name="reason" class="form-input"
                        placeholder="例如：北京出差住宿费">
             </div>
 
-            <p class="ai-note">⚠️ 以上「金额 / 申请日期 / 费用类型」由 AI 在提交校验后自动回写，请人工核对确认后提交审批；报销事由请人工填写。</p>
+            <p class="ai-note" id="autoFieldsNote">⚠️ 以上「金额 / 申请日期 / 费用类型」由 AI 在提交校验后自动回写，请人工核对确认后提交审批；报销事由与发票号码请人工填写。</p>
             </div><!-- /autoFields -->
 
             <!-- 提交按钮（状态机：check / approve） -->

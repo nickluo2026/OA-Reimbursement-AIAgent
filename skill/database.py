@@ -11,12 +11,16 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     Date,
     DateTime,
@@ -102,6 +106,9 @@ class Reimbursement(Base):
     expense_category = Column(String(32), comment="费用分类")
     ai_status = Column(
         String(16), default="待校验", index=True, comment="AI校验状态: 通过/预警/拦截/错误"
+    )
+    ai_disabled = Column(
+        Boolean, default=False, comment="DeepSeek 停用态人工提交（卡片隐藏 AI 校验消息）"
     )
     workflow_status = Column(
         String(16),
@@ -292,3 +299,38 @@ def init_db() -> None:
             if col not in r_cols:
                 with _engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE reimbursement ADD COLUMN {col} VARCHAR(32)"))
+
+    # 迁移：为已有 reimbursement 表补充 ai_disabled 列（停用态人工提交标记）
+    if "reimbursement" in _insp.get_table_names():
+        r_cols2 = [c["name"] for c in _insp.get_columns("reimbursement")]
+        if "ai_disabled" not in r_cols2:
+            with _engine.begin() as conn:
+                conn.execute(text("ALTER TABLE reimbursement ADD COLUMN ai_disabled BOOLEAN DEFAULT 0"))
+        # 历史回填：无任何 AI 校验留痕的报销单视为停用态人工提交单（幂等，可重复执行）
+        _backfill_ai_disabled()
+
+
+def _backfill_ai_disabled() -> None:
+    """历史数据回填：将「无 AICheckResult 留痕」的报销单标记为停用态人工提交。
+
+    AI 态单在提交校验阶段必留痕 AICheckResult；停用态单走 OCR 提前返回、不写留痕，
+    故「无 AICheckResult」即可可靠地识别停用态单（如 aa72bd17957543ab）。
+    """
+    from sqlalchemy import text
+
+    from .utils.db_store import get_all_request_ids_with_ai_results
+
+    with _engine.begin() as conn:
+        try:
+            ai_ids = set(get_all_request_ids_with_ai_results())
+        except Exception:
+            ai_ids = set()
+        rows = conn.execute(text("SELECT request_id FROM reimbursement")).fetchall()
+        targets = [r[0] for r in rows if r[0] not in ai_ids]
+        for rid in targets:
+            conn.execute(
+                text("UPDATE reimbursement SET ai_disabled = 1 WHERE request_id = :rid"),
+                {"rid": rid},
+            )
+        if targets:
+            logger.info("历史回填 ai_disabled：标记 %d 张停用态人工提交单", len(targets))

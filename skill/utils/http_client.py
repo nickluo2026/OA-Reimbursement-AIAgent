@@ -59,9 +59,11 @@ def call_deepseek_function(
         logger.info(
             "DeepSeek 大模型已停用（系统配置 ds_enabled=False），跳过本次调用: %s", call_type
         )
+        from ..config import DEEPSEEK_DISABLED_MSG
+
         return {
             "_disabled": True,
-            "_warning": "DeepSeek 大模型已停用（系统配置已关闭 AI 校验），本次调用跳过",
+            "_warning": DEEPSEEK_DISABLED_MSG,
         }
 
     api_key = settings["api_key"]

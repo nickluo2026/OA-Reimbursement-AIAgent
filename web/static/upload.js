@@ -176,6 +176,7 @@
             // 切换票据类型后重置按钮状态并隐藏回写字段
             setSubmitMode('check');
             lastCheckPassed = false;
+            isDisabledMode = false;
             hideAutoFields();
         });
     }
@@ -295,6 +296,10 @@
     var lastCheckPassed = false;
     var lastRequestIds = [];
     var submitSuccessModalMode = '';
+    var isDisabledMode = false;
+    var lastDisabledSummary = '';   // 停用态：保存后端返回的统一停用说明
+    // 本地兜底文案：仅当后端未返回 summary 时启用；运行期文案统一由后端 config.DEEPSEEK_DISABLED_MSG 下发
+    var DISABLED_MSG_FALLBACK = 'DeepSeek 大模型已停用（系统配置），请联系系统管理员启用DeepSeek大模型或者人工填写报销单';
 
     function setSubmitMode(mode) {
         submitBtn.setAttribute('data-mode', mode);
@@ -315,8 +320,13 @@
     window.closePipelineModal = function () {
         var modal = document.getElementById('pipelineModal');
         if (modal) { modal.style.display = 'none'; }
-        // 校验通过 → 主按钮变为「提交审批」
-        if (lastCheckPassed) { setSubmitMode('approve'); }
+        // 停用态：展开人工填写字段并切换为「提交审批」
+        if (isDisabledMode) {
+            enableManualMode();
+        } else if (lastCheckPassed) {
+            // 校验通过 → 主按钮变为「提交审批」
+            setSubmitMode('approve');
+        }
     };
 
     // 点击遮罩层关闭弹窗
@@ -341,13 +351,20 @@
             alert('未找到报销单号，请重新提交校验');
             return;
         }
-        // 收集表单当前值（可能已被 AI 回写），先 PATCH 落库再提示
+        // 收集表单当前值（可能已被 AI 回写或人工填写），先 PATCH 落库再提示
         var payload = {
             apply_amount: document.getElementById('apply_amount').value.trim() || null,
             apply_date: document.getElementById('apply_date').value.trim() || null,
             expense_category: document.getElementById('expense_category').value.trim() || null,
             reason: document.getElementById('reason').value.trim() || null,
+            invoice_number: document.getElementById('invoice_number').value.trim() || null,
+            invoice_date: document.getElementById('invoice_date').value.trim() || null,
         };
+        // 停用态 / 人工填写：金额与费用类型为必填，留空拦截
+        if (!payload.apply_amount || !payload.expense_category) {
+            alert('请先填写「申请金额」与「费用类型」后再提交审批');
+            return;
+        }
         var csrfMeta = document.querySelector('meta[name="csrf-token"]');
         var csrfToken = csrfMeta ? csrfMeta.content : '';
         fetch('/api/reimbursement/' + encodeURIComponent(rid) + '/update', {
@@ -371,6 +388,7 @@
                     amount: payload.apply_amount,
                     category: payload.expense_category,
                     reason: payload.reason,
+                    invoiceNumber: payload.invoice_number,
                 });
                 loadMyList();
             })
@@ -411,6 +429,7 @@
                     { k: '申请金额', v: (opts.amount != null && opts.amount !== '') ? ('¥' + Number(opts.amount).toFixed(2)) : '—' },
                     { k: '费用类型', v: opts.category || '—' },
                     { k: '报销事由', v: opts.reason || '—' },
+                    { k: '发票号码', v: opts.invoiceNumber || '—' },
                     { k: '当前状态', v: '待审批' },
                 ];
             grid.innerHTML = items.map(function (it) {
@@ -430,6 +449,7 @@
         if (submitSuccessModalMode === 'success') {
             setSubmitMode('check');
             lastCheckPassed = false;
+            isDisabledMode = false;
             lastRequestIds = [];
             hideAutoFields();
             if (typeof window.switchTab === 'function') { window.switchTab('my'); }
@@ -478,6 +498,26 @@
                 if (!matched && catEl.options[0]) { catEl.options[0].text = '🤖 ' + cat; catEl.selectedIndex = 0; }
                 catEl.classList.add('auto-filled');
             }
+            // 发票号码：从 OCR 回写并标记 AI 徽标
+            var invNo = ocr['发票号码'];
+            var invNoEl = document.getElementById('invoice_number');
+            if (invNoEl && invNo != null && invNo !== '') {
+                invNoEl.value = invNo;
+                invNoEl.classList.add('auto-filled');
+                var invBadge = document.getElementById('badge_invoice_number');
+                if (invBadge) { invBadge.textContent = '🤖 AI 回写'; invBadge.className = 'ai-writeback-badge'; }
+            }
+        }
+
+        // 开票日期：从 OCR 回写（启用态 AI 识别），并标记 AI 徽标
+        var ocrDate = r.ocr_result || {};
+        var invDate = ocrDate['开票日期'];
+        var invDateEl = document.getElementById('invoice_date');
+        if (invDateEl && invDate != null && invDate !== '') {
+            invDateEl.value = invDate;
+            invDateEl.classList.add('auto-filled');
+            var invDateBadge = document.getElementById('badge_invoice_date');
+            if (invDateBadge) { invDateBadge.textContent = '🤖 AI 回写'; invDateBadge.className = 'ai-writeback-badge'; }
         }
 
         // 申请日期：空则填系统日期
@@ -498,6 +538,49 @@
         }
     }
 
+    /* ── 停用态：展开人工填写字段、徽标置「✍️ 人工填写」、主按钮置「提交审批」 ── */
+    function enableManualMode() {
+        setSubmitMode('approve');
+        // 展开字段区
+        var af = document.getElementById('autoFields');
+        if (af) {
+            af.style.display = '';
+            af.classList.add('auto-fields-visible');
+        }
+        // 金额 / 申请日期 / 费用类型 徽标切换为「人工填写」
+        setBadge('badge_apply_amount', '✍️ 人工填写', 'field-badge manual-badge');
+        setBadge('badge_apply_date', '✍️ 人工填写', 'field-badge manual-badge');
+        setBadge('badge_expense_category', '✍️ 人工填写', 'field-badge manual-badge');
+        setBadge('badge_invoice_date', '✍️ 人工填写', 'field-badge manual-badge');
+        // 提示文案切换为停用态说明
+        var note = document.getElementById('autoFieldsNote');
+        if (note) {
+            // 与停用弹窗保持一致：统一引用后端返回的统一停用说明
+            note.textContent = lastDisabledSummary || DISABLED_MSG_FALLBACK;
+        }
+    }
+
+    /* ── 设置某个徽标的文案与样式 ── */
+    function setBadge(id, text, cls) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = cls;
+    }
+
+    /* ── 重置所有徽标 / 提示文案为初始（AI 回写）状态 ── */
+    function resetBadges() {
+        setBadge('badge_apply_amount', '🤖 AI 回写·请核对', 'ai-writeback-badge');
+        setBadge('badge_apply_date', '📅 系统日期', 'ai-writeback-badge');
+        setBadge('badge_expense_category', '🤖 AI 识别', 'ai-writeback-badge');
+        setBadge('badge_invoice_number', '✍️ 人工填写', 'field-badge manual-badge');
+        setBadge('badge_invoice_date', '✍️ 人工填写', 'field-badge manual-badge');
+        var note = document.getElementById('autoFieldsNote');
+        if (note) {
+            note.textContent = '⚠️ 以上「金额 / 申请日期 / 费用类型」由 AI 在提交校验后自动回写，请人工核对确认后提交审批；报销事由与发票号码请人工填写。';
+        }
+    }
+
     /* ── 隐藏 autoFields 并清除回写数据（切换票据类型 / 重置时调用）── */
     function hideAutoFields() {
         var af = document.getElementById('autoFields');
@@ -506,10 +589,11 @@
             af.classList.remove('auto-fields-visible');
         }
         // 清除回写值并移除高亮
-        ['apply_amount', 'apply_date', 'expense_category'].forEach(function(id) {
+        ['apply_amount', 'apply_date', 'expense_category', 'invoice_number', 'invoice_date'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) { el.value = ''; el.classList.remove('auto-filled', 'ai-writeback'); }
         });
+        resetBadges();
     }
 
     function runCheck() {
@@ -592,17 +676,22 @@
         var modal = document.getElementById('pipelineModal');
         if (!modal) return;
 
+        // 标记为停用态：关闭弹窗后展开人工填写字段
+        isDisabledMode = true;
+        lastRequestIds = (results || []).map(function (r) { return r._request_id; }).filter(Boolean);
+
         // 隐藏流水线动画，重置标题/智能体徽标
         if (pipelineEl) { pipelineEl.style.display = 'none'; }
         if (pipelineTitleEl) { pipelineTitleEl.textContent = 'AI 校验不可用'; }
         if (pipelineAgentIconEl) { pipelineAgentIconEl.textContent = '⚠️'; }
         if (pipelineAgentBadgeEl) { pipelineAgentBadgeEl.style.display = 'none'; }
 
-        var summary = 'DeepSeek 大模型已停用（系统配置），无法执行发票 OCR 与 AI 校验，请联系系统管理，确保系统配置中启用 DeepSeek 大模型。';
+        var summary = DISABLED_MSG_FALLBACK;
         if (results && results.length && results[0].summary) {
-            // 优先采用后端返回的原始说明
+            // 优先采用后端返回的原始说明（统一来源：config.DEEPSEEK_DISABLED_MSG）
             summary = String(results[0].summary).replace(/^OCR 提取失败:\s*/, '');
         }
+        lastDisabledSummary = summary;
 
         var rs = document.getElementById('pipelineResultStatus');
         if (rs) {

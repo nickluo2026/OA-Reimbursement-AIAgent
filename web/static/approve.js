@@ -103,10 +103,12 @@
                 '<span><span class="meta-key">提交时间:</span><span class="meta-value">' + esc(it.created_at) + '</span></span>' +
                 '<span><span class="meta-key">费用类型:</span><span class="meta-value">' + esc(it.expense_category || '—') + '</span></span>' +
             '</div>' +
-            '<div class="ai-summary-box">🤖 <strong>AI 校验：</strong>' + esc(it.ai_summary) + '</div>' +
+            (it.ai_disabled ? '' : '<div class="ai-summary-box">🤖 <strong>AI 校验：</strong>' + esc(it.ai_summary) + '</div>') +
             '<div class="approval-level-bar level-' + level + '">' + levelText + '</div>' +
             '<div class="reimburse-item-footer">' +
-                '<div class="reimburse-item-tags">' + typeTag + aiTag(it.ai_status) + wsTag(it.workflow_status) + cosign + transferredTag + '</div>' +
+                '<div class="reimburse-item-tags">' + typeTag +
+                (it.ai_disabled ? '<span class="tag manual-submit">✍️ 人工提交</span>' : aiTag(it.ai_status)) +
+                wsTag(it.workflow_status) + cosign + transferredTag + '</div>' +
                 '<div class="reimburse-item-actions">' + actions + '</div>' +
             '</div>' +
         '</div>';

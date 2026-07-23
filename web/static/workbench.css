@@ -79,6 +79,7 @@
 .tag.status-rejected { background: var(--red-bg); color: var(--red); }
 .tag.status-inreview { background: #fef9c3; color: #a16207; }
 .tag.cosign { background: #fef3c7; color: #b45309; }
+.tag.manual-submit { background: #f1f5f9; color: #475569; border: 1px dashed #94a3b8; }
 
 /* 审批层级提示条 */
 .approval-level-bar {

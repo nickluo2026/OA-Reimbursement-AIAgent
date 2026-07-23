@@ -25,6 +25,11 @@ from skill import run_reimbursement_skill
 from skill import workflow as wf
 from skill.config import get_deepseek_enabled
 from skill.database import init_db
+from skill.utils.db_store import (
+    check_duplicate_invoice,
+    save_invoice,
+    update_invoice_fields,
+)
 from skill.utils import admin_store
 from skill.utils.mask_sensitive import mask_amount, mask_ocr_result
 from skill.utils.structured_log import get_request_id, set_request_id
@@ -654,10 +659,13 @@ def api_reimbursement_detail(request_id):
 
 @app.route("/api/reimbursement/<request_id>/update", methods=["POST"])
 def api_reimbursement_update(request_id):
-    """更新报销单字段（AI 回写后人工确认落库）。
+    """更新报销单字段（AI 回写后人工确认落库），并支持停用态人工补录发票号码。
 
     - 员工仅可改本人「待审批」报销单；主管/财务/管理员可改任意待审批单
     - 仅「待审批」状态可改（workflow 层强制）
+    - invoice_number：DeepSeek 停用态下人工补录的发票号码（可选），写入关联发票
+      记录并做重复报销校验；停用态 OCR 未执行、不会预建发票记录，因此允许用户
+      手填发票号后直接建单（无发票的行程单类报销单仍可不填发票号建单）。
     """
     err = _require_login()
     if err:
@@ -665,26 +673,73 @@ def api_reimbursement_update(request_id):
     data = request.get_json(silent=True) or {}
     # 越权防护：员工仅可改本人待审批单
     role = session.get("role", "employee")
+    invoice_number = (data.get("invoice_number") or "").strip()
+
     reb = wf.get_reimbursement(request_id)
     if not reb:
-        # 预警场景：AI 校验阶段未预建报销单，提交审批时按提交内容创建
-        # （仅当确有发票落库，避免为伪造的单号建单；无发票的非法单号仍返回 404）
-        if not wf.get_invoices_for_request(request_id):
-            return jsonify({"error": "报销单不存在"}), 404
-        try:
-            created = wf.create_reimbursement_on_submit(
+        # AI 校验阶段未预建报销单，提交审批时按提交内容创建
+        invoices = wf.get_invoices_for_request(request_id)
+        if not invoices:
+            if not invoice_number:
+                # 既无发票记录、又无手填发票号 → 视为非法/不存在的单号
+                return jsonify({"error": "报销单不存在"}), 404
+            # 停用态：用户手填发票号 → 建单并创建发票记录
+            try:
+                wf.create_reimbursement_on_submit(
+                    request_id,
+                    employee_id=session.get("account", "unknown"),
+                    apply_amount=data.get("apply_amount"),
+                    apply_date=data.get("apply_date"),
+                    expense_category=data.get("expense_category"),
+                    reason=data.get("reason"),
+                )
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            if check_duplicate_invoice(invoice_number, exclude_request_id=request_id):
+                return jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}), 409
+            save_invoice(
+                {
+                    "发票号码": invoice_number,
+                    "发票金额": data.get("apply_amount") or 0,
+                    "开票日期": data.get("invoice_date") or "",
+                },
                 request_id,
-                employee_id=session.get("account", "unknown"),
-                apply_amount=data.get("apply_amount"),
-                apply_date=data.get("apply_date"),
-                expense_category=data.get("expense_category"),
-                reason=data.get("reason"),
             )
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        return jsonify(created)
-    if role == "employee" and reb.employee_id != session["account"]:
-        return jsonify({"error": "无权修改此报销单"}), 403
+        else:
+            # 已有发票记录（AI 态预警单等）→ 直接建单
+            try:
+                wf.create_reimbursement_on_submit(
+                    request_id,
+                    employee_id=session.get("account", "unknown"),
+                    apply_amount=data.get("apply_amount"),
+                    apply_date=data.get("apply_date"),
+                    expense_category=data.get("expense_category"),
+                    reason=data.get("reason"),
+                )
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            if invoice_number:
+                if check_duplicate_invoice(invoice_number, exclude_request_id=request_id):
+                    return jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}), 409
+                update_invoice_fields(
+                    request_id,
+                    invoice_number=invoice_number,
+                    invoice_date=data.get("invoice_date") or None,
+                )
+    else:
+        if role == "employee" and reb.employee_id != session["account"]:
+            return jsonify({"error": "无权修改此报销单"}), 403
+        # 停用态补录 / 修正发票号
+        if invoice_number:
+            if check_duplicate_invoice(invoice_number, exclude_request_id=request_id):
+                return jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}), 409
+            update_invoice_fields(
+                request_id,
+                invoice_number=invoice_number,
+                invoice_date=data.get("invoice_date") or None,
+            )
+
+    # 更新报销单字段（仅「待审批」可改，workflow 层强制）
     try:
         updated = wf.update_reimbursement(
             request_id,
@@ -695,7 +750,7 @@ def api_reimbursement_update(request_id):
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    return jsonify(updated)
+    return jsonify(wf.get_detail(request_id))
 
 
 @app.route("/api/my")

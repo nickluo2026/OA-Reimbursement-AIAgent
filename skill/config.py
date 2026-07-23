@@ -29,6 +29,9 @@ REQUEST_TIMEOUT: int = 120
 PRICE_INPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_INPUT_PER_1K", "0.001"))
 PRICE_OUTPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_OUTPUT_PER_1K", "0.002"))
 
+# ============ 用户可见文案常量 ============
+DEEPSEEK_DISABLED_MSG: str = "DeepSeek 大模型已停用（系统配置），请联系系统管理员启用DeepSeek大模型或者人工填写报销单"
+
 # ============ 业务配置 ============
 SMALL_AMOUNT_THRESHOLD: float = 100.0  # 小额免审阈值（元）
 
