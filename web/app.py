@@ -13,6 +13,7 @@
 
 import logging
 import os
+import re
 import secrets
 import uuid
 from pathlib import Path
@@ -193,7 +194,7 @@ def _csrf_protect():
     if app.config.get("TESTING"):
         return
     # 登录路由单独处理 CSRF（在路由内部校验，以便渲染错误页面）
-    if request.endpoint == "login":
+    if request.endpoint in ("login", "api_auth_login"):
         return
     session_token = session.get("_csrf_token")
     submitted = request.form.get("_csrf_token") or request.headers.get("X-CSRF-Token")
@@ -279,6 +280,10 @@ def index():
     """首页：需登录，按角色展示用户信息（对应 design.md §17.4）。"""
     if "account" not in session:
         return redirect(url_for("login"))
+    # 移动端浏览器自动跳转移动版（演示用；?desktop=1 可强制桌面版）
+    ua = request.headers.get("User-Agent", "")
+    if "desktop" not in request.args and re.search(r"(iPhone|iPad|iPod|Android|Mobile)", ua):
+        return redirect(url_for("mobile_page"))
     role = session.get("role", "employee")
     role_info = ROLE_INFO.get(role, ROLE_INFO["employee"])
     return render_template(
@@ -857,3 +862,79 @@ def result_page():
     通过 render_template 渲染以便注入 app_version，使 /static 引用带版本号缓存破坏。
     """
     return render_template("result.html")
+
+
+@app.route("/m")
+def mobile_page():
+    """移动端（iOS PWA）首页：员工侧核心链路。
+
+    未登录渲染登录态（前端展示登录页）；已登录注入用户信息与 csrf_token。
+    """
+    logged_in = "account" in session
+    role = session.get("role", "employee")
+    role_info = ROLE_INFO.get(role, ROLE_INFO["employee"])
+    return render_template(
+        "mobile.html",
+        logged_in=logged_in,
+        user_name=session.get("name", "—") if logged_in else "",
+        user_role=role_info["name"] if logged_in else "",
+        user_account=session.get("account", "—") if logged_in else "",
+    )
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
+    """移动端 JSON 登录：校验工号 + 密码，设置 Session Cookie，返回角色。
+
+    [S-001][S-002] 与 /login 同源校验逻辑；移动端 SPA 无法预取 CSRF token，
+    故在 _csrf_protect 中豁免本端点（依赖 SameSite=Lax Cookie 防跨站请求）。
+    """
+    data = request.get_json(silent=True) or {}
+    account = (data.get("account") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not account or not password:
+        return jsonify({"ok": False, "error": "请输入工号和密码"}), 400
+    info = DEMO_ACCOUNTS.get(account)
+    if info is None or not check_password_hash(info["password_hash"], password):
+        try:
+            admin_store.add_audit_log(account or "未知", "—", "LOGIN_FAILED", account or "—", "失败", request.remote_addr)
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": "工号或密码错误"}), 401
+    session["account"] = account
+    session["role"] = info["role"]
+    session["name"] = info["name"]
+    logger.info("移动端登录 account=%s role=%s", account, info["role"])
+    try:
+        admin_store.add_audit_log(info["name"], info["role"], "LOGIN", account, "成功", request.remote_addr)
+    except Exception:
+        pass
+    return jsonify({"ok": True, "role": info["role"], "name": info["name"], "account": account})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_auth_logout():
+    """移动端 JSON 登出：清除 Session，返回 ok。"""
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/manifest.webmanifest")
+def manifest():
+    """PWA 清单：供「添加到主屏幕」安装。"""
+    return app.send_static_file("manifest.webmanifest"), 200, {
+        "Content-Type": "application/manifest+json"
+    }
+
+
+@app.route("/m/sw.js")
+def service_worker():
+    """PWA Service Worker：作用域限定在 /m/，仅缓存移动端外壳。
+
+    脚本部署在 /m/ 路径下，默认作用域即为 /m/，因此 Service Worker
+    只能接管 /m 及其子资源，**不会拦截桌面端（/）的任何请求**。
+    """
+    return app.send_static_file("sw.js"), 200, {
+        "Content-Type": "application/javascript",
+        "Service-Worker-Allowed": "/m/",
+    }

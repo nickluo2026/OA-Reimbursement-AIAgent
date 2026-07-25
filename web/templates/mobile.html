@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OA报销">
+<meta name="theme-color" content="#007AFF">
+<meta name="csrf-token" content="{{ csrf_token }}">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icon-512.png">
+<link rel="stylesheet" href="{{ url_for('static', filename='mobile.css', v=app_version) }}">
+<title>智能化报销助手 · iOS</title>
+</head>
+<body data-logged-in="{{ 'true' if logged_in else 'false' }}">
+<div class="stage">
+  <div class="device">
+    <div class="screen">
+      <div class="island"></div>
+
+      <!-- 状态栏 -->
+      <div class="status-bar">
+        <div class="sb-time" id="sbTime">9:41</div>
+        <div class="sb-icons">
+          <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 2C5.4 2 2.6 3.2.5 5.2l1.4 1.4C3.7 5 6 4 8.5 4s4.8 1 6.6 2.6L16.5 5.2C14.4 3.2 11.6 2 8.5 2z"/><path d="M8.5 6C6.8 6 5.2 6.6 4 7.7l1.4 1.4C6.3 8.3 7.4 8 8.5 8s2.2.3 3.1.9L13 7.7C11.8 6.6 10.2 6 8.5 6z"/><circle cx="8.5" cy="10.4" r="1.6"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13" fill="currentColor"><rect x=".5" y=".5" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="2"/><rect x="24.5" y="4" width="2" height="5" rx="1" fill-opacity=".5"/></svg>
+        </div>
+      </div>
+
+      <!-- 导航栏 -->
+      <div class="nav-bar">
+        <div class="nav-row">
+          <span class="nav-title" id="navTitle">首页</span>
+          <button class="nav-action" onclick="logout()">退出</button>
+        </div>
+      </div>
+
+      <!-- 内容 -->
+      <div class="content">
+
+        <!-- Tab 1: 报销申请 -->
+        <section id="tab-reimburse" class="tab-panel">
+          <div class="page-pad">
+            <p class="lead">选择票据类型并上传，AI 智能体将自动识别并校验，回写金额与费用类型。</p>
+
+            <div class="field-block">
+              <div class="field-label">票据类型</div>
+              <div class="select-wrap">
+                <select class="row-input" id="ticketType">
+                  <option value="发票">🧾 发票</option>
+                  <option value="行程单">🚕 行程单</option>
+                </select>
+                <span class="select-caret">▾</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="field-label">票据文件</div>
+              <!-- 隐藏的文件选择：点击上传区触发；iOS Safari 会弹出「拍照 / 照片 / 文件」 -->
+              <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none">
+              <div class="upload-zone" id="uploadZone">
+                <div class="upload-placeholder" id="uploadPlaceholder">
+                  <div class="upload-icon" id="uploadIcon">🧾</div>
+                  <div class="upload-text">点击上传票据</div>
+                  <div class="upload-hint" id="uploadHint">支持 PDF / JPG / PNG，发票类票据</div>
+                </div>
+                <div class="upload-preview" id="uploadPreview" style="display:none">
+                  <div class="file-row">
+                    <span class="file-icon" id="fileIcon">📄</span>
+                    <div class="file-meta">
+                      <span class="file-name" id="fileName">invoice.pdf</span>
+                      <span class="file-size" id="fileSize">256 KB</span>
+                    </div>
+                  </div>
+                  <div class="ocr-status" id="ocrStatus"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="group" id="autoFields" style="display:none">
+              <div class="group-title">AI 回写信息</div>
+              <div class="row">
+                <div class="row-label">申请金额<span class="ai-dot">AI</span></div>
+                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—">
+              </div>
+              <div class="row">
+                <div class="row-label">申请日期<span class="ai-dot">AI</span></div>
+                <input class="row-input" id="apply_date" type="date">
+              </div>
+              <div class="row">
+                <div class="row-label">费用类型<span class="ai-dot">AI</span></div>
+                <select class="row-input" id="expense_category">
+                  <option value="">—</option>
+                  <option value="交通">交通</option>
+                  <option value="住宿">住宿</option>
+                  <option value="餐饮">餐饮</option>
+                  <option value="办公">办公</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              <div class="row col" id="invoiceNumberRow" style="display:none">
+                <div class="row-label">发票号码<span class="field-badge manual">✍️ 人工</span></div>
+                <input class="row-input" id="invoice_number" placeholder="DeepSeek 停用态下必填">
+              </div>
+              <div class="row col" id="invoiceDateRow" style="display:none">
+                <div class="row-label">开票日期</div>
+                <input class="row-input" id="invoice_date" type="date">
+              </div>
+              <div class="row col">
+                <div class="row-label">报销事由</div>
+                <input class="row-input" id="reason" placeholder="如：北京出差交通费">
+              </div>
+              <p class="footnote" id="autoFieldsNote" style="display:none;margin-top:10px;text-align:left;"></p>
+            </div>
+
+            <div class="result-card" id="resultCard" style="display:none"></div>
+
+            <button class="btn-primary" id="submitBtn" onclick="onSubmitClick()">提交校验</button>
+            <p class="footnote">金额 / 费用类型 / 日期由 AI 智能体自动回写，请核对无误后提交审批。</p>
+          </div>
+        </section>
+
+        <!-- Tab 2: 我的报销 -->
+        <section id="tab-my" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="list-header">报销单列表 <span id="myCount">0</span></div>
+            <div id="myList"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- 底部 Tab Bar -->
+      <div class="tab-bar">
+        <button class="tab-item active" data-tab="reimburse" onclick="switchTab('reimburse')">
+          <span class="ic">📝</span><span>报销申请</span>
+        </button>
+        <button class="tab-item" data-tab="my" onclick="switchTab('my')">
+          <span class="ic">📂</span><span>我的报销</span>
+        </button>
+      </div>
+
+      <!-- 流水线 Sheet -->
+      <div class="sheet-overlay" id="pipelineSheet" onclick="if(event.target===this)closePipelineSheet()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span id="pipeTitle">智能体执行流水线</span>
+            <button class="sheet-close" onclick="closePipelineSheet()">完成</button>
+          </div>
+          <div class="sheet-body">
+            <div class="pipe-badge" id="pipeBadge">🧾 发票智能体</div>
+            <div class="pipe-steps" id="pipeSteps"></div>
+            <div class="result-card" id="pipeResult" style="display:none; margin-top:14px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 详情 Sheet -->
+      <div class="sheet-overlay" id="detailSheet" onclick="if(event.target===this)closeDetail()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span id="detailTitle">报销单详情</span>
+            <button class="sheet-close" onclick="closeDetail()">完成</button>
+          </div>
+          <div class="sheet-body" id="detailBody"></div>
+        </div>
+      </div>
+
+      <!-- 成功 Sheet -->
+      <div class="sheet-overlay" id="successSheet" onclick="if(event.target===this)closeSuccess()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span>✅ 提交结果</span>
+            <button class="sheet-close" onclick="closeSuccess()">完成</button>
+          </div>
+          <div class="sheet-body" id="successBody"></div>
+        </div>
+      </div>
+
+      <!-- 登录页 -->
+      <div class="login-screen{% if logged_in %} hide{% endif %}" id="loginScreen">
+        <div class="login-inner">
+          <div class="app-icon"><img src="{{ url_for('static', filename='app_icon.png') }}" alt="智能化报销助手"></div>
+          <h1 class="app-name">智能化报销助手</h1>
+          <p class="app-sub">AI 智能体驱动的企业报销</p>
+          <form class="login-form" id="loginForm">
+            <input class="login-input" id="loginAccount" type="text" inputmode="text" autocomplete="username" placeholder="工号（如 EMP-2026）" value="EMP-2026">
+            <input class="login-input" id="loginPassword" type="password" autocomplete="current-password" placeholder="密码（演示 123456）" value="123456">
+            <button class="btn-primary" type="submit" id="loginBtn">登录</button>
+            <p class="login-error" id="loginError"></p>
+          </form>
+          <p class="login-tip">当前版本聚焦员工侧核心链路：上传 → AI 识别 → 校验 → 我的报销</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='mobile.js', v=app_version) }}"></script>
+</body>
+</html>

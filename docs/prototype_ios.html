@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>智能化助手 · iOS 原型</title>
+<style>
+/* ───────────────────────── iOS 设计令牌（接近系统色微调） ───────────────────────── */
+:root{
+  --ios-blue:#007AFF;
+  --ios-blue-d:#0A84FF;
+  --ios-indigo:#5E5CE6;
+  --ios-green:#34C759;
+  --ios-orange:#FF9500;
+  --ios-red:#FF3B30;
+  --ios-gray:#8E8E93;
+  --ios-gray2:#AEAEB2;
+  --ios-gray3:#C7C7CC;
+  --ios-gray5:#E5E5EA;
+  --ios-gray6:#F2F2F7;
+  --ios-label:#1C1C1E;
+  --ios-sep:rgba(60,60,67,0.29);
+  --ios-sep-strong:rgba(60,60,67,0.45);
+  --nav-blur:rgba(249,249,249,0.82);
+  --tab-blur:rgba(249,249,249,0.92);
+  --shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-text-size-adjust:100%;}
+html,body{height:100%; margin:0;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  color:var(--ios-label);
+  background:radial-gradient(120% 120% at 50% 0%, #dbe6ff 0%, #eef1f6 45%, #e6e9ef 100%);
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ───────────────────────── 设备外框 + 状态栏 ───────────────────────── */
+.stage{display:flex; align-items:center; justify-content:center;}
+.device{
+  width:390px; height:844px;
+  background:#000; border-radius:54px; padding:13px;
+  box-shadow:0 0 0 2px #2a2a2c, 0 40px 80px rgba(20,30,60,.45);
+  position:relative;
+}
+.device::after{ /* 侧边按键 */
+  content:""; position:absolute; right:-3px; top:165px; width:3px; height:64px;
+  background:#2a2a2c; border-radius:2px;
+}
+.screen{
+  width:100%; height:100%; background:var(--ios-gray6);
+  border-radius:42px; overflow:hidden; position:relative;
+  display:flex; flex-direction:column;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);
+}
+.island{
+  position:absolute; top:11px; left:50%; transform:translateX(-50%);
+  width:118px; height:33px; background:#000; border-radius:20px; z-index:60;
+}
+.status-bar{
+  flex:none; height:54px; padding:0 30px; display:flex; align-items:center;
+  justify-content:space-between; font-size:15px; font-weight:600; color:var(--ios-label);
+  position:relative; z-index:40;
+}
+.sb-time{letter-spacing:.3px;}
+.sb-icons{display:flex; align-items:center; gap:6px; color:var(--ios-label);}
+.sb-icons svg{display:block;}
+
+/* ───────────────────────── 导航栏（大标题 + 毛玻璃） ───────────────────────── */
+.nav-bar{
+  flex:none; background:var(--nav-blur);
+  backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:.5px solid var(--ios-sep);
+  padding:6px 18px 10px; position:relative; z-index:30;
+}
+.nav-row{display:flex; align-items:center; justify-content:space-between;}
+.nav-title{font-size:17px; font-weight:700; letter-spacing:-.4px; line-height:1.1;}
+.nav-action{
+  border:none; background:none; color:var(--ios-blue); font-size:17px;
+  font-family:inherit; padding:4px 2px; cursor:pointer;
+}
+
+/* ───────────────────────── 内容滚动区 ───────────────────────── */
+.content{
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding-bottom:14px;
+}
+.page-pad{padding:14px 16px 6px;}
+.lead{font-size:14px; color:var(--ios-gray); line-height:1.5; margin:2px 2px 16px;}
+
+/* ───────────────────────── 卡片 / 分组列表（iOS Inset Grouped） ───────────────────────── */
+.card{
+  background:#fff; border-radius:14px; padding:16px;
+  box-shadow:var(--shadow); margin-bottom:16px;
+}
+.field-block{margin-bottom:16px;}
+.field-label{
+  font-size:13px; font-weight:600; color:var(--ios-gray);
+  text-transform:none; margin:0 0 8px 4px; letter-spacing:.2px;
+}
+.ai-dot{
+  display:inline-block; margin-left:6px; font-size:10px; font-weight:700;
+  color:#fff; background:var(--ios-indigo); padding:1px 6px; border-radius:6px;
+  vertical-align:middle; letter-spacing:.5px;
+}
+
+/* 分段控件 UISegmentedControl */
+.segmented{
+  position:relative; display:flex; background:var(--ios-gray6);
+  border-radius:10px; padding:2px;
+}
+.seg-thumb{
+  position:absolute; top:2px; left:2px; bottom:2px; width:calc(50% - 2px);
+  background:#fff; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.16);
+  transition:transform .28s cubic-bezier(.32,.72,0,1); z-index:1;
+}
+.segmented[data-active="1"] .seg-thumb{transform:translateX(100%);}
+.segmented button{
+  position:relative; z-index:2; flex:1; border:none; background:transparent;
+  font-family:inherit; font-size:14px; font-weight:500; color:var(--ios-label);
+  padding:8px 0; border-radius:8px; cursor:pointer; touch-action:manipulation;
+}
+.segmented button.active{font-weight:600;}
+
+/* 上传区域 */
+.upload-zone{
+  border:2px dashed var(--ios-gray3); border-radius:14px; padding:22px 16px;
+  text-align:center; cursor:pointer; background:rgba(242,242,247,.5);
+  transition:border-color .2s, background .2s; touch-action:manipulation;
+}
+.upload-zone:active{background:rgba(0,122,255,.06); border-color:var(--ios-blue);}
+.upload-icon{font-size:38px; line-height:1; margin-bottom:10px;}
+.upload-text{font-size:15px; font-weight:600; margin-bottom:4px;}
+.upload-hint{font-size:12px; color:var(--ios-gray);}
+.upload-preview{text-align:left;}
+.file-row{display:flex; align-items:center; gap:12px;}
+.file-icon{
+  width:42px; height:42px; border-radius:10px; background:var(--ios-gray6);
+  display:flex; align-items:center; justify-content:center; font-size:22px; flex:none;
+}
+.file-meta{display:flex; flex-direction:column;}
+.file-name{font-size:14px; font-weight:600; word-break:break-all;}
+.file-size{font-size:12px; color:var(--ios-gray); margin-top:2px;}
+.ocr-status{
+  display:none; margin-top:14px; font-size:13px; line-height:1.5;
+  padding:10px 12px; border-radius:10px;
+}
+.ocr-status.show{display:block; color:var(--ios-blue); background:rgba(0,122,255,.08);}
+.ocr-status.done{display:block; color:var(--ios-green); background:rgba(52,199,89,.1);}
+
+/* 分组列表行 */
+.group{
+  background:#fff; border-radius:14px; overflow:hidden; margin-bottom:16px;
+  box-shadow:var(--shadow);
+}
+.group-title{
+  font-size:13px; font-weight:600; color:var(--ios-gray);
+  padding:12px 16px 6px; background:#fff;
+}
+.row{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px 16px; min-height:48px; border-top:.5px solid var(--ios-sep);
+}
+.row:first-of-type{border-top:none;}
+.row.col{flex-direction:column; align-items:stretch; gap:6px;}
+.row-label{font-size:15px; flex:none; display:flex; align-items:center;}
+.row-input{
+  flex:1; border:none; background:transparent; font-family:inherit; font-size:16px;
+}
+.ticket-select{
+  width:100%; font-family:inherit; font-size:16px; color:#1c1c1e;
+  padding:11px 12px; border:1px solid var(--ios-sep); border-radius:10px;
+  background:#fff;
+  color:var(--ios-label); text-align:left; outline:none; min-width:0;
+  -webkit-appearance:none;
+}
+.row.col .row-input{text-align:left;}
+.row-input::placeholder{color:var(--ios-gray2);}
+
+/* 校验结果卡片 */
+.result-card{
+  border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:var(--shadow);
+  display:flex; gap:12px; align-items:flex-start;
+}
+.result-card.pass{background:rgba(52,199,89,.1);}
+.result-card.warning{background:rgba(255,149,0,.12);}
+.result-card.block{background:rgba(255,59,48,.1);}
+.rc-icon{font-size:26px; line-height:1; flex:none;}
+.rc-body{flex:1;}
+.rc-label{font-size:16px; font-weight:700; margin-bottom:4px;}
+.result-card.pass .rc-label{color:#1d7a36;}
+.result-card.warning .rc-label{color:#b25e00;}
+.result-card.block .rc-label{color:#c0241a;}
+.rc-summary{font-size:13px; line-height:1.5; color:#3a3a3c;}
+
+/* 主按钮（iOS 实心胶囊） */
+.btn-primary{
+  width:100%; border:none; border-radius:14px; padding:15px;
+  background:var(--ios-blue); color:#fff; font-size:17px; font-weight:600;
+  font-family:inherit; cursor:pointer; touch-action:manipulation;
+  box-shadow:0 4px 14px rgba(0,122,255,.3);
+  transition:filter .12s, transform .12s;
+}
+.btn-primary:active{filter:brightness(.92); transform:scale(.985);}
+.btn-primary.approve{background:var(--ios-green); box-shadow:0 4px 14px rgba(52,199,89,.3);}
+.footnote{font-size:12px; color:var(--ios-gray); text-align:center; line-height:1.5; margin:12px 6px 4px;}
+
+/* 我的报销列表 */
+.list-header{
+  font-size:17px; font-weight:700; margin:4px 4px 12px; letter-spacing:-.3px;
+}
+.list-header span{
+  font-size:13px; font-weight:600; color:var(--ios-gray);
+  background:var(--ios-gray5); padding:2px 9px; border-radius:20px; margin-left:8px;
+  vertical-align:middle;
+}
+.reimb-item{
+  background:#fff; border-radius:14px; padding:14px 16px; margin-bottom:12px;
+  box-shadow:var(--shadow); cursor:pointer; touch-action:manipulation;
+  transition:background .15s;
+}
+.reimb-item:active{background:var(--ios-gray6);}
+.ri-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.ri-id{font-size:12px; color:var(--ios-gray); font-variant-numeric:tabular-nums;}
+.ri-reason{font-size:15px; font-weight:600; margin-top:5px; line-height:1.35;}
+.ri-amount{font-size:17px; font-weight:700; flex:none; font-variant-numeric:tabular-nums;}
+.ri-meta{display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--ios-gray);}
+.ri-meta .mk{color:var(--ios-gray2); margin-right:4px;}
+.ri-foot{display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;}
+.tag{
+  font-size:12px; font-weight:600; padding:3px 9px; border-radius:7px;
+}
+.tag.invoice{background:rgba(94,92,230,.12); color:var(--ios-indigo);}
+.tag.itinerary{background:rgba(0,122,255,.1); color:var(--ios-blue);}
+.tag.pending{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.tag.approved{background:rgba(52,199,89,.14); color:var(--ios-green);}
+.empty{
+  text-align:center; padding:60px 20px; color:var(--ios-gray);
+}
+.empty .ei{font-size:42px; margin-bottom:12px;}
+.empty .et{font-size:14px; line-height:1.5;}
+
+/* ───────────────────────── 底部 Tab Bar ───────────────────────── */
+.tab-bar{
+  flex:none; display:flex; background:var(--tab-blur);
+  backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-top:.5px solid var(--ios-sep);
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+.tab-item{
+  flex:1; border:none; background:none; font-family:inherit; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; padding:8px 0 7px; color:var(--ios-gray); font-size:10px; touch-action:manipulation;
+  transition:color .15s;
+}
+.tab-item .ic{font-size:23px; line-height:1; filter:grayscale(.4); transition:filter .15s;}
+.tab-item.active{color:var(--ios-blue);}
+.tab-item.active .ic{filter:none;}
+
+/* ───────────────────────── 底部 Sheet 弹窗 ───────────────────────── */
+.sheet-overlay{
+  position:absolute; inset:0; background:rgba(0,0,0,.35);
+  opacity:0; pointer-events:none; transition:opacity .3s; z-index:80;
+  display:flex; align-items:flex-end;
+}
+.sheet-overlay.show{opacity:1; pointer-events:auto;}
+.sheet{
+  width:100%; background:#fff; border-radius:22px 22px 0 0;
+  padding:10px 18px calc(20px + env(safe-area-inset-bottom,0));
+  transform:translateY(100%); transition:transform .35s cubic-bezier(.32,.72,0,1);
+  max-height:88%; display:flex; flex-direction:column;
+}
+.sheet-overlay.show .sheet{transform:translateY(0);}
+.sheet-grab{width:38px; height:5px; border-radius:3px; background:var(--ios-gray3); margin:4px auto 8px;}
+.sheet-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.sheet-head span{font-size:17px; font-weight:700;}
+.sheet-close{
+  border:none; background:none; color:var(--ios-blue); font-size:17px;
+  font-family:inherit; font-weight:600; cursor:pointer; padding:2px 4px; touch-action:manipulation;
+}
+.sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.pipe-badge{
+  display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:600;
+  color:var(--ios-blue); background:rgba(0,122,255,.1); padding:6px 12px; border-radius:20px;
+  margin-bottom:14px;
+}
+.pipe-steps{display:flex; flex-direction:column; gap:2px;}
+.pipe-step{
+  display:flex; align-items:center; gap:12px; padding:13px 4px;
+  border-bottom:.5px solid var(--ios-sep);
+}
+.pipe-step:last-child{border-bottom:none;}
+.ps-icon{
+  width:34px; height:34px; border-radius:50%; flex:none;
+  display:flex; align-items:center; justify-content:center; font-size:17px;
+  background:var(--ios-gray6); color:var(--ios-gray);
+  transition:background .3s, color .3s;
+}
+.pipe-step.active .ps-icon{background:rgba(0,122,255,.15); color:var(--ios-blue);}
+.pipe-step.done .ps-icon{background:var(--ios-green); color:#fff;}
+.ps-name{flex:1; font-size:14px;}
+.pipe-step.active .ps-name{font-weight:600;}
+.ps-status{font-size:12px; color:var(--ios-gray);}
+.pipe-step.active .ps-status{color:var(--ios-blue);}
+.pipe-step.done .ps-status{color:var(--ios-green); font-weight:600;}
+
+/* ───────────────────────── 登录页 ───────────────────────── */
+.login-screen{
+  position:absolute; inset:0; z-index:90; background:linear-gradient(160deg,#eaf1ff 0%,#f6f8fc 55%,#fff 100%);
+  display:flex; align-items:center; justify-content:center;
+  transition:opacity .4s, visibility .4s;
+}
+.login-screen.hide{opacity:0; visibility:hidden;}
+.login-inner{text-align:center; padding:40px 32px; width:100%;}
+.app-icon{
+  width:84px; height:84px; border-radius:20px; margin:0 auto 22px;
+  background:linear-gradient(145deg,var(--ios-blue),var(--ios-indigo));
+  display:flex; align-items:center; justify-content:center; font-size:42px;
+  box-shadow:0 12px 30px rgba(0,122,255,.35); overflow:hidden;
+}
+.app-icon img{width:100%; height:100%; object-fit:cover; display:block;}
+.app-name{font-size:28px; font-weight:700; margin:0 0 6px; letter-spacing:-.4px;}
+.app-sub{font-size:14px; color:var(--ios-gray); margin:0 0 40px;}
+.login-tip{font-size:12px; color:var(--ios-gray); line-height:1.5; margin-top:22px; padding:0 10px;}
+
+/* 真机全屏自适应 */
+@media (max-width:430px){
+  body{padding:0; background:var(--ios-gray6);}
+  .stage{width:100vw; height:100vh;}
+  .device{
+    width:100vw; height:100vh; height:100dvh; border-radius:0; padding:0;
+    box-shadow:none;
+  }
+  .device::after{display:none;}
+  .screen{border-radius:0;}
+  .island{display:none;}
+  .status-bar{height:calc(env(safe-area-inset-top,0px) + 44px); padding-top:env(safe-area-inset-top,0px);}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="device">
+    <div class="screen">
+      <div class="island"></div>
+
+      <!-- 状态栏 -->
+      <div class="status-bar">
+        <div class="sb-time" id="sbTime">9:41</div>
+        <div class="sb-icons">
+          <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 2C5.4 2 2.6 3.2.5 5.2l1.4 1.4C3.7 5 6 4 8.5 4s4.8 1 6.6 2.6L16.5 5.2C14.4 3.2 11.6 2 8.5 2z"/><path d="M8.5 6C6.8 6 5.2 6.6 4 7.7l1.4 1.4C6.3 8.3 7.4 8 8.5 8s2.2.3 3.1.9L13 7.7C11.8 6.6 10.2 6 8.5 6z"/><circle cx="8.5" cy="10.4" r="1.6"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13" fill="currentColor"><rect x=".5" y=".5" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="2"/><rect x="24.5" y="4" width="2" height="5" rx="1" fill-opacity=".5"/></svg>
+        </div>
+      </div>
+
+      <!-- 导航栏 -->
+      <div class="nav-bar">
+        <div class="nav-row">
+          <span class="nav-title" id="navTitle">首页</span>
+          <button class="nav-action" onclick="logout()">退出</button>
+        </div>
+      </div>
+
+      <!-- 内容 -->
+      <div class="content">
+
+        <!-- Tab 1: 报销申请 -->
+        <section id="tab-reimburse" class="tab-panel">
+          <div class="page-pad">
+            <p class="lead">选择票据类型并上传，AI 智能体将自动识别并校验，回写金额与费用类型。</p>
+
+            <div class="field-block">
+              <div class="field-label">票据类型</div>
+              <select class="ticket-select" id="ticketType" onchange="onTicketTypeChange()">
+                <option value="发票">🧾 发票</option>
+                <option value="行程单">🚕 行程单</option>
+              </select>
+            </div>
+
+            <div class="card">
+              <div class="field-label">票据文件</div>
+              <div class="upload-zone" id="uploadZone">
+                <div class="upload-placeholder" id="uploadPlaceholder">
+                  <div class="upload-icon" id="uploadIcon">🧾</div>
+                  <div class="upload-text">点击上传票据</div>
+                  <div class="upload-hint" id="uploadHint">支持 PDF / JPG / PNG，发票类票据</div>
+                </div>
+                <div class="upload-preview" id="uploadPreview" style="display:none">
+                  <div class="file-row">
+                    <span class="file-icon" id="fileIcon">📄</span>
+                    <div class="file-meta">
+                      <span class="file-name" id="fileName">invoice.pdf</span>
+                      <span class="file-size" id="fileSize">256 KB</span>
+                    </div>
+                  </div>
+                  <div class="ocr-status" id="ocrStatus"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="group" id="autoFields" style="display:none">
+              <div class="group-title">AI 回写信息</div>
+              <div class="row">
+                <div class="row-label">申请金额<span class="ai-dot">AI</span></div>
+                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—">
+              </div>
+              <div class="row">
+                <div class="row-label">申请日期<span class="ai-dot">AI</span></div>
+                <input class="row-input" id="apply_date" type="date">
+              </div>
+              <div class="row">
+                <div class="row-label">费用类型<span class="ai-dot">AI</span></div>
+                <select class="row-input" id="expense_category">
+                  <option value="">—</option>
+                  <option value="交通">交通</option>
+                  <option value="住宿">住宿</option>
+                  <option value="餐饮">餐饮</option>
+                  <option value="办公">办公</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              <div class="row col">
+                <div class="row-label">报销事由</div>
+                <input class="row-input" id="reason" placeholder="如：北京出差交通费">
+              </div>
+            </div>
+
+            <div class="result-card" id="resultCard" style="display:none"></div>
+
+            <button class="btn-primary" id="submitBtn" onclick="onSubmitClick()">提交校验</button>
+            <p class="footnote">金额 / 费用类型 / 日期由 AI 智能体自动回写，请核对无误后提交审批。</p>
+          </div>
+        </section>
+
+        <!-- Tab 2: 我的报销 -->
+        <section id="tab-my" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="list-header">报销单列表<span id="myCount">0</span></div>
+            <div id="myList"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- 底部 Tab Bar -->
+      <div class="tab-bar">
+        <button class="tab-item active" data-tab="reimburse" onclick="switchTab('reimburse')">
+          <span class="ic">📝</span><span>报销申请</span>
+        </button>
+        <button class="tab-item" data-tab="my" onclick="switchTab('my')">
+          <span class="ic">📂</span><span>我的报销</span>
+        </button>
+      </div>
+
+      <!-- 流水线 Sheet -->
+      <div class="sheet-overlay" id="pipelineSheet" onclick="if(event.target===this)closePipelineSheet()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span id="pipeTitle">智能体执行流水线</span>
+            <button class="sheet-close" onclick="closePipelineSheet()">完成</button>
+          </div>
+          <div class="sheet-body">
+            <div class="pipe-badge" id="pipeBadge">🧾 发票智能体</div>
+            <div class="pipe-steps" id="pipeSteps"></div>
+            <div class="result-card" id="pipeResult" style="display:none; margin-top:14px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 详情 Sheet -->
+      <div class="sheet-overlay" id="detailSheet" onclick="if(event.target===this)closeDetail()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span id="detailTitle">报销单详情</span>
+            <button class="sheet-close" onclick="closeDetail()">完成</button>
+          </div>
+          <div class="sheet-body" id="detailBody"></div>
+        </div>
+      </div>
+
+      <!-- 成功 Sheet -->
+      <div class="sheet-overlay" id="successSheet" onclick="if(event.target===this)closeSuccess()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span>✅ 提交成功</span>
+            <button class="sheet-close" onclick="closeSuccess()">完成</button>
+          </div>
+          <div class="sheet-body" id="successBody"></div>
+        </div>
+      </div>
+
+      <!-- 登录页 -->
+      <div class="login-screen" id="loginScreen">
+        <div class="login-inner">
+          <div class="app-icon"><img src="../web/static/app_icon.png" alt="OA报销助手"></div>
+          <h1 class="app-name">智能化助手</h1>
+          <p class="app-sub">AI 智能体驱动的企业报销</p>
+          <button class="btn-primary" onclick="enterApp()">开始演示（员工）</button>
+          <p class="login-tip">本原型聚焦员工侧核心链路：上传 → AI 识别 → 校验 → 我的报销</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────────────── 状态时钟 ───────────────── */
+function updateClock(){
+  var d=new Date(), h=d.getHours(), m=d.getMinutes();
+  var el=document.getElementById('sbTime');
+  if(el) el.textContent=h+':'+(m<10?'0':'')+m;
+}
+updateClock(); setInterval(updateClock,15000);
+
+/* ───────────────── 全局状态 ───────────────── */
+var currentTicketType='发票';
+var lastCheckPassed=false;
+var MOCK_MY_LIST=[];
+
+/* ───────────────── 模拟数据（与原型一致） ───────────────── */
+var INVOICE_STEPS=[
+  {icon:'🔍',name:'OCR 提取发票内容'},
+  {icon:'⚠️',name:'异常检测（规则引擎 + DeepSeek）'},
+  {icon:'💰',name:'分类限额校验'},
+  {icon:'✅',name:'发票查验'}
+];
+var ITINERARY_STEPS=[
+  {icon:'🔍',name:'OCR 提取行程明细'},
+  {icon:'⚠️',name:'行程单异常检测（日期/金额/字段）'},
+  {icon:'🛣️',name:'行程合理性校验（金额匹配/日期范围）'}
+];
+var MOCK_INVOICE={
+  ocr_result:{
+    '发票类型':'增值税电子普通发票','发票号码':'24412000000012345678','发票代码':'011002100111',
+    '开票日期':'2026-06-15','购买方名称':'某某科技有限公司','销售方名称':'北京某酒店管理有限公司',
+    '金额':'317.70','税率':'6%','税额':'19.06','价税合计_小写':'338.76','发票金额':338.76,
+    '商品明细':[{'名称':'住宿费','数量':2,'单价':'159.88','金额':'317.70','税率':'6%'}]
+  },
+  anomaly_result:{总体结论:'通过',异常明细:[],检查摘要:'规则引擎未发现异常；DeepSeek 语义检查通过。发票信息完整，金额合理，未发现重复报销记录。'},
+  classify_result:{'费用分类':'住宿','分类置信度':'0.95','适用限额':'1000.00','本次申请金额':'358.50','限额状态':'未超限','剩余额度':'641.50','审批层级':'直属领导审批'},
+  status:'通过',summary:'发票智能体校验通过：OCR提取完整，无异常，分类为「住宿」，金额未超限额。'
+};
+var MOCK_ITINERARY={
+  ocr_result:{
+    '申请日期':'2026-07-10','行程开始日期':'2026-06-15','行程结束日期':'2026-06-18','手机号':'138****8888',
+    '总行程数':5,'总金额_元':'186.50',
+    '行程详情':[
+      {'序号':1,'车型':'快车','上车时间':'2026-06-15 09:23','起点':'首都机场T3','终点':'某科技园','里程_公里':'28.5','金额_元':'68.30'},
+      {'序号':2,'车型':'快车','上车时间':'2026-06-15 18:15','起点':'某科技园','终点':'某酒店','里程_公里':'3.2','金额_元':'12.50'},
+      {'序号':3,'车型':'舒适型','上车时间':'2026-06-16 08:30','起点':'某酒店','终点':'某科技园','里程_公里':'3.5','金额_元':'15.80'},
+      {'序号':4,'车型':'快车','上车时间':'2026-06-17 14:00','起点':'某科技园','终点':'客户公司','里程_公里':'12.3','金额_元':'35.60'},
+      {'序号':5,'车型':'快车','上车时间':'2026-06-18 10:45','起点':'某酒店','终点':'首都机场T3','里程_公里':'30.1','金额_元':'54.30'}
+    ]
+  },
+  anomaly_result:{总体结论:'通过',异常明细:[],检查摘要:'行程单异常检测通过：必填字段完整，日期格式正确，行程日期在合理范围内，单笔金额未超阈值，总金额未超上限。'},
+  itinerary_result:{'校验结论':'通过','总金额校验':'行程总金额 186.50 元 ≤ 申请金额 186.50 元，匹配','行程天数':'4 天','单笔最高金额':'68.30 元','日期合理性':'合理','校验明细':[{'项目':'总金额匹配','结果':'通过'},{'项目':'日期范围','结果':'通过'},{'项目':'单笔金额','结果':'通过'},{'项目':'行程连续性','结果':'通过'}]},
+  status:'通过',summary:'行程单智能体校验通过：OCR提取5条行程，总金额186.50元与申请金额匹配，日期合理，行程连续无异常。'
+};
+
+/* ───────────────── 工具函数 ───────────────── */
+function escHtml(s){if(s==null)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtVal(v){if(v==null)return '—';if(typeof v==='boolean')return v?'是':'否';return String(v);}
+function nowStr(){var d=new Date();function p(n){return(n<10?'0':'')+n;}return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
+
+/* ───────────────── 登录 / 退出 ───────────────── */
+function enterApp(){
+  document.getElementById('loginScreen').classList.add('hide');
+  renderMyList();
+}
+function logout(){
+  if(!confirm('确定退出演示吗？'))return;
+  document.getElementById('loginScreen').classList.remove('hide');
+  resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
+  setSubmitMode('check');
+  switchTab('reimburse');
+}
+
+/* ───────────────── Tab 切换 ───────────────── */
+function switchTab(tab){
+  document.querySelectorAll('.tab-item').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab')===tab);
+  });
+  document.getElementById('tab-reimburse').style.display = tab==='reimburse'?'block':'none';
+  document.getElementById('tab-my').style.display = tab==='my'?'block':'none';
+  document.getElementById('navTitle').textContent = '首页';
+  document.querySelector('.content').scrollTop=0;
+}
+
+/* ───────────────── 票据类型下拉 ───────────────── */
+function onTicketTypeChange(){
+  currentTicketType = document.getElementById('ticketType').value;
+  var isIt = currentTicketType==='行程单';
+  document.getElementById('uploadIcon').textContent = isIt?'🚕':'🧾';
+  document.getElementById('uploadHint').textContent = isIt?'支持 PDF / JPG / PNG，行程单类票据（如滴滴行程单）':'支持 PDF / JPG / PNG，发票类票据';
+  document.getElementById('fileName').textContent = isIt?'DiDi_travel itinerary.pdf':'invoice.pdf';
+  document.getElementById('fileSize').textContent = isIt?'182 KB':'256 KB';
+  resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
+  setSubmitMode('check');
+}
+
+/* ───────────────── 上传交互 ───────────────── */
+document.getElementById('uploadZone').addEventListener('click', function(){
+  if(document.getElementById('uploadPreview').style.display==='block')return;
+  document.getElementById('uploadPlaceholder').style.display='none';
+  document.getElementById('uploadPreview').style.display='block';
+  var o=document.getElementById('ocrStatus');
+  o.className='ocr-status show';
+  o.innerHTML='📄 票据已上传，点击「提交校验」后由智能体执行 OCR 提取并回写字段';
+});
+
+/* ───────────────── 重置上传表单 ───────────────── */
+function resetUploadForm(){
+  document.getElementById('uploadPlaceholder').style.display='block';
+  document.getElementById('uploadPreview').style.display='none';
+  var o=document.getElementById('ocrStatus'); o.className='ocr-status'; o.innerHTML='';
+  ['apply_amount','apply_date'].forEach(function(id){var el=document.getElementById(id); el.value='';});
+  document.getElementById('expense_category').value='';
+  document.getElementById('reason').value='';
+  document.getElementById('autoFields').style.display='none';
+}
+function resetResultCard(){
+  var rc=document.getElementById('resultCard');
+  rc.className='result-card'; rc.style.display='none'; rc.innerHTML='';
+}
+
+/* ───────────────── 提交按钮模式 ───────────────── */
+function setSubmitMode(mode){
+  var btn=document.getElementById('submitBtn');
+  if(mode==='approve'){btn.textContent='✅ 提交审批'; btn.classList.add('approve');}
+  else{btn.textContent='提交校验'; btn.classList.remove('approve');}
+}
+
+/* ───────────────── 提交按钮分发 ───────────────── */
+function onSubmitClick(){
+  var btn=document.getElementById('submitBtn');
+  if(btn.classList.contains('approve')){
+    submitApprove();
+  }else{
+    if(document.getElementById('uploadPreview').style.display!=='block'){
+      alert('请先点击上传票据，再提交校验。'); return;
+    }
+    runCheck();
+  }
+}
+
+/* ───────────────── 智能体流水线 ───────────────── */
+function runCheck(){
+  var isIt=currentTicketType==='行程单';
+  var steps=isIt?ITINERARY_STEPS:INVOICE_STEPS;
+  document.getElementById('pipeTitle').textContent=isIt?'行程单智能体执行流水线':'发票智能体执行流水线';
+  document.getElementById('pipeBadge').innerHTML=(isIt?'🚕':'🧾')+' '+(isIt?'行程单智能体':'发票智能体');
+  document.getElementById('pipeResult').style.display='none';
+  document.getElementById('pipeResult').className='result-card';
+
+  var html='';
+  steps.forEach(function(s,i){
+    html+='<div class="pipe-step" data-i="'+i+'">'+
+      '<span class="ps-icon">'+s.icon+'</span>'+
+      '<span class="ps-name">'+s.name+'</span>'+
+      '<span class="ps-status">等待中</span></div>';
+  });
+  document.getElementById('pipeSteps').innerHTML=html;
+  document.getElementById('pipelineSheet').classList.add('show');
+
+  var elems=document.querySelectorAll('.pipe-step');
+  var cur=0;
+  function exec(){
+    if(cur>0){
+      var prev=elems[cur-1];
+      prev.classList.remove('active'); prev.classList.add('done');
+      prev.querySelector('.ps-status').innerHTML='✓ 完成';
+    }
+    if(cur>=steps.length){
+      setTimeout(function(){ renderResult(); autoFillFromOcr(); closeAfterDone(); }, 650);
+      return;
+    }
+    var el=elems[cur];
+    el.classList.add('active');
+    el.querySelector('.ps-status').innerHTML='<span class="ps-spin">⏳</span> 执行中…';
+    cur++;
+    setTimeout(exec, 850);
+  }
+  setTimeout(exec, 400);
+}
+
+function renderResult(){
+  var isIt=currentTicketType==='行程单';
+  var data=isIt?MOCK_ITINERARY:MOCK_INVOICE;
+  var meta={'通过':{icon:'✅',label:'校验通过',cls:'pass'},
+            '预警':{icon:'⚠️',label:'校验预警',cls:'warning'},
+            '拦截':{icon:'⛔',label:'校验拦截',cls:'block'}}[data.status]||{icon:'✅',label:'校验通过',cls:'pass'};
+  lastCheckPassed = data.status==='通过';
+  var rc=document.getElementById('pipeResult');
+  rc.className='result-card '+meta.cls; rc.style.display='flex';
+  rc.innerHTML='<div class="rc-icon">'+meta.icon+'</div><div class="rc-body"><div class="rc-label">'+meta.label+'</div><div class="rc-summary">'+escHtml(data.summary)+'</div></div>';
+  // 同步到页面内联结果卡片
+  var ic=document.getElementById('resultCard');
+  ic.className='result-card '+meta.cls; ic.style.display='flex';
+  ic.innerHTML=rc.innerHTML;
+}
+function closeAfterDone(){
+  // 校验通过则把提交按钮切为「提交审批」（仅关闭时由用户决定）
+}
+
+/* ───────────────── AI 回写字段 ───────────────── */
+function autoFillFromOcr(){
+  var isIt=currentTicketType==='行程单';
+  var data=isIt?MOCK_ITINERARY:MOCK_INVOICE;
+  var amount = isIt ? data.ocr_result['总金额_元'] : (data.ocr_result['价税合计_小写']||data.ocr_result['发票金额']);
+  document.getElementById('apply_amount').value=amount;
+  document.getElementById('expense_category').value = isIt?'交通':((data.classify_result&&data.classify_result['费用分类'])||'住宿');
+  document.getElementById('apply_date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('reason').value = isIt?'北京出差市内交通':'北京出差交通费';
+  document.getElementById('autoFields').style.display='block';
+}
+
+/* ───────────────── 关闭流水线 Sheet ───────────────── */
+function closePipelineSheet(){
+  document.getElementById('pipelineSheet').classList.remove('show');
+  if(lastCheckPassed){ setSubmitMode('approve'); lastCheckPassed=false; }
+}
+
+/* ───────────────── 提交审批 → 我的报销 ───────────────── */
+function submitApprove(){
+  var amount=parseFloat(document.getElementById('apply_amount').value)||0;
+  var reason=document.getElementById('reason').value||'—';
+  var category=document.getElementById('expense_category').value||'—';
+  var type=currentTicketType;
+  var seq=(MOCK_MY_LIST.length+1).toString().padStart(3,'0');
+  var newId='RB-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+seq;
+  var item={id:newId,type:type,category:category,amount:amount,reason:reason,status:'待审批',submitTime:nowStr()};
+  MOCK_MY_LIST.unshift(item);
+  renderMyList();
+  showSuccess(item);
+}
+function showSuccess(item){
+  var typeTag=item.type==='行程单'?'🚕 行程单':'🧾 发票';
+  var html=''+
+    infoRow('报销单号',item.id)+
+    infoRow('票据类型',typeTag)+
+    infoRow('申请金额','¥'+item.amount.toFixed(2))+
+    infoRow('费用类型',item.category)+
+    infoRow('报销事由',item.reason)+
+    infoRow('当前状态','待审批');
+  document.getElementById('successBody').innerHTML='<div class="detail-list">'+html+'</div><p class="footnote" style="margin-top:16px;">已路由至主管，可在「我的报销」查看审批进度。</p>';
+  document.getElementById('successSheet').classList.add('show');
+}
+function closeSuccess(){
+  document.getElementById('successSheet').classList.remove('show');
+  switchTab('reimburse'); resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
+  setSubmitMode('check');
+}
+function infoRow(k,v){
+  return '<div class="row" style="border-top:.5px solid var(--ios-sep);"><div class="row-label" style="color:var(--ios-gray);font-weight:500;">'+escHtml(k)+'</div><div style="font-size:15px;font-weight:600;max-width:60%;text-align:right;">'+escHtml(v)+'</div></div>';
+}
+
+/* ───────────────── 我的报销列表 ───────────────── */
+function renderMyList(){
+  var el=document.getElementById('myList');
+  if(!el)return;
+  var html='';
+  if(MOCK_MY_LIST.length===0){
+    html='<div class="empty"><div class="ei">📭</div><div class="et">暂无报销记录<br>请在「报销申请」中提交</div></div>';
+  }else{
+    MOCK_MY_LIST.forEach(function(item){
+      var typeTag=item.type==='发票'?'<span class="tag invoice">🧾 发票</span>':'<span class="tag itinerary">🚕 行程单</span>';
+      var statusTag='<span class="tag pending">⏳ 待审批</span>';
+      html+='<div class="reimb-item" onclick="openDetail(\''+item.id+'\')">'+
+        '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
+        '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
+        '<div class="ri-meta"><span><span class="mk">提交</span>'+item.submitTime+'</span><span><span class="mk">类型</span>'+escHtml(item.category)+'</span></div>'+
+        '<div class="ri-foot">'+typeTag+statusTag+'</div></div>';
+    });
+  }
+  el.innerHTML=html;
+  document.getElementById('myCount').textContent=MOCK_MY_LIST.length;
+}
+
+/* ───────────────── 详情 Sheet ───────────────── */
+function openDetail(id){
+  var item=null;
+  MOCK_MY_LIST.some(function(x){if(x.id===id){item=x;return true;}return false;});
+  if(!item)return;
+  var typeTag=item.type==='发票'?'🧾 发票':'🚕 行程单';
+  var html=''+
+    infoRow('报销单号',item.id)+
+    infoRow('票据类型',typeTag)+
+    infoRow('申请金额','¥'+item.amount.toFixed(2))+
+    infoRow('费用类型',item.category)+
+    infoRow('报销事由',item.reason)+
+    infoRow('提交时间',item.submitTime)+
+    infoRow('当前状态','⏳ 待审批');
+  document.getElementById('detailTitle').textContent='报销单详情';
+  document.getElementById('detailBody').innerHTML='<div class="detail-list">'+html+'</div>';
+  document.getElementById('detailSheet').classList.add('show');
+}
+function closeDetail(){document.getElementById('detailSheet').classList.remove('show');}
+</script>
+<style>
+/* 详情列表容器内边距 */
+.detail-list{padding:2px 0;}
+.detail-list .row:first-child{border-top:none;}
+</style>
+</body>
+</html>
