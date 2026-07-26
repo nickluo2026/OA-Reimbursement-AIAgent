@@ -116,7 +116,7 @@
         });
         document.getElementById('tab-reimburse').style.display = tab === 'reimburse' ? 'block' : 'none';
         document.getElementById('tab-my').style.display = tab === 'my' ? 'block' : 'none';
-        document.getElementById('navTitle').textContent = '首页';
+        document.getElementById('navTitle').textContent = '登录';
         document.querySelector('.content').scrollTop = 0;
         if (tab === 'my') loadMyList();
     };

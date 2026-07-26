@@ -254,13 +254,13 @@ A：审批人可选择"转审"，将审批权交给同级别或更高级别的�
 ![产品流程动画预览](docs/workflow-animation.gif)
 
 
-**▶ 点击产品原型演示**
+**▶ Web端产品原型演示**
 
 [![产品原型演示](docs/prototype_homepage.png)](https://nickluo2026.github.io/OA-Reimbursement-AIAgent/docs/prototype.html)
 
 **▶ iOS 移动端原型演示（员工侧核心链路）**
 
-[![📱 iOS 原型](docs/prototype_ios.png)](docs/prototype_ios.html)
+[![📱 iOS 原型](docs/prototype_ios.png)](https://nickluo2026.github.io/OA-Reimbursement-AIAgent/docs/prototype_ios.html)
 
 
 ---
