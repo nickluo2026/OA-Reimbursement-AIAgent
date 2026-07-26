@@ -316,6 +316,7 @@ body{
 
 /* 登录表单（移动端真实鉴权） */
 .login-form{display:flex; flex-direction:column; gap:12px; margin-top:8px;}
+.login-form .field-label{text-align:left;}
 .login-input{
   width:100%; border:1px solid var(--ios-gray3); border-radius:12px;
   padding:14px 16px; font-size:16px; font-family:inherit; background:#fff;

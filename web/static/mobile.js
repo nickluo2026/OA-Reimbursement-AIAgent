@@ -16,7 +16,7 @@
     setInterval(updateClock, 15000);
 
     /* ───────────────── 全局状态 ───────────────── */
-    var currentTicketType = '发票';
+    var currentTicketType = '';
     var lastCheckPassed = false;
     var lastRequestId = '';
     var dsDisabled = false;          // DeepSeek 是否停用
@@ -352,11 +352,11 @@
         if (amount != null && amount !== '') { document.getElementById('apply_amount').value = amount; markAuto('apply_amount'); }
         var cat = isIt ? '交通' : ((data.classify_result && data.classify_result['费用分类']) || '住宿');
         document.getElementById('expense_category').value = cat; markAuto('expense_category');
-        var date = isIt ? (ocr['申请日期'] || '') : (ocr['开票日期'] || '');
-        if (date) { document.getElementById('apply_date').value = String(date).slice(0, 10); markAuto('apply_date'); }
-        if (!document.getElementById('apply_date').value) {
-            document.getElementById('apply_date').value = new Date().toISOString().slice(0, 10);
-        }
+        // 申请日期统一回填为系统日期（本地时区），不再取开票日期
+        var t = new Date();
+        var sysDate = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+        document.getElementById('apply_date').value = sysDate;
+        markAuto('apply_date');
         document.getElementById('reason').value = isIt ? '北京出差市内交通' : '北京出差交通费';
         document.getElementById('autoFields').style.display = 'block';
         // 发票启用态：预填发票号码与开票日期（停用态无 OCR，留空待人工补录）

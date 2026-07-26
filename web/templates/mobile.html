@@ -49,6 +49,7 @@
               <div class="field-label">票据类型</div>
               <div class="select-wrap">
                 <select class="row-input" id="ticketType">
+                  <option value="" selected>请选择票据类型</option>
                   <option value="发票">🧾 发票</option>
                   <option value="行程单">🚕 行程单</option>
                 </select>
@@ -189,7 +190,9 @@
           <h1 class="app-name">智能化报销助手</h1>
           <p class="app-sub">AI 智能体驱动的企业报销</p>
           <form class="login-form" id="loginForm">
+            <label class="field-label" for="loginAccount">员工工号</label>
             <input class="login-input" id="loginAccount" type="text" inputmode="text" autocomplete="username" placeholder="工号（如 EMP-2026）" value="EMP-2026">
+            <label class="field-label" for="loginPassword">密码</label>
             <input class="login-input" id="loginPassword" type="password" autocomplete="current-password" placeholder="密码（演示 123456）" value="123456">
             <button class="btn-primary" type="submit" id="loginBtn">登录</button>
             <p class="login-error" id="loginError"></p>
