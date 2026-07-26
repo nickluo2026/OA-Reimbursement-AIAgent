@@ -254,7 +254,7 @@ A：审批人可选择"转审"，将审批权交给同级别或更高级别的�
 ![产品流程动画预览](docs/workflow-animation.gif)
 
 
-**▶ Web端产品原型演示**
+**▶ Web端产品原型演示（从员工、主管、财务、出纳和系统管理员全链路）**
 
 [![产品原型演示](docs/prototype_homepage.png)](https://nickluo2026.github.io/OA-Reimbursement-AIAgent/docs/prototype.html)
 
@@ -284,7 +284,8 @@ cp .env.example .env
 
 ```bash
 python3 run_web.py
-# 访问 http://127.0.0.1:5001
+# Web端访问 http://127.0.0.1:5001
+# IOS端访问 http://127.0.0.1:5001/m
 ```
 > 如需了解技术架构与开发信息，请参阅`docs/requirement.md`（需求文档）和`docs/design.md`（设计文档）。
 
