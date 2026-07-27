@@ -689,7 +689,8 @@ select.form-input { appearance: auto; }
                             <span class="step">上传票据</span> →
                             <span class="step">提交校验</span> →
                             <span class="step">智能体流水线执行</span> →
-                            <span class="step">回写申请金额 / 申请日期 / 费用类型 / 报销事由</span> →
+                            <span class="step">回写申请金额 / 申请日期 / 费用类型</span> →
+                            <span class="step">人工填写报销事由</span> →
                             <span class="step">提交审批</span>
                         </td>
                         <td class="rg-scenario">提交日常差旅、餐饮、住宿等报销</td>
@@ -707,17 +708,19 @@ select.form-input { appearance: auto; }
                         <td class="rg-role">💼 财务</td>
                         <td class="rg-ops">
                             <span class="step">复核 AI 校验结果</span> →
-                            <span class="step">确认归档</span>
-                            <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-001，仅复核/归档）</span>
+                            <span class="step">预算余额核对</span> →
+                            <span class="step">确认受理 / 立卷</span>
+                            <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-001，仅复核/立卷；最终归档在出纳打款后由 FIN-002 完成）</span>
                         </td>
-                        <td class="rg-scenario">财务与归档</td>
+                        <td class="rg-scenario">财务复核与立卷</td>
                     </tr>
                     <tr>
                         <td class="rg-role">🏦 出纳</td>
                         <td class="rg-ops">
                             <span class="step">发起费用发放</span> →
-                            <span class="step">银行回单归档</span>
-                            <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-002，须与归档人不同人）</span>
+                            <span class="step">回单归档</span> →
+                            <span class="step">存档备案（凭证 + 审批记录 + 发票影像）</span>
+                            <br><span style="font-size:11px;color:var(--text-light);">（岗 FIN-002，须与归档人不同人；打款并回单后，将凭证、审批记录及发票影像统一存档备案）</span>
                         </td>
                         <td class="rg-scenario">打款与回单归档</td>
                     </tr>
@@ -802,8 +805,8 @@ select.form-input { appearance: auto; }
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label" for="reason">报销事由 <span class="required">*</span><span class="remark-tag">（人工填写）</span></label>
-                <input type="text" id="reason" class="form-input" placeholder="请填写报销事由，例如：北京出差交通费（选填）">
+                <label class="form-label" for="reason">报销事由 <span class="required">*</span><span class="remark-tag">（人工填写·必填）</span></label>
+                <input type="text" id="reason" class="form-input" placeholder="请填写报销事由，例如：北京出差交通费">
             </div>
         </div>
 
@@ -857,7 +860,7 @@ select.form-input { appearance: auto; }
                     <span>📦 待归档：<strong style="color:var(--orange);" id="finReviewArchive">—</strong></span>
                 </div>
             </div>
-            <p class="card-desc">主管已通过的报销单。复核 AI 校验结果 → 确认归档（本岗 FIN-001 仅可复核/归档，<b>不可打款</b>）。</p>
+            <p class="card-desc">主管已通过的报销单。复核 AI 校验结果 → <b>预算余额核对</b> → 确认受理 / 立卷（本岗 FIN-001 仅可复核/立卷，<b>不可打款</b>；最终归档在打款后由出纳完成）。</p>
             <div class="reimburse-list" id="finReviewList"></div>
         </div>
     </div><!-- /tab-fin-review -->
@@ -872,8 +875,19 @@ select.form-input { appearance: auto; }
                     <span>✅ 本月已打款：<strong style="color:var(--green);" id="finPayDone">—</strong></span>
                 </div>
             </div>
-            <p class="card-desc">已由财务岗（FIN-001）归档的报销单。<b>须由出纳岗（FIN-002）发起打款</b>，与归档人不同人，防舞弊 → 打款后自动回单归档。</p>
+            <p class="card-desc">已由财务岗（FIN-001）受理立卷的报销单。<b>须由出纳岗（FIN-002）发起打款</b>，与归档人不同人，防舞弊 → 打款并回单后，在下方「待存档备案」中统一存档备案（凭证 + 审批记录 + 发票影像）。</p>
             <div class="reimburse-list" id="finPayList"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title-row">
+                <h2><span class="card-icon">📦</span> 待存档备案报销单</h2>
+                <div style="font-size:13px;color:var(--text-light);">
+                    <span>📦 待存档：<strong style="color:var(--orange);" id="finFilePending">—</strong></span>
+                </div>
+            </div>
+            <p class="card-desc">已打款报销单。出纳须将<b>凭证（银行回单）、审批记录、发票影像</b>三项统一存档备案 → 点击「📦 存档备案」完成最终归档备案。</p>
+            <div class="reimburse-list" id="finFileList"></div>
         </div>
     </div><!-- /tab-fin-pay -->
 
@@ -1147,6 +1161,17 @@ select.form-input { appearance: auto; }
     </div>
 </div>
 
+<!-- ========== 存档备案弹窗 ========== -->
+<div class="modal-overlay" id="fileModal" onclick="if(event.target===this) closeFileModal()">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h3 id="fileModalTitle">存档备案</h3>
+            <button class="modal-close" type="button" onclick="closeFileModal()">×</button>
+        </div>
+        <div class="modal-body" id="fileModalBody"></div>
+    </div>
+</div>
+
 <script>
 /* ============================================
    原型交互脚本 — 模拟双智能体协同处理
@@ -1170,8 +1195,8 @@ var INITIAL_PENDING, INITIAL_FINAL, INITIAL_AUDIT, INITIAL_COUNTERS; // 登出�
 var ROLES = {
     employee:  { icon: '👤', name: '员工',   desc: '提交日常差旅、餐饮、住宿等报销', user: '张三',  account: 'EMP-2026' },
     approver:  { icon: '👔', name: '主管',   desc: '审核下属报销申请',               user: '李总',  account: 'APR-001' },
-    finance_review: { icon: '💼', name: '财务', desc: '复核AI结果·确认归档',          user: '王会计', account: 'FIN-001' },
-    finance_pay:    { icon: '🏦', name: '出纳', desc: '发起费用发放·回单归档',        user: '李出纳', account: 'FIN-002' },
+    finance_review: { icon: '💼', name: '财务', desc: '复核AI结果·受理立卷',          user: '王会计', account: 'FIN-001' },
+    finance_pay:    { icon: '🏦', name: '出纳', desc: '发起费用发放·回单归档·存档备案', user: '李出纳', account: 'FIN-002' },
     admin:     { icon: '⚙️', name: '系统管理员', desc: '维护报销制度规则',               user: '赵管理', account: 'ADM-001' }
 };
 
@@ -1253,6 +1278,7 @@ function doLogin() {
     renderApproveList();
     renderFinReviewList();
     renderFinPayList();
+    renderFinFileList();
     renderAuditLog();
     renderMyList();
 }
@@ -1275,7 +1301,7 @@ function logout() {
     selectRole('employee');
     document.getElementById('loginPassword').value = '123456';
     resetResults();
-    // 注意：不再调用 restoreMockData()，否则会清空 FIN-001 已复核并归档的数据，
+    // 注意：不再调用 restoreMockData()，否则会清空 FIN-001 已复核并立卷的数据，
     // 导致 FIN-002 重新登录后看不到待打款报销单（破坏职责分离演示流程）。
     // 内存状态在单次会话的多次登录间保持连续；刷新页面即可恢复初始 Mock 数据。
 }
@@ -1348,7 +1374,7 @@ document.getElementById('uploadZone').addEventListener('click', function() {
     preview.style.display = 'block';
     var ocr = document.getElementById('ocrStatus');
     ocr.className = 'ocr-status';
-    ocr.innerHTML = '📄 票据已上传，点击「提交校验」后由智能体执行 OCR 提取并回写申请金额 / 申请日期 / 费用类型 / 报销事由';
+    ocr.innerHTML = '📄 票据已上传，点击「提交校验」后由智能体执行 OCR 提取并回写申请金额 / 申请日期 / 费用类型（报销事由请人工填写）';
 });
 
 /* ── 单字段回填 + 高亮 + 显示徽标 ── */
@@ -1388,7 +1414,7 @@ function autoFillFromOcr() {
     document.getElementById('autoFields').style.display = '';
     var ocr = document.getElementById('ocrStatus');
     ocr.className = 'ocr-status done';
-    ocr.innerHTML = '✅ 校验完成 · 智能体已自动回写申请金额 / 申请日期 / 费用类型 / 报销事由，请核对无误后提交审批';
+    ocr.innerHTML = '✅ 校验完成 · 智能体已自动回写申请金额 / 申请日期 / 费用类型（报销事由请人工填写），请核对无误后提交审批';
 }
 
 /* ── 重置结果 ── */
@@ -1571,6 +1597,17 @@ var ITINERARY_STEPS = [
     { icon: '🛣️', name: '行程合理性校验（金额匹配/日期范围）', agent: 'itinerary' },
 ];
 
+/* ── 部门预算（按费用类型）── 用于财务审核「预算余额核对」 */
+var MOCK_BUDGET = {
+    '交通': { total: 44000, used: 42000 },
+    '住宿': { total: 80000, used: 61000 },
+    '餐饮': { total: 30000, used: 18500 },
+    '办公': { total: 40000, used: 12000 }
+};
+function getBudget(category) {
+    return MOCK_BUDGET[category] || { total: 0, used: 0, unknown: true };
+}
+
 /* ── 模拟数据 ── */
 var MOCK_INVOICE = {
     ocr_result: {
@@ -1722,7 +1759,7 @@ function runPrototype() {
             // 保留片刻让用户看到全部完成，再在弹窗内展示校验结果状态与操作按钮
             setTimeout(function() {
                 showResult(isItinerary);
-                autoFillFromOcr();   // 校验完成后再回写并展示申请金额 / 日期 / 费用类型 / 报销事由
+                autoFillFromOcr();   // 校验完成后再回写并展示申请金额 / 日期 / 费用类型（报销事由由人工填写）
                 submitBtn.disabled = false;
                 submitBtn.querySelector('.btn-text').style.display = 'inline';
                 submitBtn.querySelector('.btn-loading').style.display = 'none';
@@ -2149,7 +2186,10 @@ function handleApprove(id, action) {
         // 流转至财务待终审列表（保留归档状态为 pending），插入头部使最新提交排在最前
         var finItem = Object.assign({}, item, {
             archiveStatus: 'pending',
-            approver: ROLES.approver.user + '（已审批通过 ' + nowStr() + '）'
+            approver: ROLES.approver.user + '（已审批通过 ' + nowStr() + '）',
+            budgetChecked: false, budgetOk: false,
+            paid: false, paidBy: null, receiptArchived: false,
+            filed: false, filedBy: null, filedTime: null
         });
         MOCK_FINAL_LIST.unshift(finItem);
         MOCK_PENDING_LIST = MOCK_PENDING_LIST.filter(function(x) { return x.id !== id; });
@@ -2176,7 +2216,7 @@ function viewDetail(id) {
 
     var typeTag = item.type === '发票' ? '🧾 发票' : '🚕 行程单';
     var statusText = item.archiveStatus === 'archived'
-        ? (item.paid ? '已打款' : '已复核并归档')
+        ? (item.filed ? '已存档备案' : (item.paid ? '已打款' : '已复核并立卷'))
         : (item.archiveStatus === 'pending' ? '待复核'
         : (item.transferred ? '已转审' : (item.status || '待审批')));
 
@@ -2189,10 +2229,40 @@ function viewDetail(id) {
     html += infoItem('提交时间', item.submitTime || '—');
     html += infoItem('审批人', ROLES.approver.account);
     html += infoItem('报销事由', item.reason || '—');
-    if (item.archivedBy) html += infoItem('复核人', ROLES.finance_review.account);
+    if (item.archivedBy) html += infoItem('复核/立卷人', ROLES.finance_review.account);
     if (item.paidBy) html += infoItem('打款人', ROLES.finance_pay.account);
+    if (item.filedBy) html += infoItem('存档备案人', ROLES.finance_pay.account);
+    if (item.filedTime) html += infoItem('备案时间', item.filedTime);
     html += infoItem('当前状态', statusText);
     html += '</div>';
+
+    // 预算余额核对面板（财务审核要点：核对预算余额）
+    var bud = getBudget(item.category);
+    var projected = bud.used + (item.amount != null ? item.amount : 0);
+    var budgetOk = projected <= bud.total;
+    var budgetPanel =
+        '<div style="margin-top:14px;padding:12px 14px;border:1px solid ' + (budgetOk ? '#3aa76d' : '#e5484d') + ';border-radius:10px;background:' + (budgetOk ? 'rgba(58,167,109,.08)' : 'rgba(229,72,77,.08)') + ';">' +
+            '<div style="font-weight:600;margin-bottom:8px;">💰 预算余额核对（' + escHtml(item.category || '—') + '）</div>' +
+            '<div class="info-grid">' +
+                infoItem('预算总额', bud.unknown ? '—（无对应预算）' : '¥' + bud.total.toFixed(2)) +
+                infoItem('已使用', bud.unknown ? '—' : '¥' + bud.used.toFixed(2)) +
+                infoItem('本次申请', '¥' + (item.amount != null ? item.amount.toFixed(2) : '—')) +
+                infoItem('核对后余额', bud.unknown ? '—' : '¥' + (bud.total - projected).toFixed(2)) +
+            '</div>' +
+            '<div style="margin-top:10px;">' +
+                (bud.unknown
+                    ? '<span class="status-pill error">⚠️ 未配置预算，无法核对</span>'
+                    : (budgetOk
+                        ? '<span class="status-pill success">✓ 预算充足</span>'
+                        : '<span class="status-pill error">✕ 预算不足 / 超预算</span>')) +
+            '</div>' +
+            '<div style="margin-top:10px;">' +
+                (item.budgetChecked
+                    ? '<span class="status-pill success">✓ 财务已确认预算核对' + (item.budgetOk ? '' : '（超支预警）') + '</span>'
+                    : '<button class="btn-mini" style="background:var(--primary);color:#fff;" onclick="confirmBudgetCheck(\'' + item.id + '\')">✅ 确认预算余额核对</button>') +
+            '</div>' +
+        '</div>';
+    html += budgetPanel;
 
     document.getElementById('detailModalTitle').textContent = '报销单详情 · ' + id;
     document.getElementById('detailModalBody').innerHTML = html;
@@ -2201,6 +2271,107 @@ function viewDetail(id) {
 
 function closeDetail() {
     document.getElementById('detailModal').classList.remove('visible');
+}
+
+/* 财务确认预算余额核对 */
+function confirmBudgetCheck(id) {
+    var item = null;
+    [MOCK_PENDING_LIST, MOCK_FINAL_LIST, MOCK_MY_LIST].some(function(list) {
+        var f = list.find(function(x) { return x.id === id; });
+        if (f) { item = f; return true; }
+        return false;
+    });
+    if (!item) { alert('未找到报销单 ' + id); return; }
+    var bud = getBudget(item.category);
+    var projected = bud.used + (item.amount != null ? item.amount : 0);
+    var ok = projected <= bud.total;
+    item.budgetChecked = true;
+    item.budgetOk = ok;
+    addAuditLog('BUDGET_CHECK', id + ' · ' + (item.category || '—') + ' · ¥' + (item.amount != null ? item.amount.toFixed(2) : '0.00') + ' · ' + (bud.unknown ? '无预算配置' : (ok ? '预算充足' : '超预算预警')), ok ? '成功' : '预警');
+    alert('已确认预算余额核对：' + id + '\n' + (bud.unknown
+        ? '⚠️ 该费用类型未配置预算，无法核对，请线下确认。'
+        : (ok ? '预算充足（核对后余额 ¥' + (bud.total - projected).toFixed(2) + '），可继续受理立卷。'
+              : '⚠️ 预算不足：核对后余额为 ¥' + (bud.total - projected).toFixed(2) + '，请谨慎处理后再立卷。')));
+    viewDetail(id);
+    renderFinReviewList();
+}
+
+/* 出纳打开存档备案弹窗（凭证 + 审批记录 + 发票影像） */
+function openFileModal(id) {
+    var item = null;
+    [MOCK_PENDING_LIST, MOCK_FINAL_LIST, MOCK_MY_LIST].some(function(list) {
+        var f = list.find(function(x) { return x.id === id; });
+        if (f) { item = f; return true; }
+        return false;
+    });
+    if (!item) { alert('未找到报销单 ' + id); return; }
+    if (!item.paid) { alert('该报销单尚未打款，无法存档备案。请先发起打款。'); return; }
+    var imgIcon = item.type === '发票' ? '🧾' : '🚕';
+    var imgName = item.type === '发票' ? 'invoice' : 'itinerary';
+    var html = '';
+    html += '<p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">请核对以下三项材料齐全后，确认统一存档备案。</p>';
+
+    html += '<div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:10px;">' +
+        '<div style="font-weight:600;margin-bottom:8px;">🧾 凭证（银行回单 / 付款凭证）</div>' +
+        '<div class="info-grid">' +
+            infoItem('付款凭证号', 'PAY-' + item.id) +
+            infoItem('付款金额', '¥' + (item.amount != null ? item.amount.toFixed(2) : '—')) +
+            infoItem('打款人', item.paidBy || '—') +
+            infoItem('回单状态', item.receiptArchived ? '已回写归档' : '未回写') +
+        '</div></div>';
+
+    html += '<div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:10px;">' +
+        '<div style="font-weight:600;margin-bottom:8px;">📝 审批记录</div>' +
+        '<div class="info-grid">' +
+            infoItem('提交人', item.submitter || '—') +
+            infoItem('主管审批', item.approver || '—') +
+            infoItem('财务复核/立卷', item.archivedBy || '—') +
+            infoItem('AI 复核摘要', item.aiSummary || '—') +
+        '</div></div>';
+
+    html += '<div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:10px;">' +
+        '<div style="font-weight:600;margin-bottom:8px;">🖼️ 发票影像（' + (item.type === '发票' ? '发票' : '行程单') + '）</div>' +
+        '<div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg);border-radius:8px;">' +
+            '<div style="width:64px;height:84px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">' + imgIcon + '</div>' +
+            '<div style="font-size:13px;color:var(--text-light);">影像文件：' + escHtml(item.id) + '_' + imgName + '.jpg（已上传）</div>' +
+        '</div></div>';
+
+    html += '<div style="margin:14px 0;font-size:13px;">' +
+        '<label style="display:block;margin-bottom:6px;"><input type="checkbox" id="chkVoucher" checked> 凭证（银行回单）已齐全</label>' +
+        '<label style="display:block;margin-bottom:6px;"><input type="checkbox" id="chkApproval" checked> 审批记录已齐全</label>' +
+        '<label style="display:block;margin-bottom:6px;"><input type="checkbox" id="chkImage" checked> 发票影像已齐全</label>' +
+        '</div>';
+    html += '<button class="btn-submit" style="width:100%;" onclick="confirmFile(\'' + item.id + '\')">📦 确认存档备案</button>';
+
+    document.getElementById('fileModalTitle').textContent = '存档备案 · ' + id;
+    document.getElementById('fileModalBody').innerHTML = html;
+    document.getElementById('fileModal').classList.add('visible');
+}
+function closeFileModal() {
+    document.getElementById('fileModal').classList.remove('visible');
+}
+function confirmFile(id) {
+    var item = null;
+    [MOCK_PENDING_LIST, MOCK_FINAL_LIST, MOCK_MY_LIST].some(function(list) {
+        var f = list.find(function(x) { return x.id === id; });
+        if (f) { item = f; return true; }
+        return false;
+    });
+    if (!item) { alert('未找到报销单 ' + id); return; }
+    var v = document.getElementById('chkVoucher') && document.getElementById('chkVoucher').checked;
+    var a = document.getElementById('chkApproval') && document.getElementById('chkApproval').checked;
+    var i = document.getElementById('chkImage') && document.getElementById('chkImage').checked;
+    if (!(v && a && i)) { alert('请确认凭证、审批记录、发票影像三项均已齐全后再存档备案。'); return; }
+    var currentAccount = (ROLES[currentRole] || ROLES.employee).account;
+    item.filed = true;
+    item.filedBy = currentAccount;
+    item.filedTime = nowStr();
+    addAuditLog('ARCHIVE_FILING', id + ' · 凭证+审批记录+发票影像 已统一存档备案 · 备案人 ' + currentAccount, '成功');
+    closeFileModal();
+    alert('已存档备案：' + id + '\n（凭证、审批记录及发票影像已统一归档备案）');
+    renderFinFileList();
+    renderFinPayList();
+    renderMyList();
 }
 
 /* ── 我的报销（员工） ── */
@@ -2293,12 +2464,22 @@ function renderFinReviewList() {
     var list = MOCK_FINAL_LIST.filter(function (x) { return x.archiveStatus === 'pending'; });
     var html = '';
     if (list.length === 0) {
-        html = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">暂无待复核/待归档的报销单</div></div>';
+        html = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">暂无待复核/待立卷的报销单</div></div>';
     } else {
         list.forEach(function (item) {
             var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
             var aiTag = '<span class="tag ai-pass">✓ AI 通过</span>';
             var statusTag = '<span class="tag status-pending">⏳ 待复核</span>';
+            var bud = getBudget(item.category);
+            var projected = bud.used + (item.amount || 0);
+            var budgetOk = projected <= bud.total;
+            var budgetBadge = item.budgetChecked
+                ? (item.budgetOk
+                    ? '<span class="tag status-approved">💰 预算已核·充足</span>'
+                    : '<span class="tag status-rejected">💰 预算已核·超支</span>')
+                : (budgetOk
+                    ? '<span class="tag ai-pass">💰 预算充足</span>'
+                    : '<span class="tag status-rejected">💰 预算不足</span>');
             html += '<div class="reimburse-item">' +
                 '<div class="reimburse-item-head">' +
                     '<div><div class="reimburse-item-id">' + item.id + '</div>' +
@@ -2312,10 +2493,11 @@ function renderFinReviewList() {
                 '</div>' +
                 '<div style="padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;margin-bottom:12px;">🤖 <strong>AI 复核：</strong>' + item.aiSummary + '</div>' +
                 '<div class="reimburse-item-footer">' +
-                    '<div class="reimburse-item-tags">' + typeTag + aiTag + statusTag + '</div>' +
+                    '<div class="reimburse-item-tags">' + typeTag + aiTag + statusTag + budgetBadge + '</div>' +
                     '<div class="reimburse-item-actions">' +
                         '<button class="btn-mini primary" onclick="viewDetail(\'' + item.id + '\')">📄 查看明细</button>' +
-                        '<button class="btn-mini success" onclick="handleFinance(\'' + item.id + '\', \'归档\')">📦 确认复核并归档</button>' +
+                        (item.budgetChecked ? '' : '<button class="btn-mini" style="background:var(--primary);color:#fff;" onclick="handleFinance(\'' + item.id + '\', \'budget\')">💰 预算核对</button>') +
+                        '<button class="btn-mini success" onclick="handleFinance(\'' + item.id + '\', \'归档\')">📦 确认复核并受理立卷</button>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -2332,11 +2514,11 @@ function renderFinPayList() {
     var list = MOCK_FINAL_LIST.filter(function (x) { return x.archiveStatus === 'archived' && !x.paid; });
     var html = '';
     if (list.length === 0) {
-        html = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无待打款的报销单（请先由财务岗归档）</div></div>';
+        html = '<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无待打款的报销单（请先由财务岗受理立卷）</div></div>';
     } else {
         list.forEach(function (item) {
             var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
-            var statusTag = '<span class="tag status-archived">📦 已复核并归档</span>';
+            var statusTag = '<span class="tag status-archived">📦 已复核并立卷</span>';
             html += '<div class="reimburse-item">' +
                 '<div class="reimburse-item-head">' +
                     '<div><div class="reimburse-item-id">' + item.id + '</div>' +
@@ -2363,17 +2545,66 @@ function renderFinPayList() {
     document.getElementById('finPayDone').textContent = financePaidTotal;
 }
 
+function renderFinFileList() {
+    var el = document.getElementById('finFileList');
+    if (!el) return;
+    var list = MOCK_FINAL_LIST.filter(function (x) { return x.paid && !x.filed; });
+    var html = '';
+    if (list.length === 0) {
+        html = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">暂无待存档备案的报销单（打款后在此统一存档备案）</div></div>';
+    } else {
+        list.forEach(function (item) {
+            var typeTag = item.type === '发票' ? '<span class="tag invoice">🧾 发票</span>' : '<span class="tag itinerary">🚕 行程单</span>';
+            var statusTag = '<span class="tag status-paid">💰 已打款·待存档</span>';
+            html += '<div class="reimburse-item">' +
+                '<div class="reimburse-item-head">' +
+                    '<div><div class="reimburse-item-id">' + item.id + '</div>' +
+                    '<div style="margin-top:6px;font-size:15px;font-weight:600;">' + item.reason + '</div></div>' +
+                    '<div class="reimburse-item-amount">¥' + item.amount.toFixed(2) + '</div>' +
+                '</div>' +
+                '<div class="reimburse-item-meta">' +
+                    '<span><span class="meta-key">打款人:</span><span class="meta-value">' + (item.paidBy || '—') + '</span></span>' +
+                    '<span><span class="meta-key">回单:</span><span class="meta-value">' + (item.receiptArchived ? '已归档' : '未归档') + '</span></span>' +
+                '</div>' +
+                '<div class="reimburse-item-footer">' +
+                    '<div class="reimburse-item-tags">' + typeTag + statusTag + '</div>' +
+                    '<div class="reimburse-item-actions">' +
+                        '<button class="btn-mini primary" onclick="viewDetail(\'' + item.id + '\')">📄 查看明细</button>' +
+                        '<button class="btn-mini success" onclick="handleFinance(\'' + item.id + '\', \'file\')">📦 存档备案</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        });
+    }
+    el.innerHTML = html;
+    document.getElementById('finFilePending').textContent = list.length;
+}
+
 function handleFinance(id, action) {
     var item = MOCK_FINAL_LIST.find(function(x) { return x.id === id; });
     if (!item) return;
     var currentAccount = (ROLES[currentRole] || ROLES.employee).account;
 
+    if (action === 'budget') {
+        confirmBudgetCheck(id);
+        return;
+    }
+
+    if (action === 'file') {
+        openFileModal(id);
+        return;
+    }
+
     if (action === '归档') {
-        if (!confirm('确认复核并归档报销单 ' + id + '？')) return;
+        if (!item.budgetChecked) {
+            alert('请先完成「预算余额核对」再受理立卷。\n可点击列表中的「💰 预算核对」或打开明细确认。');
+            return;
+        }
+        if (!confirm('确认复核并受理立卷报销单 ' + id + '？')) return;
         item.archiveStatus = 'archived';
-        item.archivedBy = currentAccount;   // 记录归档人，供打款校验
-        addAuditLog('ARCHIVE', id + ' · ¥' + item.amount.toFixed(2) + ' · 归档人 ' + currentAccount, '成功');
-        alert('已复核并归档：' + id + '\n（请切换「出纳岗 FIN-002」登录后发起打款）');
+        item.archivedBy = currentAccount;   // 记录立卷人，供打款校验
+        addAuditLog('ARCHIVE', id + ' · ¥' + item.amount.toFixed(2) + ' · 立卷人 ' + currentAccount + ' · 预算' + (item.budgetOk ? '充足' : '超支预警'), '成功');
+        alert('已复核并受理立卷：' + id + '\n（请切换「出纳岗 FIN-002」登录后发起打款）');
         renderFinReviewList();
         renderFinPayList();
         return;
@@ -2381,7 +2612,7 @@ function handleFinance(id, action) {
 
     if (action === '打款') {
         if (item.archiveStatus !== 'archived') {
-            alert('请先由「财务岗（FIN-001）」确认归档，再发起打款。');
+            alert('请先由「财务岗（FIN-001）」确认受理立卷，再发起打款。');
             return;
         }
         // 防舞弊：打款人必须与归档人不同
@@ -2396,7 +2627,7 @@ function handleFinance(id, action) {
         addAuditLog('PAYMENT_INIT', id + ' · ¥' + item.amount.toFixed(2) + ' · 打款人 ' + currentAccount, '成功');
         // 银行回单回写 → 补充归档（自动）
         item.receiptArchived = true;
-        addAuditLog('RECEIPT_ARCHIVE', id + ' · 银行回单已回写归档', '成功');
+        addAuditLog('RECEIPT_ARCHIVE', id + ' · 凭证+审批记录+发票影像 已统一回写归档', '成功');
         // 回流员工「我的报销单」：状态更新为已打款，并回写审批人/归档人/打款人
         var myItem = MOCK_MY_LIST.find(function (x) { return x.id === id; });
         if (myItem) {
@@ -2405,10 +2636,12 @@ function handleFinance(id, action) {
             myItem.archivedBy = item.archivedBy || myItem.archivedBy;
             myItem.paidBy = item.paidBy || myItem.paidBy;
         }
-        MOCK_FINAL_LIST = MOCK_FINAL_LIST.filter(function (x) { return x.id !== id; });
+        // 注意：保留在 MOCK_FINAL_LIST 中，由 paid 状态驱动后续「待存档备案」列表
+        // （渲染逻辑：待打款=!paid；待存档备案=paid && !filed）
         alert('已打款：' + id + '\n（费用已打款；银行回单已自动回写归档）');
         renderFinReviewList();
         renderFinPayList();
+        renderFinFileList();
         renderMyList();
         return;
     }
@@ -2440,7 +2673,9 @@ var AUDIT_ACTION_LABELS = {
     'APPROVE':         '✓ 审批通过',
     'REJECT':          '✕ 审批驳回',
     'TRANSFER':        '↪️ 转审',
-    'ARCHIVE':         '📦 归档',
+    'ARCHIVE':         '📦 受理立卷',
+    'BUDGET_CHECK':    '💰 预算核对',
+    'ARCHIVE_FILING':  '📦 存档备案',
     'PAYMENT_INIT':    '💰 发起打款',
     'RECEIPT_ARCHIVE': '🏦 回单归档',
     'LOGIN':           '🔓 登录',
@@ -2745,6 +2980,7 @@ function restoreMockData() {
     renderApproveList();
     renderFinReviewList();
     renderFinPayList();
+    renderFinFileList();
     renderAuditLog();
     renderMyList();
 }
