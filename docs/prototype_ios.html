@@ -383,6 +383,7 @@ body{
             <div class="field-block">
               <div class="field-label">票据类型</div>
               <select class="ticket-select" id="ticketType" onchange="onTicketTypeChange()">
+                <option value="" selected disabled hidden>请选择票据类型</option>
                 <option value="发票">🧾 发票</option>
                 <option value="行程单">🚕 行程单</option>
               </select>
@@ -539,7 +540,7 @@ function updateClock(){
 updateClock(); setInterval(updateClock,15000);
 
 /* ───────────────── 全局状态 ───────────────── */
-var currentTicketType='发票';
+var currentTicketType='';
 var lastCheckPassed=false;
 var MOCK_MY_LIST=[];
 
@@ -678,6 +679,9 @@ function setSubmitMode(mode){
 
 /* ───────────────── 提交按钮分发 ───────────────── */
 function onSubmitClick(){
+  if(!currentTicketType){
+    alert('请先选择票据类型。'); return;
+  }
   var btn=document.getElementById('submitBtn');
   if(btn.classList.contains('approve')){
     submitApprove();
