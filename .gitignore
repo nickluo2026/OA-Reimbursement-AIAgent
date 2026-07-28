@@ -26,6 +26,9 @@ uploads/
 # 数据库文件
 *.db
 *.sqlite3
+# SQLite WAL/SHM 运行时临时文件（非数据，切勿入库）
+*.db-wal
+*.db-shm
 # oa_agent.db 由 *.db 覆盖，切勿手动 git add
 # 数据库备份（手动清理工具生成，不入库）
 oa_agent.db.bak-*

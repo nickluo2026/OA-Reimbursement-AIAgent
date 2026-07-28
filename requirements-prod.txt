@@ -1,0 +1,14 @@
+# [P1] 生产部署附加依赖（基础依赖见 requirements.txt）
+# 安装：pip install -r requirements.txt -r requirements-prod.txt
+-r requirements.txt
+
+# MySQL 驱动（OA_DATABASE_URL=mysql+pymysql://...）
+pymysql==1.1.1
+# MySQL TLS 连接需要
+cryptography>=42.0.0
+
+# Redis：服务端会话 + 登录限流共享计数（OA_REDIS_URL）
+redis==5.2.1
+
+# S3 兼容对象存储（票据归档，OA_STORAGE_BACKEND=s3 时需要）
+boto3==1.35.90

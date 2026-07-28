@@ -17,12 +17,23 @@ RULES_DIR = SKILL_ROOT / "rules"
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
 DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
-# 视觉调用复用同一模型（V4-Flash 原生多模态）；
-# 保留独立常量，便于未来切换专用视觉模型。
+# 注意：图片/扫描件 OCR 已改为「本地 OCR 引擎抽文本 → DeepSeek Function Call 文本管线」
+# （方案 A），不再依赖大模型原生多模态能力。
+# 该常量仅保留用于配置自检展示与历史用量统计兼容，未来切回视觉模型时可复用。
 DEEPSEEK_VISION_MODEL: str = os.getenv("DEEPSEEK_VISION_MODEL", DEEPSEEK_MODEL)
 TEMPERATURE: float = 0.0
 MAX_TOKENS: int = 4096
 REQUEST_TIMEOUT: int = 120
+
+# ============ 本地 OCR 引擎配置（方案 A）============
+# 引擎选择：auto（默认，优先 PaddleOCR，回退 Tesseract）/ paddle / tesseract
+LOCAL_OCR_ENGINE: str = os.getenv("LOCAL_OCR_ENGINE", "auto")
+# Tesseract 识别语言（中文简体 + 英文），需系统安装对应语言包
+TESSERACT_LANG: str = os.getenv("TESSERACT_LANG", "chi_sim+eng")
+# tesseract 可执行文件路径（留空则使用系统 PATH）
+TESSERACT_CMD: str = os.getenv("TESSERACT_CMD", "")
+# 扫描件 PDF 渲染为图片的分辨率（DPI）
+OCR_RENDER_DPI: int = int(os.getenv("OCR_RENDER_DPI", "200"))
 
 # ============ DeepSeek-V4-Flash 定价（CNY / 千 token）============
 # 与官方价（≈$0.14/M 输入 · $0.28/M 输出）换算一致，可经环境变量覆盖。
@@ -30,7 +41,9 @@ PRICE_INPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_INPUT_PER_1K", "0.00
 PRICE_OUTPUT_PER_1K: float = float(os.getenv("DEEPSEEK_PRICE_OUTPUT_PER_1K", "0.002"))
 
 # ============ 用户可见文案常量 ============
-DEEPSEEK_DISABLED_MSG: str = "DeepSeek 大模型已停用（系统配置），请联系系统管理员启用DeepSeek大模型或者人工填写报销单"
+DEEPSEEK_DISABLED_MSG: str = (
+    "DeepSeek 大模型已停用（系统配置），请联系系统管理员启用" "DeepSeek大模型或者人工填写报销单"
+)
 
 # ============ 业务配置 ============
 SMALL_AMOUNT_THRESHOLD: float = 100.0  # 小额免审阈值（元）

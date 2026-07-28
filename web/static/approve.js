@@ -25,7 +25,7 @@
         '审批中': { cls: 'status-inreview', text: '🔄 审批中(会签)' },
         '待复核': { cls: 'status-paid', text: '✓ 待复核' },
         '已驳回': { cls: 'status-rejected', text: '✕ 已驳回' },
-        '已复核并归档': { cls: 'status-archived', text: '📦 已复核并归档' },
+        '已复核': { cls: 'status-archived', text: '📦 已复核' },
         '已打款': { cls: 'status-paid', text: '💰 已打款' },
         '已转审': { cls: 'status-transferred', text: '↪️ 已转审' },
     };

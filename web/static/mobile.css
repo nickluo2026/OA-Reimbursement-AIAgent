@@ -71,7 +71,7 @@ body{
 .nav-title{font-size:17px; font-weight:700; letter-spacing:-.4px; line-height:1.1;}
 .nav-action{
   border:none; background:none; color:var(--ios-blue); font-size:17px;
-  font-family:inherit; padding:4px 2px; cursor:pointer;
+  -webkit-appearance:none; appearance:none; font-family:inherit; padding:4px 2px; cursor:pointer;
 }
 
 /* ───────────────────────── 内容滚动区 ───────────────────────── */
@@ -164,6 +164,7 @@ body{
 .row.col .row-input{text-align:left;}
 .row-input::placeholder{color:var(--ios-gray2);}
 .row-input.auto-filled{color:var(--ios-indigo); font-weight:600;}
+.unit-suffix{font-size:16px; color:var(--ios-label); margin-left:4px; flex:none;}
 
 /* 校验结果卡片 */
 .result-card{
@@ -238,11 +239,16 @@ body{
 }
 .tab-item{
   flex:1; border:none; background:none; font-family:inherit; cursor:pointer;
+  -webkit-appearance:none; appearance:none;   /* 关闭 iOS 原生外观，恢复字号继承 */
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:3px; padding:8px 0 7px; color:var(--ios-gray); font-size:17px; touch-action:manipulation;
   transition:color .15s;
 }
 .tab-item .ic{font-size:23px; line-height:1; filter:grayscale(.4); transition:filter .15s;}
+/* 底部 Tab 文字字号与顶部「退出」(.nav-action, 17px) 保持一致。
+   iOS Safari 中 display:flex 的 <button> 内「直接文本节点」会成为匿名 flex item、
+   字号不继承（落到约 12px）；因此标签文字须包在 <span class="tab-label"> 中并显式指定 17px。 */
+.tab-item .tab-label{font-size:17px; font-weight:400; line-height:1.2; display:block;}
 .tab-item.active{color:var(--ios-blue);}
 .tab-item.active .ic{filter:none;}
 
@@ -312,7 +318,9 @@ body{
 .app-icon img{width:100%; height:100%; object-fit:cover; display:block;}
 .app-name{font-size:28px; font-weight:700; margin:0 0 6px; letter-spacing:-.4px;}
 .app-sub{font-size:14px; color:var(--ios-gray); margin:0 0 40px;}
-.login-tip{font-size:12px; color:var(--ios-gray); line-height:1.5; margin-top:22px; padding:0 10px;}
+.login-tip{font-size:12px; color:var(--ios-gray); line-height:1.6; margin-top:22px; padding:0 10px; text-align:center;}
+.login-tip-line{display:block;}
+.login-tip-note{margin-top:6px; font-size:11px; color:var(--ios-gray2, var(--ios-gray));}
 
 /* 登录表单（移动端真实鉴权） */
 .login-form{display:flex; flex-direction:column; gap:12px; margin-top:8px;}
@@ -338,6 +346,119 @@ body{
 .detail-list{padding:2px 0;}
 .detail-list .row:first-child{border-top:none;}
 
+/* ───────────────────────── 多角色扩展样式（对齐 prototype_ios.html） ───────────────────────── */
+.tag.manual{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.tag.ai-pass{background:rgba(52,199,89,.14); color:var(--ios-green);}
+.tag.ai-warn{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.tag.ai-block{background:rgba(255,59,48,.14); color:var(--ios-red);}
+.tag.status-archived{background:rgba(94,92,230,.14); color:var(--ios-indigo);}
+.tag.status-paid{background:rgba(90,200,250,.22); color:#0071a4;}
+.tag.status-transferred{background:rgba(255,204,0,.24); color:#8a6d00;}
+.tag.status-rejected{background:rgba(255,59,48,.14); color:var(--ios-red);}
+.ai-note{margin:10px 0 2px; padding:9px 11px; border-radius:10px; background:var(--ios-gray6); font-size:12.5px; line-height:1.5; color:#3a3a3c;}
+.item-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+.btn-mini{
+  flex:1; min-width:0; border:none; border-radius:10px; padding:9px 8px;
+  font-size:13px; font-weight:600; font-family:inherit; cursor:pointer;
+  touch-action:manipulation; transition:filter .12s, transform .12s; white-space:nowrap;
+}
+.btn-mini:active{filter:brightness(.93); transform:scale(.97);}
+.btn-mini.gray{background:var(--ios-gray6); color:var(--ios-blue);}
+.btn-mini.blue{background:var(--ios-blue); color:#fff;}
+.btn-mini.green{background:var(--ios-green); color:#fff;}
+.btn-mini.red{background:rgba(255,59,48,.12); color:var(--ios-red);}
+.btn-mini.orange{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.btn-mini.teal{background:#30B0C7; color:#fff;}
+.btn-mini:disabled{opacity:.5; cursor:default;}
+
+/* iOS 开关 UISwitch */
+.ios-switch{
+  position:relative; width:51px; height:31px; background:rgba(120,120,128,.16);
+  border-radius:16px; flex:none; cursor:pointer; transition:background .25s; touch-action:manipulation;
+}
+.ios-switch::after{
+  content:""; position:absolute; top:2px; left:2px; width:27px; height:27px;
+  background:#fff; border-radius:50%;
+  box-shadow:0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16);
+  transition:transform .25s cubic-bezier(.32,.72,0,1);
+}
+.ios-switch.on{background:var(--ios-green);}
+.ios-switch.on::after{transform:translateX(20px);}
+
+/* 系统配置输入 */
+.cfg-input{
+  width:110px; border:none; background:var(--ios-gray6); border-radius:8px;
+  padding:8px 10px; font-family:inherit; font-size:14px; text-align:right; color:var(--ios-label);
+}
+.cfg-input.wide{flex:1; min-width:0; text-align:left;}
+.cfg-input:focus{outline:2px solid rgba(0,122,255,.35);}
+.cfg-input:disabled{opacity:.45;}
+.cfg-suffix{font-size:13px; color:var(--ios-gray); flex:none;}
+.cfg-env{display:block; font-size:10px; color:var(--ios-gray2); font-family:ui-monospace,SFMono-Regular,monospace; margin-top:1px;}
+
+/* 指标卡 */
+.metric-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
+.metric-card{background:#fff; border-radius:14px; padding:14px 10px; box-shadow:var(--shadow); text-align:center;}
+.metric-icon{font-size:22px;}
+.metric-value{font-size:19px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums;}
+.metric-value.blue{color:var(--ios-blue);}
+.metric-value.green{color:var(--ios-green);}
+.metric-value.orange{color:var(--ios-orange);}
+.metric-value.purple{color:var(--ios-indigo);}
+.metric-label{font-size:12px; color:var(--ios-gray); margin-top:2px;}
+.metric-sub{font-size:10.5px; color:var(--ios-gray2); margin-top:2px;}
+
+/* 迷你柱状图 */
+.chart-box{display:flex; align-items:flex-end; gap:8px; height:140px; padding-top:18px; border-bottom:1px solid var(--ios-sep); margin-bottom:6px;}
+.chart-col{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%;}
+.chart-bar{
+  width:100%; max-width:30px; border-radius:6px 6px 0 0; min-height:4px;
+  background:linear-gradient(180deg, var(--ios-blue), #5AC8FA); position:relative;
+}
+.chart-bar .bar-calls{position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--ios-gray); font-weight:600;}
+.chart-labels{display:flex; gap:8px;}
+.chart-labels span{flex:1; text-align:center; font-size:10px; color:var(--ios-gray);}
+
+/* 类型占比条 */
+.type-row{margin-bottom:12px;}
+.type-row:last-child{margin-bottom:0;}
+.type-head{display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; margin-bottom:4px; gap:8px;}
+.type-head .tn{font-weight:600; flex:none;}
+.type-head .ts{color:var(--ios-gray); font-size:10.5px; text-align:right;}
+.type-track{height:8px; background:var(--ios-gray6); border-radius:5px; overflow:hidden;}
+.type-fill{height:100%; border-radius:5px;}
+
+/* 审计日志卡片 */
+.audit-item{background:#fff; border-radius:14px; padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow);}
+.audit-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.audit-action-tag{font-size:12px; font-weight:600; background:var(--ios-gray6); border-radius:7px; padding:2px 8px;}
+.audit-result{font-size:11px; font-weight:700; flex:none;}
+.audit-result.ok{color:var(--ios-green);}
+.audit-result.err{color:var(--ios-red);}
+.audit-target{font-size:13px; margin-top:6px; line-height:1.45; word-break:break-all;}
+.audit-meta{display:flex; gap:10px; margin-top:6px; font-size:11px; color:var(--ios-gray); flex-wrap:wrap;}
+
+/* 存档备案复选行 */
+.check-row{display:flex; align-items:center; gap:10px; padding:11px 2px; font-size:14px; border-top:.5px solid var(--ios-sep);}
+.check-row:first-of-type{border-top:none;}
+.check-row input{width:18px; height:18px; accent-color:var(--ios-blue); flex:none;}
+.file-block{border:.5px solid var(--ios-sep); border-radius:12px; padding:12px; margin-bottom:12px;}
+.file-block .fb-title{font-weight:700; font-size:14px; margin-bottom:8px;}
+
+/* 用量记录卡片 */
+.usage-rec{background:#fff; border-radius:12px; padding:11px 13px; margin-bottom:9px; box-shadow:var(--shadow); font-size:12px;}
+.usage-rec .ur-top{display:flex; justify-content:space-between; gap:8px; font-weight:600; font-size:13px; align-items:center;}
+.usage-rec .ur-meta{color:var(--ios-gray); margin-top:4px; display:flex; flex-wrap:wrap; gap:4px 10px;}
+.usage-pill{font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:8px; flex:none;}
+.usage-pill.success{background:rgba(52,199,89,.14); color:var(--ios-green);}
+.usage-pill.error{background:rgba(255,59,48,.14); color:var(--ios-red);}
+
+/* 定价横幅 */
+.pricing-note{
+  background:rgba(0,122,255,.08); border-radius:12px; padding:10px 12px;
+  font-size:11.5px; color:#28527a; line-height:1.6; margin-bottom:14px;
+}
+
 /* 真机全屏自适应：真实手持设备（触摸 / 窄屏）下隐藏桌面预览用的「手机壳」外框，铺满视口 */
 @media (max-width:430px), (pointer:coarse){
   body{padding:0; background:var(--ios-gray6);}
@@ -351,3 +472,119 @@ body{
   .island{display:none;}
   .status-bar{height:calc(env(safe-area-inset-top,0px) + 44px); padding-top:env(safe-area-inset-top,0px);}
 }
+
+/* ───────────────────────── 发票影像缩略图 ───────────────────────── */
+.inv-gallery{
+  display:flex; flex-wrap:wrap; gap:10px; padding:10px 16px 14px;
+}
+.inv-detail-row{
+  padding:10px 16px; border-top:.5px solid var(--ios-sep);
+}
+.inv-detail-row:first-child{border-top:none;}
+.inv-card{}
+.inv-card-top{display:flex; align-items:flex-start; gap:14px;}
+.inv-card-info{flex:1; min-width:0;}
+.inv-thumb{
+  flex:none; width:72px; height:96px; border-radius:8px; overflow:hidden;
+  background:var(--ios-gray6); border:1px solid var(--ios-gray5);
+  display:flex; align-items:center; justify-content:center; position:relative;
+  cursor:pointer; touch-action:manipulation;
+  transition:border-color .15s, box-shadow .15s;
+}
+.inv-thumb:active{border-color:var(--ios-blue); box-shadow:0 0 0 3px rgba(0,122,255,.2);}
+.inv-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.inv-thumb-tap{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.25); color:#fff; font-size:11px; font-weight:600;
+  opacity:0; transition:opacity .15s;
+}
+.inv-thumb:active .inv-thumb-tap{opacity:1;}
+
+/* 详情页中的缩略图（更大尺寸） */
+.inv-thumb-detail{
+  width:100px; height:133px; cursor:pointer;
+}
+
+/* 存量旧单：无影像占位 */
+.inv-thumb-placeholder{
+  cursor:default; background:var(--ios-gray6);
+  flex-direction:column; gap:2px;
+}
+.inv-thumb-placeholder:active{border-color:var(--ios-gray5); box-shadow:none;}
+.inv-thumb-icon{font-size:28px; line-height:1; opacity:.5;}
+.inv-thumb-hint{font-size:10px; color:var(--ios-gray2);}
+
+/* 缩略图加载失败回退占位（onerror JS 触发） */
+.inv-thumb-missing img{display:none;}
+.inv-thumb-missing::after{
+  content:'📄'; font-size:28px; opacity:.35;
+}
+
+/* ───────────────────────── 发票影像查看器 ───────────────────────── */
+.invoice-viewer-body{
+  display:flex; flex-direction:column; align-items:stretch; gap:12px;
+  padding:8px 0;
+}
+.invoice-page-wrap{
+  width:100%; border-radius:12px; overflow:hidden;
+  background:var(--ios-gray6); min-height:200px;
+  display:flex; align-items:center; justify-content:center;
+}
+.invoice-page-wrap img{
+  width:100%; display:block; border-radius:12px;
+}
+.invoice-page-nav{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.invoice-page-nav .btn-mini{flex:1; min-width:0;}
+.invoice-page-nav .btn-mini:disabled{opacity:.35; cursor:default;}
+.inv-page-info{
+  font-size:14px; font-weight:600; color:var(--ios-label);
+  white-space:nowrap; flex:none;
+}
+
+/* ───────────────────────── 使用指南 · OA 报销助手对话（对齐 prototype_ios.html） ───────────────────────── */
+.row-sub{font-size:13px; color:var(--ios-gray); line-height:1.5;}
+/* 整页对话，撑满底部 Tab 栏上方 */
+#tab-guide{
+  display:flex; flex-direction:column;
+  height:100%; margin-bottom:-14px;   /* 抵消 .content 的 padding-bottom */
+}
+#tab-guide .page-pad{
+  flex:1; display:flex; flex-direction:column;
+  height:100%; padding-bottom:0;
+}
+/* 页面内对话卡片 */
+.guide-page-chat{
+  background:#fff; border-radius:18px; overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,.06); margin-top:14px;
+  flex:1; min-height:0; display:flex; flex-direction:column;
+}
+.guide-chat-body{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.guide-chat-foot{flex:none; border-top:.5px solid var(--ios-sep); padding:10px 12px; background:#fff;}
+/* 对话消息 */
+#guideChat{display:flex; flex-direction:column; gap:12px; padding:14px 14px 6px;}
+.msg-user{align-self:flex-end; max-width:80%; background:var(--ios-blue); color:#fff; padding:9px 13px; border-radius:16px 16px 4px 16px; font-size:14px; line-height:1.4; word-break:break-word;}
+.msg-bot{align-self:flex-start; max-width:100%; width:100%;}
+.msg-bot .bubble{background:#f2f6ff; border:1px solid rgba(0,122,255,.15); border-radius:14px; padding:12px 14px; font-size:13.5px; line-height:1.5;}
+.msg-bot .bubble .list-header{margin-top:14px; margin-bottom:8px;}
+.msg-bot .bubble .list-header:first-child{margin-top:0;}
+/* 快捷提示词 + 输入 */
+.chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+.chip{border:1px solid var(--ios-blue); background:#fff; color:var(--ios-blue); font-size:13px; font-family:inherit; padding:6px 12px; border-radius:16px; cursor:pointer; touch-action:manipulation;}
+.chip:active{background:var(--ios-blue); color:#fff;}
+.guide-input-row{display:flex; gap:8px;}
+.guide-input{flex:1; min-width:0; border:1px solid var(--ios-sep); border-radius:12px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none; background:#fff;}
+.guide-input:focus{border-color:var(--ios-blue);}
+.guide-send{border:none; background:var(--ios-blue); color:#fff; font-size:14px; font-weight:600; font-family:inherit; padding:0 16px; border-radius:12px; cursor:pointer; touch-action:manipulation;}
+/* 使用场景步骤 */
+.guide-scene{display:flex; flex-direction:column; gap:14px;}
+.scene-step{display:flex; gap:12px; align-items:flex-start;}
+.scene-step .scene-dot{
+  flex:none; width:26px; height:26px; border-radius:50%;
+  background:var(--ios-blue); color:#fff; font-size:13px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; margin-top:1px;
+}
+.scene-step.end .scene-dot{background:var(--ios-indigo);}
+.scene-step b{font-size:15px;}
+.scene-step .row-sub{margin-top:2px;}

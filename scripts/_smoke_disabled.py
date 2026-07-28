@@ -1,26 +1,36 @@
 """一次性冒烟测试：模拟 DeepSeek 停用态 上传→手动提交（含发票号）。"""
-import sys, os, io
+
+import io
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import skill.config as cfg
+
 _orig = cfg.get_deepseek_enabled
 cfg.get_deepseek_enabled = lambda: False  # 强制停用
 
-from web.app import app
 from skill import workflow as wf
 from skill.utils.db_store import check_duplicate_invoice, get_invoices_for_request
+from web.app import app
 
 app.config["TESTING"] = True
 c = app.test_client()
 
 # 1) 登录员工
 with c.session_transaction() as s:
-    s["account"] = "EMP-2026"; s["role"] = "employee"; s["name"] = "张三"
+    s["account"] = "EMP-2026"
+    s["role"] = "employee"
+    s["name"] = "张三"
 
 # 2) 上传（停用态）
 pdf = b"%PDF-1.4 fake"
-r = c.post("/upload", data={"file": (io.BytesIO(pdf), "inv.pdf"),
-                            "ticket_type": "发票"}, content_type="multipart/form-data")
+r = c.post(
+    "/upload",
+    data={"file": (io.BytesIO(pdf), "inv.pdf"), "ticket_type": "发票"},
+    content_type="multipart/form-data",
+)
 print("upload status:", r.status_code)
 body = r.get_json()
 print("upload status field:", body.get("status"))
@@ -33,12 +43,22 @@ assert get_invoices_for_request(rid) == [], "停用态不应预建发票"
 print("OK: 停用态未预建发票")
 
 # 3) 手动提交（含发票号）
-r2 = c.post(f"/api/reimbursement/{rid}/update", json={
-    "apply_amount": "123.45", "apply_date": "2026-07-23",
-    "expense_category": "交通", "reason": "停用态手填", "invoice_number": "SMOKE-INV-001"})
+r2 = c.post(
+    f"/api/reimbursement/{rid}/update",
+    json={
+        "apply_amount": "123.45",
+        "apply_date": "2026-07-23",
+        "expense_category": "交通",
+        "reason": "停用态手填",
+        "invoice_number": "SMOKE-INV-001",
+    },
+)
 print("submit status:", r2.status_code)
 d = r2.get_json()
-print("submit resp:", {k: d.get(k) for k in ("request_id", "workflow_status", "apply_amount", "expense_category")})
+print(
+    "submit resp:",
+    {k: d.get(k) for k in ("request_id", "workflow_status", "apply_amount", "expense_category")},
+)
 print("invoices:", d.get("invoices"))
 assert d.get("workflow_status") == wf.WS_PENDING
 assert d["invoices"][0]["invoice_number"] == "SMOKE-INV-001"

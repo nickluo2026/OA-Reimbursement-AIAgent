@@ -1,0 +1,104 @@
+# [P2] Kubernetes 部署清单：Deployment(2副本) + Service + Ingress(TLS) + Secret 模板
+# 用法：
+#   kubectl create ns oa
+#   kubectl -n oa create secret generic oa-secrets \
+#     --from-literal=FLASK_SECRET_KEY=<64位hex> \
+#     --from-literal=OA_DATABASE_URL='mysql+pymysql://oa:<pass>@mysql:3306/oa?charset=utf8mb4' \
+#     --from-literal=OA_REDIS_URL='redis://redis:6379/0' \
+#     --from-literal=DEEPSEEK_API_KEY=<key>
+#   kubectl -n oa apply -f deploy/k8s/oa-reimbursement.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oa-reimbursement
+  labels:
+    app: oa-reimbursement
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: oa-reimbursement
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: oa-reimbursement
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: app
+          image: oa-reimbursement:latest   # 替换为镜像仓库地址
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: oa-secrets
+          env:
+            - name: OA_ENV
+              value: production
+            - name: OA_DEMO_SEED
+              value: "0"
+            - name: OA_STRICT_PROD
+              value: "1"
+            - name: OA_LOG_FORMAT
+              value: json
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oa-reimbursement
+spec:
+  selector:
+    app: oa-reimbursement
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oa-reimbursement
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 12m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - oa.example.com
+      secretName: oa-tls   # cert-manager 或手工导入的 TLS 证书
+  rules:
+    - host: oa.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oa-reimbursement
+                port:
+                  number: 80

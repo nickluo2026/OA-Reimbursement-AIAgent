@@ -50,14 +50,14 @@
     var PIPELINE_STEPS = {
         '发票': [
             { icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为发票，路由到【发票智能体】' },
-            { icon: '🔍', name: 'OCR 提取发票字段', node: 'ocr_node', tool: 'DeepSeek Vision API', detail: '提取发票类型/号码/金额/商品明细等字段' },
+            { icon: '🔍', name: 'OCR 提取发票字段', node: 'ocr_node', tool: '本地 OCR + DeepSeek FunctionCall', detail: '提取发票类型/号码/金额/商品明细等字段' },
             { icon: '⚠️', name: '异常检测', node: 'anomaly_node', tool: '规则引擎', detail: '校验字段完整性、金额逻辑、重复发票等' },
             { icon: '💰', name: '分类限额校验', node: 'classify_node', tool: 'DeepSeek + 限额规则', detail: '识别费用类型并校验是否超限' },
             { icon: '✅', name: '发票查验', node: 'verify_node', tool: 'Mock Provider', detail: '发票真伪查验（Provider 抽象，默认 Mock 模式）' },
         ],
         '行程单': [
             { icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为行程单，路由到【行程单智能体】' },
-            { icon: '🚕', name: 'OCR 提取行程明细', node: 'itinerary_ocr', tool: 'DeepSeek Vision API', detail: '提取行程汇总信息与明细列表' },
+            { icon: '🚕', name: 'OCR 提取行程明细', node: 'itinerary_ocr', tool: '本地 OCR + DeepSeek FunctionCall', detail: '提取行程汇总信息与明细列表' },
             { icon: '⚠️', name: '行程单异常检测', node: 'itinerary_anomaly', tool: '规则引擎', detail: '校验字段/日期/金额异常' },
             { icon: '✅', name: '行程合理性校验', node: 'itinerary_verify', tool: '合理性规则', detail: '校验金额匹配/天数/连续性' },
         ],
@@ -1148,11 +1148,11 @@
             box.innerHTML = items.map(function (it) {
                 var wsText = {
                     '待审批': '⏳ 待审批', '审批中': '🔄 审批中', '待复核': '✓ 待复核',
-                    '已驳回': '✕ 已驳回', '已复核并归档': '📦 已复核并归档', '已打款': '💰 已打款',
+                    '已驳回': '✕ 已驳回', '已复核': '📦 已复核', '已打款': '💰 已打款',
                 }[it.workflow_status] || it.workflow_status;
                 var wsCls = {
                     '待审批': 'status-pending', '审批中': 'status-inreview', '待复核': 'status-paid',
-                    '已驳回': 'status-rejected', '已复核并归档': 'status-archived', '已打款': 'status-paid',
+                    '已驳回': 'status-rejected', '已复核': 'status-archived', '已打款': 'status-paid',
                 }[it.workflow_status] || '';
                 var ticketCls = (it.ticket_type === '行程单') ? 'itinerary' : 'invoice';
                 var ticketIcon = (it.ticket_type === '行程单') ? '🚕' : '🧾';

@@ -28,19 +28,50 @@ from sqlalchemy import (
     Integer,
     String,
     create_engine,
+    event,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-# ── 数据库路径 ──
+# ── 数据库路径 / 连接串 ──
+# [P1/ADR-005] 生产环境通过 OA_DATABASE_URL 切换 MySQL（如
+# mysql+pymysql://user:pass@host:3306/oa?charset=utf8mb4），业务代码零改动；
+# 未设置时沿用本地 SQLite（OA_DB_PATH 可自定义文件路径）。
 DB_PATH = os.getenv("OA_DB_PATH", str(Path(__file__).resolve().parent.parent / "oa_agent.db"))
+DATABASE_URL = os.getenv("OA_DATABASE_URL", f"sqlite:///{DB_PATH}")
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
 
 # ── 引擎与会话工厂 ──
-_engine = create_engine(
-    f"sqlite:///{DB_PATH}",
-    echo=False,
-    connect_args={"check_same_thread": False},
-    pool_pre_ping=True,
-)
+if IS_SQLITE:
+    _engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+        pool_pre_ping=True,
+    )
+
+    # [P0] SQLite 生产加固：WAL（读写并发不互斥）+ busy_timeout（写锁等待而非立即报
+    # "database is locked"）+ synchronous=NORMAL（WAL 下的推荐持久性/性能平衡）。
+    @event.listens_for(_engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, _record):  # pragma: no cover - 连接钩子
+        cursor = dbapi_conn.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+        finally:
+            cursor.close()
+
+else:
+    # [P1] MySQL / PostgreSQL 等：启用连接池（大小/溢出/回收时间均可通过环境变量调整）
+    _engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_pre_ping=True,
+        pool_size=int(os.getenv("OA_DB_POOL_SIZE", "10")),
+        max_overflow=int(os.getenv("OA_DB_MAX_OVERFLOW", "20")),
+        pool_recycle=int(os.getenv("OA_DB_POOL_RECYCLE", "1800")),
+    )
 # expire_on_commit=False：提交/关闭会话后，已加载的列属性仍可访问，
 # 便于在会话外（如 workflow.serialize）读取报销单字段。
 _SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False)
@@ -84,9 +115,7 @@ class Employee(Base):
     employee_id = Column(String(32), primary_key=True, comment="员工工号")
     name = Column(String(64), nullable=False, comment="姓名")
     department = Column(String(128), comment="部门")
-    role = Column(
-        String(32), default="员工", comment="角色: 员工/主管/财务/出纳/系统管理员"
-    )
+    role = Column(String(32), default="员工", comment="角色: 员工/主管/财务/出纳/系统管理员")
     created_at = Column(DateTime, default=utcnow)
 
     def __repr__(self) -> str:
@@ -114,11 +143,12 @@ class Reimbursement(Base):
         String(16),
         default="待审批",
         index=True,
-        comment="工作流状态: 待审批/审批中/待复核/已驳回/已复核并归档/已打款",
+        comment="工作流状态: 待审批/审批中/待复核/已驳回/已复核/已打款",
     )
     remark = Column(String(256), comment="备注")
     archived_by = Column(String(32), comment="归档人(财务岗工号)")
     paid_by = Column(String(32), comment="打款人(出纳岗工号)")
+    filed_by = Column(String(32), comment="备案人(出纳岗工号)")
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -178,9 +208,7 @@ class ApprovalRecord(Base):
     request_id = Column(String(64), nullable=False, index=True, comment="关联报销单")
     approver_id = Column(String(32), comment="审批人工号")
     approver_name = Column(String(64), comment="审批人姓名")
-    approval_node = Column(
-        String(32), comment="审批节点: 直属领导/部门总监/VP/CEO/财务/出纳"
-    )
+    approval_node = Column(String(32), comment="审批节点: 直属领导/部门总监/VP/CEO/财务/出纳")
     action = Column(String(16), comment="动作: 通过/驳回/转审")
     comment = Column(String(512), comment="审批意见")
     action_time = Column(DateTime, default=utcnow)
@@ -292,10 +320,10 @@ def init_db() -> None:
                     text("ALTER TABLE audit_log ADD COLUMN request_id VARCHAR(64) DEFAULT ''")
                 )
 
-    # 迁移：为已有 reimbursement 表补充财务职责分离字段（归档人 / 打款人）
+    # 迁移：为已有 reimbursement 表补充财务职责分离字段（归档人 / 打款人 / 备案人）
     if "reimbursement" in _insp.get_table_names():
         r_cols = [c["name"] for c in _insp.get_columns("reimbursement")]
-        for col in ("archived_by", "paid_by"):
+        for col in ("archived_by", "paid_by", "filed_by"):
             if col not in r_cols:
                 with _engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE reimbursement ADD COLUMN {col} VARCHAR(32)"))
@@ -305,7 +333,9 @@ def init_db() -> None:
         r_cols2 = [c["name"] for c in _insp.get_columns("reimbursement")]
         if "ai_disabled" not in r_cols2:
             with _engine.begin() as conn:
-                conn.execute(text("ALTER TABLE reimbursement ADD COLUMN ai_disabled BOOLEAN DEFAULT 0"))
+                conn.execute(
+                    text("ALTER TABLE reimbursement ADD COLUMN ai_disabled BOOLEAN DEFAULT 0")
+                )
         # 历史回填：无任何 AI 校验留痕的报销单视为停用态人工提交单（幂等，可重复执行）
         _backfill_ai_disabled()
 

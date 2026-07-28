@@ -32,7 +32,7 @@
         '审批中': { cls: 'status-inreview', text: '🔄 审批中(会签)' },
         '待复核': { cls: 'status-paid', text: '✓ 待复核' },
         '已驳回': { cls: 'status-rejected', text: '✕ 已驳回' },
-        '已复核并归档': { cls: 'status-archived', text: '📦 已复核并归档(待打款)' },
+        '已复核': { cls: 'status-archived', text: '📦 已复核(待打款)' },
         '已打款': { cls: 'status-paid', text: '💰 已打款' },
     };
 
@@ -84,7 +84,7 @@
         // 职责分离：仅财务岗可「确认复核并归档」，仅出纳岗可「发起打款」
         if (it.workflow_status === '待复核' && USER_ROLE === 'finance_review') {
             actions += '<button class="btn-mini success" onclick="openAction(\'' + esc(it.request_id) + '\',\'归档\')">📦 确认复核并归档</button>';
-        } else if (it.workflow_status === '已复核并归档' && USER_ROLE === 'finance_pay') {
+        } else if (it.workflow_status === '已复核' && USER_ROLE === 'finance_pay') {
             actions += '<button class="btn-mini primary" style="border-color:var(--green);color:var(--green);" onclick="openAction(\'' + esc(it.request_id) + '\',\'打款\')">💰 发起打款</button>';
         }
 
@@ -98,7 +98,7 @@
                 '<span><span class="meta-key">提交人:</span><span class="meta-value">' + esc(it.employee_name) + '</span></span>' +
                 '<span><span class="meta-key">费用类型:</span><span class="meta-value">' + esc(it.expense_category || '—') + '</span></span>' +
                 (it.ai_disabled ? '<span><span class="meta-key">提交方式:</span><span class="meta-value">人工提交（AI 停用）</span></span>' : '<span><span class="meta-key">AI 状态:</span><span class="meta-value">' + esc(it.ai_status) + '</span></span>') +
-                (it.workflow_status === '已复核并归档' && it.archived_by ? '<span><span class="meta-key">归档人:</span><span class="meta-value">' + esc(displayName(it.archived_by)) + '</span></span>' : '') +
+                (it.workflow_status === '已复核' && it.archived_by ? '<span><span class="meta-key">复核人:</span><span class="meta-value">' + esc(displayName(it.archived_by)) + '</span></span>' : '') +
             '</div>' +
             (it.ai_disabled ? '' : '<div class="ai-summary-box">🤖 <strong>AI 复核：</strong>' + esc(it.ai_summary) + '</div>') +
             '<div class="reimburse-item-footer">' +

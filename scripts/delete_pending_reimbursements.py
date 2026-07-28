@@ -8,6 +8,7 @@
     - invoice_history  防重表（仅当发票号只属于待审批单时才删）
 审计日志 audit_log 仅追加不可删，本脚本不处理。
 """
+
 import shutil
 import sys
 from datetime import datetime
@@ -60,14 +61,20 @@ def main():
         safe_hist_nums = inv_pending - inv_others
 
         # 4. 级联删除
-        del_inv = s.query(InvoiceRecord).filter(InvoiceRecord.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_inv = (
+            s.query(InvoiceRecord)
+            .filter(InvoiceRecord.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
-        del_ai = s.query(AICheckResult).filter(AICheckResult.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_ai = (
+            s.query(AICheckResult)
+            .filter(AICheckResult.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
-        del_appr = s.query(ApprovalRecord).filter(ApprovalRecord.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_appr = (
+            s.query(ApprovalRecord)
+            .filter(ApprovalRecord.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
         del_hist = (
             s.query(InvoiceHistory)
@@ -76,8 +83,10 @@ def main():
             if safe_hist_nums
             else 0
         )
-        del_main = s.query(Reimbursement).filter(Reimbursement.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_main = (
+            s.query(Reimbursement)
+            .filter(Reimbursement.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
         s.commit()
 

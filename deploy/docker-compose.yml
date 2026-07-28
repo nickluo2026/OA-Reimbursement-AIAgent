@@ -1,0 +1,71 @@
+# [P2] 标准生产编排：应用 + MySQL 8.0 + Redis + Nginx（SSL 终止）
+# 用法：
+#   cd deploy
+#   cp .env.example .env   # 填写 FLASK_SECRET_KEY / MYSQL_PASSWORD 等
+#   docker compose up -d
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:?必须在 .env 中设置}
+      OA_DATABASE_URL: mysql+pymysql://oa:${MYSQL_PASSWORD:?}@mysql:3306/oa?charset=utf8mb4
+      OA_REDIS_URL: redis://redis:6379/0
+      OA_LOG_FORMAT: json
+      OA_ARCHIVE_UPLOADS: "1"
+      OA_STORAGE_DIR: /data/archive
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      APP_VERSION: ${APP_VERSION:-20260728}
+    volumes:
+      - archive:/data/archive
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    expose:
+      - "8000"
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: oa
+      MYSQL_USER: oa
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/oa.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ../web/static:/opt/oa-reimbursement/web/static:ro
+    depends_on:
+      - app
+
+volumes:
+  mysql_data:
+  redis_data:
+  archive:

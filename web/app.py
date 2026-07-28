@@ -15,37 +15,58 @@ import logging
 import os
 import re
 import secrets
+import time
 import uuid
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from skill import run_reimbursement_skill
 from skill import workflow as wf
 from skill.config import get_deepseek_enabled
+from skill.database import get_session as db_session
 from skill.database import init_db
+from skill.utils import admin_store
 from skill.utils.db_store import (
     check_duplicate_invoice,
     save_invoice,
     update_invoice_fields,
 )
-from skill.utils import admin_store
+from skill.utils.file_storage import (
+    INVOICE_DIR,
+    archive_enabled,
+    archive_file,
+    render_invoice_images,
+)
 from skill.utils.mask_sensitive import mask_amount, mask_ocr_result
 from skill.utils.structured_log import get_request_id, set_request_id
+from web.security import (
+    JsonLogFormatter,
+    LoginRateLimiter,
+    apply_security_headers,
+    env_flag,
+)
 
 # ── 数据库初始化 ──
 init_db()
-try:
-    admin_store.ensure_seeded()
-except Exception:  # pragma: no cover - 演示数据预置失败不阻断启动
-    pass
+# [P0] 演示种子数据隔离：生产环境应设 OA_DEMO_SEED=0（run_prod.sh 已默认关闭），
+#      避免演示审计日志 / 用量数据混入真实合规数据。
+if env_flag("OA_DEMO_SEED", True):
+    try:
+        admin_store.ensure_seeded()
+    except Exception:  # pragma: no cover - 演示数据预置失败不阻断启动
+        pass
 
 # ── 日志 ──
+# [P1] OA_LOG_FORMAT=json 时输出单行 JSON（含 request_id），便于 ELK / Loki 采集。
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s"
 )
+if os.environ.get("OA_LOG_FORMAT", "").lower() == "json":
+    for _h in logging.root.handlers:
+        _h.setFormatter(JsonLogFormatter())
 logger = logging.getLogger(__name__)
 
 
@@ -81,8 +102,15 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 # ── Secret Key：禁止使用硬编码默认值 ──
 # [S-005] 生产环境必须通过 FLASK_SECRET_KEY 环境变量设置固定密钥；
 #         未设置时生成随机密钥（每次重启后 session 失效），并输出警告。
+# [P0] OA_STRICT_PROD=1（run_prod.sh 默认开启）时，缺失密钥直接拒绝启动（fail-fast），
+#      杜绝"重启即全员掉线 + 密钥不可控"的生产事故。
 _flask_secret = os.environ.get("FLASK_SECRET_KEY")
 if not _flask_secret:
+    if env_flag("OA_STRICT_PROD", False):
+        raise RuntimeError(
+            "生产模式（OA_STRICT_PROD=1）必须设置 FLASK_SECRET_KEY 环境变量。"
+            '生成方式：python -c "import secrets; print(secrets.token_hex(32))"'
+        )
     _flask_secret = secrets.token_hex(32)
     logger.warning(
         "FLASK_SECRET_KEY 环境变量未设置，已生成随机临时密钥。"
@@ -91,12 +119,62 @@ if not _flask_secret:
 app.secret_key = _flask_secret
 
 # ── Session Cookie 安全属性 ──
-# [S-006] SESSION_COOKIE_SECURE：生产环境（HTTPS）启用，防止 Cookie 在 HTTP 连接中被截获
+# [S-006] SESSION_COOKIE_SECURE：生产环境（HTTPS）启用，防止 Cookie 在 HTTP 连接中被截获。
+#         OA_COOKIE_SECURE 可显式覆盖（0/1）：局域网 HTTP 演示时设 0，否则浏览器
+#         会拒存带 Secure 标记的 Cookie，导致"登录成功但会话丢失"。
+_cookie_secure_env = os.environ.get("OA_COOKIE_SECURE")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.environ.get("OA_ENV") == "production",
+    SESSION_COOKIE_SECURE=(
+        _cookie_secure_env in ("1", "true", "yes")
+        if _cookie_secure_env is not None
+        else os.environ.get("OA_ENV") == "production"
+    ),
 )
+
+# ── [P0] 安全响应头（CSP / X-Frame-Options / nosniff / HSTS）──
+apply_security_headers(app)
+
+# ── [P0] 登录限流：窗口内失败 N 次锁定 M 分钟（可选 Redis 共享计数）──
+_login_limiter = LoginRateLimiter.from_env()
+
+
+def _login_throttle_key(account: str) -> str:
+    return f"{account or '-'}|{request.remote_addr or '-'}"
+
+
+# ── [P1] 服务端会话：设置 OA_REDIS_URL 后启用 Redis 会话（服务端可失效、支持多实例）──
+if os.environ.get("OA_REDIS_URL"):
+    from web.redis_session import enable_redis_sessions
+
+    if enable_redis_sessions(app, os.environ["OA_REDIS_URL"]):
+        logger.info("已启用 Redis 服务端会话")
+
+# ── [P1] 会话超时策略：空闲超时 + 绝对生存期（对无标记的历史会话平滑豁免）──
+SESSION_IDLE_SECONDS = int(os.environ.get("OA_SESSION_IDLE_MIN", "60")) * 60
+SESSION_ABS_SECONDS = int(os.environ.get("OA_SESSION_ABS_MIN", "480")) * 60
+
+
+@app.before_request
+def _session_guard():
+    if app.config.get("TESTING") or "account" not in session:
+        return
+    now = time.time()
+    login_at = session.get("_login_at")
+    last_seen = session.get("_last_seen")
+    expired = (login_at and now - login_at > SESSION_ABS_SECONDS) or (
+        last_seen and now - last_seen > SESSION_IDLE_SECONDS
+    )
+    if expired:
+        session.clear()
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "会话已过期，请重新登录"}), 401
+        return redirect(url_for("login"))
+    session["_last_seen"] = now
+    if not login_at:
+        session["_login_at"] = now
+
 
 # ── 运行环境 & 模板/静态缓存策略（缓存修复）──
 # OA_ENV 取值：production（默认，生产）/ development（开发/演示）
@@ -222,9 +300,24 @@ def login():
         if not account or not password:
             return render_template("login.html", error="请输入工号和密码")
 
+        # [P0] 登录限流：锁定期内直接拒绝（不做密码比对，防时间侧信道 + 爆破）
+        throttle_key = _login_throttle_key(account)
+        if not app.config.get("TESTING"):
+            locked = _login_limiter.locked_for(throttle_key)
+            if locked:
+                return (
+                    render_template(
+                        "login.html",
+                        error=f"登录失败次数过多，账号已临时锁定，请 {locked // 60 + 1} 分钟后重试",
+                    ),
+                    429,
+                )
+
         # [S-002] 仅允许预注册账号登录；角色由服务端映射决定，忽略前端 role 参数
         info = DEMO_ACCOUNTS.get(account)
         if info is None or not check_password_hash(info["password_hash"], password):
+            if not app.config.get("TESTING"):
+                _login_limiter.record_failure(throttle_key)
             # 记录登录失败审计
             try:
                 admin_store.add_audit_log(
@@ -239,9 +332,12 @@ def login():
                 pass
             return render_template("login.html", error="工号或密码错误")
 
+        _login_limiter.reset(throttle_key)
         session["account"] = account
         session["role"] = info["role"]
         session["name"] = info["name"]
+        session["_login_at"] = time.time()
+        session["_last_seen"] = time.time()
         logger.info("用户登录 account=%s role=%s", account, info["role"])
 
         # 登录成功审计
@@ -315,12 +411,16 @@ def upload():
     if not allowed_file(file.filename):
         return jsonify({"status": "错误", "summary": "仅支持 PDF / JPG / PNG 格式"}), 400
 
-    # ── 保存上传文件 ──
+    # ── 保存上传文件（稳定化：直接存 INVOICE_DIR，供详情页影像展示）──
     ext = Path(file.filename).suffix.lower()
-    save_name = f"{uuid.uuid4().hex}{ext}"
-    save_path = UPLOAD_DIR / save_name
-    file.save(str(save_path))
-    logger.info("文件已保存: %s", save_path)
+    request_id = uuid.uuid4().hex[:16]
+    set_request_id(request_id)
+
+    INVOICE_DIR.mkdir(parents=True, exist_ok=True)
+    stable_name = f"{request_id}{ext}"
+    stable_path = INVOICE_DIR / stable_name
+    file.save(str(stable_path))
+    logger.info("文件已保存: %s", stable_path)
 
     # ── 表单参数 ──
     apply_amount_raw = request.form.get("apply_amount", "").strip()
@@ -330,10 +430,6 @@ def upload():
     expense_category = request.form.get("expense_category", "").strip()
     remark = request.form.get("remark", "").strip()
     ticket_type = request.form.get("ticket_type", "发票").strip() or "发票"
-
-    # ── 调用 AI 校验 ──
-    request_id = uuid.uuid4().hex[:16]
-    set_request_id(request_id)
 
     logger.info(
         "收到报销申请 request_id=%s filename=%s amount=%s", request_id, file.filename, apply_amount
@@ -345,7 +441,7 @@ def upload():
     result: dict[str, Any]
     try:
         result = run_reimbursement_skill(
-            pdf_path=str(save_path),
+            pdf_path=str(stable_path),
             apply_amount=apply_amount,
             apply_date=apply_date,
             request_id=request_id,
@@ -357,6 +453,12 @@ def upload():
     except Exception as e:
         logger.exception("AI 校验异常")
         result = {"status": "错误", "summary": f"AI 校验异常: {e}"}
+
+    # ── 渲染发票影像（缩略图 + 整页 PNG）──
+    try:
+        render_invoice_images(str(stable_path), request_id, 0)
+    except Exception:
+        logger.exception("发票影像渲染失败 request_id=%s", request_id)
 
     # ── 补充表单信息到结果（方便结果页展示） ──
     result["_form"] = {
@@ -393,11 +495,13 @@ def upload():
     if isinstance(_ocr, dict):
         result["ocr_result"] = mask_ocr_result(_ocr)
 
-    # ── 清理临时文件 ──
-    try:
-        save_path.unlink(missing_ok=True)
-    except Exception:
-        pass
+    # ── [P1] 票据原件归档（可选：额外复制到本地归档/S3 对象存储，OA_ARCHIVE_UPLOADS=1 启用）──
+    # 注意：原件已稳定保存在 INVOICE_DIR，归档是额外冗余备份
+    if archive_enabled():
+        try:
+            archive_file(stable_path, f"{request_id}{ext}")
+        except Exception:
+            logger.exception("票据归档失败 request_id=%s", request_id)
 
     return jsonify(result)
 
@@ -571,7 +675,7 @@ def api_approve():
 # ═══════════════════════════════════════════════
 @app.route("/api/finance/list")
 def api_finance_list():
-    """财务列表（待复核 / 已复核并归档）。"""
+    """财务列表（待复核 / 已复核）。"""
     err = _require_finance()
     if err:
         return err
@@ -605,10 +709,12 @@ def api_finance():
         )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    # 审计日志：ARCHIVE / PAYMENT_INIT（按财务子角色区分，落实职责分离留痕）
+    # 审计日志：ARCHIVE / PAYMENT_INIT / ARCHIVE_FILING（按财务子角色区分，落实职责分离留痕）
     try:
-        audit_action = {"归档": "ARCHIVE", "打款": "PAYMENT_INIT"}.get(action, action or "")
-        audit_role = {"归档": "财务", "打款": "出纳"}.get(
+        audit_action = {"归档": "ARCHIVE", "打款": "PAYMENT_INIT", "备案": "ARCHIVE_FILING"}.get(
+            action, action or ""
+        )
+        audit_role = {"归档": "财务", "打款": "出纳", "备案": "出纳"}.get(
             action, session.get("role", "财务人员")
         )
         audit_name = session.get("name", audit_role)
@@ -701,7 +807,10 @@ def api_reimbursement_update(request_id):
             except ValueError as e:
                 return jsonify({"error": str(e)}), 400
             if check_duplicate_invoice(invoice_number, exclude_request_id=request_id):
-                return jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}), 409
+                return (
+                    jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}),
+                    409,
+                )
             save_invoice(
                 {
                     "发票号码": invoice_number,
@@ -725,7 +834,10 @@ def api_reimbursement_update(request_id):
                 return jsonify({"error": str(e)}), 400
             if invoice_number:
                 if check_duplicate_invoice(invoice_number, exclude_request_id=request_id):
-                    return jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}), 409
+                    return (
+                        jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}),
+                        409,
+                    )
                 update_invoice_fields(
                     request_id,
                     invoice_number=invoice_number,
@@ -737,7 +849,10 @@ def api_reimbursement_update(request_id):
         # 停用态补录 / 修正发票号
         if invoice_number:
             if check_duplicate_invoice(invoice_number, exclude_request_id=request_id):
-                return jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}), 409
+                return (
+                    jsonify({"error": f"发票号码 {invoice_number} 已存在重复报销记录，请核对"}),
+                    409,
+                )
             update_invoice_fields(
                 request_id,
                 invoice_number=invoice_number,
@@ -746,7 +861,7 @@ def api_reimbursement_update(request_id):
 
     # 更新报销单字段（仅「待审批」可改，workflow 层强制）
     try:
-        updated = wf.update_reimbursement(
+        wf.update_reimbursement(
             request_id,
             apply_amount=data.get("apply_amount"),
             apply_date=data.get("apply_date"),
@@ -767,6 +882,83 @@ def api_my():
     items = wf.list_by_employee(session["account"])
     serialized = [_serialize_with_name(r) for r in items]
     return jsonify({"count": len(serialized), "items": serialized})
+
+
+# ═══════════════════════════════════════════════
+# 发票影像取文件（缩略图 / 整页 / 原件）
+# ═══════════════════════════════════════════════
+def _invoice_asset_guard(request_id: str, idx: int) -> tuple:
+    """发票影像权限校验 + 路径解析，返回 (error_response_or_None, file_path, request_id)。"""
+
+    err = _require_login()
+    if err:
+        return err, None, None
+
+    # 员工越权防护：只能查看自己的报销单的影像
+    role = session.get("role", "employee")
+    if role == "employee":
+        reb = wf.get_reimbursement(request_id)
+        if not reb or reb.employee_id != session["account"]:
+            resp = jsonify({"error": "无权查看此报销单"})
+            resp.status_code = 403
+            return resp, None, None
+
+    invoices = wf.get_invoices_for_request(request_id)
+    if idx < 0 or idx >= len(invoices):
+        resp = jsonify({"error": "无此发票"})
+        resp.status_code = 404
+        return resp, None, None
+
+    fp = invoices[idx].file_path
+    if not fp or not os.path.exists(fp):
+        resp = jsonify({"error": "影像缺失"})
+        resp.status_code = 404
+        return resp, None, None
+
+    return None, fp, request_id
+
+
+def _guess_mime(path: str) -> str:
+    ext = Path(path).suffix.lower()
+    return {
+        ".pdf": "application/pdf",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+    }.get(ext, "application/octet-stream")
+
+
+@app.route("/api/reimbursement/<request_id>/invoice/<int:idx>/thumb")
+def api_invoice_thumb(request_id, idx):
+    """发票缩略图（PNG）"""
+    err, fp, rid = _invoice_asset_guard(request_id, idx)
+    if err:
+        return err
+    thumb_path = INVOICE_DIR / f"{rid}_{idx}_t.png"
+    if not thumb_path.exists():
+        return jsonify({"error": "缩略图未生成"}), 404
+    return send_file(str(thumb_path), mimetype="image/png", as_attachment=False)
+
+
+@app.route("/api/reimbursement/<request_id>/invoice/<int:idx>/page/<int:n>")
+def api_invoice_page(request_id, idx, n):
+    """发票整页影像（PNG），n 从 1 开始"""
+    err, fp, rid = _invoice_asset_guard(request_id, idx)
+    if err:
+        return err
+    page_path = INVOICE_DIR / f"{rid}_{idx}_p{n}.png"
+    if not page_path.exists():
+        return jsonify({"error": "页面不存在"}), 404
+    return send_file(str(page_path), mimetype="image/png", as_attachment=False)
+
+
+@app.route("/api/reimbursement/<request_id>/invoice/<int:idx>/file")
+def api_invoice_file(request_id, idx):
+    """发票原件（PDF/JPG/PNG），供下载或系统预览"""
+    err, fp, rid = _invoice_asset_guard(request_id, idx)
+    if err:
+        return err
+    return send_file(fp, mimetype=_guess_mime(fp), as_attachment=False)
 
 
 # ═══════════════════════════════════════════════
@@ -855,6 +1047,23 @@ def request_entity_too_large(_e):
     return jsonify({"status": "错误", "summary": "文件大小超过 10MB 限制"}), 413
 
 
+@app.route("/healthz")
+def healthz():
+    """[P0] 健康检查：探测数据库连通性，供 Nginx / K8s / 负载均衡探活。"""
+    from sqlalchemy import text as _sql_text
+
+    try:
+        s = db_session()
+        try:
+            s.execute(_sql_text("SELECT 1"))
+        finally:
+            s.close()
+        return jsonify({"status": "ok", "version": APP_VERSION})
+    except Exception as e:  # pragma: no cover - 数据库故障场景
+        logger.error("健康检查失败: %s", e)
+        return jsonify({"status": "error"}), 503
+
+
 @app.route("/result")
 def result_page():
     """独立校验结果页（由 upload.js 在提交后读取 URL hash 数据渲染）。
@@ -879,6 +1088,7 @@ def mobile_page():
         user_name=session.get("name", "—") if logged_in else "",
         user_role=role_info["name"] if logged_in else "",
         user_account=session.get("account", "—") if logged_in else "",
+        role_key=role if logged_in else "",
     )
 
 
@@ -894,19 +1104,44 @@ def api_auth_login():
     password = (data.get("password") or "").strip()
     if not account or not password:
         return jsonify({"ok": False, "error": "请输入工号和密码"}), 400
+    # [P0] 登录限流（与 /login 同策略）
+    throttle_key = _login_throttle_key(account)
+    if not app.config.get("TESTING"):
+        locked = _login_limiter.locked_for(throttle_key)
+        if locked:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": (
+                            f"登录失败次数过多，账号已临时锁定，请 {locked // 60 + 1} 分钟后重试"
+                        ),
+                    }
+                ),
+                429,
+            )
     info = DEMO_ACCOUNTS.get(account)
     if info is None or not check_password_hash(info["password_hash"], password):
+        if not app.config.get("TESTING"):
+            _login_limiter.record_failure(throttle_key)
         try:
-            admin_store.add_audit_log(account or "未知", "—", "LOGIN_FAILED", account or "—", "失败", request.remote_addr)
+            admin_store.add_audit_log(
+                account or "未知", "—", "LOGIN_FAILED", account or "—", "失败", request.remote_addr
+            )
         except Exception:
             pass
         return jsonify({"ok": False, "error": "工号或密码错误"}), 401
+    _login_limiter.reset(throttle_key)
     session["account"] = account
     session["role"] = info["role"]
     session["name"] = info["name"]
+    session["_login_at"] = time.time()
+    session["_last_seen"] = time.time()
     logger.info("移动端登录 account=%s role=%s", account, info["role"])
     try:
-        admin_store.add_audit_log(info["name"], info["role"], "LOGIN", account, "成功", request.remote_addr)
+        admin_store.add_audit_log(
+            info["name"], info["role"], "LOGIN", account, "成功", request.remote_addr
+        )
     except Exception:
         pass
     return jsonify({"ok": True, "role": info["role"], "name": info["name"], "account": account})
@@ -922,9 +1157,11 @@ def api_auth_logout():
 @app.route("/manifest.webmanifest")
 def manifest():
     """PWA 清单：供「添加到主屏幕」安装。"""
-    return app.send_static_file("manifest.webmanifest"), 200, {
-        "Content-Type": "application/manifest+json"
-    }
+    return (
+        app.send_static_file("manifest.webmanifest"),
+        200,
+        {"Content-Type": "application/manifest+json"},
+    )
 
 
 @app.route("/m/sw.js")
@@ -934,7 +1171,11 @@ def service_worker():
     脚本部署在 /m/ 路径下，默认作用域即为 /m/，因此 Service Worker
     只能接管 /m 及其子资源，**不会拦截桌面端（/）的任何请求**。
     """
-    return app.send_static_file("sw.js"), 200, {
-        "Content-Type": "application/javascript",
-        "Service-Worker-Allowed": "/m/",
-    }
+    return (
+        app.send_static_file("sw.js"),
+        200,
+        {
+            "Content-Type": "application/javascript",
+            "Service-Worker-Allowed": "/m/",
+        },
+    )

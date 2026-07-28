@@ -170,12 +170,12 @@ def check_duplicate_invoice(
 
         # 2. 已上传的发票 → 仅当关联报销单「有效」（非已驳回/已删除/已撤销）时才计为重复，
         #    避免已驳回/已删除单残留的发票记录误报
-        EXCLUDED_STATUSES = ("已驳回", "已删除", "已撤销")
+        excluded_statuses = ("已驳回", "已删除", "已撤销")
         q_record = (
             s.query(InvoiceRecord)
             .join(Reimbursement, Reimbursement.request_id == InvoiceRecord.request_id)
             .filter(InvoiceRecord.invoice_number == invoice_number)
-            .filter(Reimbursement.workflow_status.notin_(EXCLUDED_STATUSES))
+            .filter(Reimbursement.workflow_status.notin_(excluded_statuses))
         )
         if exclude_request_id:
             q_record = q_record.filter(InvoiceRecord.request_id != exclude_request_id)
@@ -269,10 +269,11 @@ def set_finance_operators(
     request_id: str,
     archived_by: str | None = None,
     paid_by: str | None = None,
+    filed_by: str | None = None,
 ) -> None:
-    """持久化财务（归档人）/ 出纳（打款人）工号，落实职责分离。
+    """持久化财务（归档人）/ 出纳（打款人 / 备案人）工号，落实职责分离。
 
-    archived_by / paid_by 分别记录，便于审计与「打款人 ≠ 归档人」校验。
+    archived_by / paid_by / filed_by 分别记录，便于审计与「打款人 ≠ 归档人」校验。
     """
     with get_session() as s:
         record = s.query(Reimbursement).filter_by(request_id=request_id).first()
@@ -281,6 +282,8 @@ def set_finance_operators(
                 record.archived_by = archived_by
             if paid_by is not None:
                 record.paid_by = paid_by
+            if filed_by is not None:
+                record.filed_by = filed_by
             record.updated_at = utcnow()
             s.commit()
         else:

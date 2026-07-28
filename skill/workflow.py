@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 
@@ -26,6 +27,8 @@ def _utc_to_local(dt: datetime | None) -> datetime | None:
         return None
     return dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
 
+
+from .config import get_deepseek_enabled
 from .database import ApprovalRecord, get_session, utcnow
 from .tools.tool_approval_routing import determine_approval_route
 from .utils.db_store import (
@@ -39,7 +42,6 @@ from .utils.db_store import (
     update_workflow_status,
 )
 from .utils.mask_sensitive import mask_ocr_result
-from .config import get_deepseek_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +50,18 @@ WS_PENDING = "待审批"
 WS_IN_REVIEW = "审批中"
 WS_APPROVED = "待复核"
 WS_REJECTED = "已驳回"
-WS_ARCHIVED = "已复核并归档"
+WS_ARCHIVED = "已复核"
 WS_PAID = "已打款"
+WS_FILED = "已存档备案"
 WS_TRANSFERRED = "已转审"
 
 # 主管可见（待处理）状态：转审后进入「已转审」，不再出现在主管待审批列表
 PENDING_STATUSES = (WS_PENDING, WS_IN_REVIEW)
-# 财务可见（待复核 / 已复核并归档待打款）状态
+# 财务可见（待复核 / 已复核待打款 / 已打款待备案 / 已存档备案）状态
 FINANCE_STATUSES = (WS_APPROVED, WS_ARCHIVED)
 
 # 终结状态（不可再被审批）：已转审的单据已移出主管队列，不可被原主管重复审批
-TERMINAL_STATUSES = (WS_REJECTED, WS_PAID, WS_TRANSFERRED)
+TERMINAL_STATUSES = (WS_REJECTED, WS_PAID, WS_FILED, WS_TRANSFERRED)
 
 
 # ═══════════════════════════════════════════════
@@ -94,7 +97,7 @@ def list_pending() -> list:
 
 
 def list_for_finance() -> list:
-    """待复核 / 已复核并归档的报销单（财务工作台列表）"""
+    """待复核 / 已复核的报销单（财务工作台列表）"""
     from .database import Reimbursement
 
     with get_session() as s:
@@ -148,10 +151,50 @@ def _count_approvals(request_id: str, action: str) -> int:
         return s.query(ApprovalRecord).filter_by(request_id=request_id, action=action).count()
 
 
+def _get_approval_records(request_id: str) -> list[dict[str, Any]]:
+    """获取某报销单的全部审批记录（按时间升序），供 serialize / get_detail 共用。"""
+    with get_session() as s:
+        rows = (
+            s.query(ApprovalRecord)
+            .filter_by(request_id=request_id)
+            .order_by(ApprovalRecord.action_time.asc())
+            .all()
+        )
+    return [
+        {
+            "approver_id": a.approver_id,
+            "approver_name": a.approver_name,
+            "approval_node": a.approval_node,
+            "action": a.action,
+            "comment": a.comment,
+            "action_time": a.action_time.isoformat() if a.action_time else None,
+        }
+        for a in rows
+    ]
+
+
+def _get_invoice_records(request_id: str) -> list[dict[str, Any]]:
+    """获取某报销单的发票清单（含缩略图是否就绪标记），供 serialize / get_detail 共用。"""
+    invoices = get_invoices_for_request(request_id)
+    return [
+        {
+            "invoice_number": inv.invoice_number,
+            "invoice_type": inv.invoice_type,
+            "invoice_amount": inv.invoice_amount,
+            "seller_name": inv.seller_name,
+            "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
+            "has_image": _check_invoice_thumb(request_id, idx),
+            "file_ext": Path(inv.file_path).suffix.lower() if inv.file_path else "",
+        }
+        for idx, inv in enumerate(invoices)
+    ]
+
+
 def _ticket_type_of(request_id: str) -> str:
     """识别报销单票据类型（发票 / 行程单）。
 
-    行程单复用 InvoiceRecord 表存储 OCR 结果，但 ``invoice_type`` 字段为空（行程单 OCR 无"发票类型"字段），
+    行程单复用 InvoiceRecord 表存储 OCR 结果，但 ``invoice_type`` 字段为空
+    （行程单 OCR 无"发票类型"字段），
     因此除 ``invoice_type`` 外，优先以 AI 校验结果的 ``check_type`` 是否包含「行程单」前缀来判断。
     """
     ai_results = get_ai_results_for_request(request_id)
@@ -162,6 +205,14 @@ def _ticket_type_of(request_id: str) -> str:
     if invoices and invoices[0].invoice_type:
         return invoices[0].invoice_type
     return "发票"
+
+
+def _check_invoice_thumb(request_id: str, idx: int) -> bool:
+    """检查发票缩略图文件是否存在（has_image 的判断依据）。"""
+    from .utils.file_storage import INVOICE_DIR
+
+    thumb = INVOICE_DIR / f"{request_id}_{idx}_t.png"
+    return thumb.exists() and thumb.stat().st_size > 0
 
 
 def get_ai_summary_text(request_id: str) -> str:
@@ -186,6 +237,7 @@ def serialize(r) -> dict[str, Any]:
     route = compute_route(r.apply_amount)
     transferred = _count_approvals(r.request_id, "转审") > 0
     passed = _count_approvals(r.request_id, "通过")
+    created_at = _utc_to_local(r.created_at)
     return {
         "request_id": r.request_id,
         "employee_id": r.employee_id,
@@ -196,7 +248,7 @@ def serialize(r) -> dict[str, Any]:
         "ai_status": r.ai_status,
         "ai_disabled": bool(getattr(r, "ai_disabled", False)),
         "workflow_status": r.workflow_status,
-        "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
+        "created_at": created_at.isoformat() if created_at else None,
         "ticket_type": _ticket_type_of(r.request_id),
         "ai_summary": get_ai_summary_text(r.request_id),
         "route": route,
@@ -205,6 +257,9 @@ def serialize(r) -> dict[str, Any]:
         "needs_countersign": route.get("需要会签", False),
         "archived_by": r.archived_by or "",
         "paid_by": r.paid_by or "",
+        "filed_by": getattr(r, "filed_by", None) or "",
+        "approval_records": _get_approval_records(r.request_id),
+        "invoices": _get_invoice_records(r.request_id),
     }
 
 
@@ -214,27 +269,8 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
     if not r:
         return None
 
-    with get_session() as s:
-        approvals = (
-            s.query(ApprovalRecord)
-            .filter_by(request_id=request_id)
-            .order_by(ApprovalRecord.action_time.asc())
-            .all()
-        )
-        approval_list = [
-            {
-                "approver_id": a.approver_id,
-                "approver_name": a.approver_name,
-                "approval_node": a.approval_node,
-                "action": a.action,
-                "comment": a.comment,
-                "action_time": a.action_time.isoformat() if a.action_time else None,
-            }
-            for a in approvals
-        ]
-
-    invoices = get_invoices_for_request(request_id)
     ai_results = get_ai_results_for_request(request_id)
+    created_at = _utc_to_local(r.created_at)
     return {
         "request_id": r.request_id,
         "employee_id": r.employee_id,
@@ -245,21 +281,13 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
         "ai_status": r.ai_status,
         "ai_disabled": bool(getattr(r, "ai_disabled", False)),
         "workflow_status": r.workflow_status,
-        "created_at": _utc_to_local(r.created_at).isoformat() if r.created_at else None,
+        "created_at": created_at.isoformat() if created_at else None,
         "ticket_type": _ticket_type_of(r.request_id),
         "route": compute_route(r.apply_amount),
         "archived_by": r.archived_by or "",
         "paid_by": r.paid_by or "",
-        "invoices": [
-            {
-                "invoice_number": inv.invoice_number,
-                "invoice_type": inv.invoice_type,
-                "invoice_amount": inv.invoice_amount,
-                "seller_name": inv.seller_name,
-                "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
-            }
-            for inv in invoices
-        ],
+        "filed_by": getattr(r, "filed_by", None) or "",
+        "invoices": _get_invoice_records(request_id),
         "ai_results": [
             {
                 "check_type": ar.check_type,
@@ -269,7 +297,7 @@ def get_detail(request_id: str) -> dict[str, Any] | None:
             }
             for ar in ai_results
         ],
-        "approval_records": approval_list,
+        "approval_records": _get_approval_records(request_id),
     }
 
 
@@ -307,7 +335,13 @@ def update_reimbursement(
         if reason is not None:
             r.reason = reason
         s.commit()
-        logger.info("更新报销单 %s: amount=%s date=%s category=%s", request_id, apply_amount, apply_date, expense_category)
+        logger.info(
+            "更新报销单 %s: amount=%s date=%s category=%s",
+            request_id,
+            apply_amount,
+            apply_date,
+            expense_category,
+        )
         # 重新查询以获取最新状态序列化
         s.refresh(r)
         return serialize(r)
@@ -440,11 +474,12 @@ def submit_finance(
 ) -> dict[str, Any]:
     """财务归档 / 出纳（职责分离）
 
-    - 归档（财务岗）：仅「待复核」可归档，置「已复核并归档」，记录归档人
-    - 打款（出纳岗）：仅「已复核并归档」可打款，置「已打款」并标记发票已报销（防重）；
+    - 归档（财务岗）：仅「待复核」可归档，置「已复核」，记录归档人
+    - 打款（出纳岗）：仅「已复核」可打款，置「已打款」并标记发票已报销（防重）；
       系统强制 **打款人 ≠ 归档人**（职责分离），违规直接拦截
+    - 备案（出纳岗）：仅「已打款」可存档备案，置「已存档备案」（终态），记录备案人
     """
-    if action not in ("归档", "打款"):
+    if action not in ("归档", "打款", "备案"):
         raise ValueError(f"未知财务动作: {action}")
 
     r = get_reimbursement(request_id)
@@ -468,6 +503,23 @@ def submit_finance(
         set_finance_operators(request_id, archived_by=finance_id)
         update_workflow_status(request_id, WS_ARCHIVED)
         logger.info("财务归档 %s by=%s", request_id, finance_id)
+    elif action == "备案":  # 存档备案（出纳岗）
+        if r.workflow_status != WS_PAID:
+            raise ValueError(
+                f"报销单（报销单号：{request_id}）当前状态「{r.workflow_status}」不可存档备案，需先完成打款"
+            )
+        save_approval_record(
+            request_id=request_id,
+            approver_id=finance_id,
+            approver_name=finance_name,
+            approval_node="出纳",
+            action="备案",
+            comment=comment,
+        )
+        # 记录备案人（出纳岗工号）
+        set_finance_operators(request_id, filed_by=finance_id)
+        update_workflow_status(request_id, WS_FILED)
+        logger.info("存档备案 %s by=%s", request_id, finance_id)
     else:  # 打款（出纳岗）
         if r.workflow_status != WS_ARCHIVED:
             raise ValueError(f"报销单（报销单号：{request_id}）尚未归档，请先确认归档再打款")

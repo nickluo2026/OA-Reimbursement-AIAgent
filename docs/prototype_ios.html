@@ -167,6 +167,67 @@ body{
 .row:first-of-type{border-top:none;}
 .row.col{flex-direction:column; align-items:stretch; gap:6px;}
 .row-label{font-size:15px; flex:none; display:flex; align-items:center;}
+.row-sub{font-size:13px; color:var(--ios-gray); line-height:1.5;}
+.row.tappable{cursor:pointer; touch-action:manipulation;}
+.row.tappable:active{background:var(--ios-gray6);}
+.row-chevron{font-size:22px; color:var(--ios-gray2); line-height:1;}
+
+/* 使用指南 · 使用场景 */
+.guide-scene{display:flex; flex-direction:column; gap:14px;}
+.scene-step{display:flex; gap:12px; align-items:flex-start;}
+.scene-step .scene-dot{
+  flex:none; width:26px; height:26px; border-radius:50%;
+  background:var(--ios-blue); color:#fff; font-size:13px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; margin-top:1px;
+}
+.scene-step.end .scene-dot{background:var(--ios-indigo);}
+.scene-step b{font-size:15px;}
+.scene-step .row-sub{margin-top:2px;}
+
+/* 使用指南 · AI 助手 */
+.ai-assistant{background:#fff; border-radius:14px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:16px;}
+.ai-assistant-head{display:flex; align-items:center; gap:12px; padding:14px 16px;}
+.ai-avatar-lg{
+  flex:none; width:44px; height:44px; border-radius:22px;
+  background:linear-gradient(135deg,var(--ios-blue),var(--ios-indigo));
+  display:flex; align-items:center; justify-content:center; font-size:24px;
+}
+.ai-assistant-title{flex:1; min-width:0;}
+.ai-assistant-name{font-size:16px; font-weight:700; line-height:1.2;}
+.ai-assistant-sub{font-size:12px; color:var(--ios-gray); margin-top:2px;}
+.ai-chevron{font-size:14px; color:var(--ios-gray2); transition:transform .25s ease;}
+.ai-assistant.open .ai-chevron{transform:rotate(180deg);}
+.ai-assistant-body{display:none; padding:0 14px 14px;}
+.ai-assistant.open .ai-assistant-body{display:block;}
+.ai-bubble{
+  background:var(--ios-gray6); border-radius:14px; padding:12px 14px;
+  font-size:14px; line-height:1.5; color:var(--ios-label); margin-bottom:12px;
+  position:relative;
+}
+.ai-bubble::before{
+  content:''; position:absolute; top:8px; left:-6px;
+  border:6px solid transparent; border-top-color:transparent; border-right-color:var(--ios-gray6);
+}
+
+/* 角色权限与使用场景表格 */
+.guide-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--ios-sep); border-radius:10px;}
+.guide-table{width:100%; border-collapse:collapse; font-size:13px; min-width:560px;}
+.guide-table th, .guide-table td{
+  padding:10px 12px; border-bottom:.5px solid var(--ios-sep); vertical-align:top; line-height:1.55;
+}
+.guide-table th{background:var(--ios-gray6); font-weight:700; color:var(--ios-label); text-align:left; font-size:12px;}
+.guide-table tr:last-child td{border-bottom:none;}
+.guide-table .col-role{width:24%; white-space:nowrap; font-weight:600;}
+.guide-table .col-op{width:52%;}
+.guide-table .col-scene{width:24%;}
+.op-row{display:flex; flex-wrap:wrap; align-items:center; gap:6px 4px; margin:4px 0;}
+.op-tag{
+  display:inline-block; padding:4px 9px; border-radius:8px;
+  background:rgba(0,122,255,.12); color:var(--ios-blue);
+  font-size:12px; font-weight:500; line-height:1.2; white-space:nowrap;
+}
+.op-arrow{color:var(--ios-gray2); font-size:13px; line-height:1.2;}
+.op-note{font-size:12px; color:var(--ios-gray); line-height:1.5; margin-top:6px;}
 .row-input{
   flex:1; border:none; background:transparent; font-family:inherit; font-size:16px;
 }
@@ -282,6 +343,66 @@ body{
   font-family:inherit; font-weight:600; cursor:pointer; padding:2px 4px; touch-action:manipulation;
 }
 .sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch;}
+
+/* ───────────────────────── 使用指南 · 居中对话框（Modal） ───────────────────────── */
+.modal-overlay{
+  position:absolute; inset:0; background:rgba(0,0,0,.4);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity .25s; z-index:85; padding:24px;
+}
+.modal-overlay.show{opacity:1; pointer-events:auto;}
+.modal{
+  width:100%; max-width:340px; max-height:82%;
+  background:#fff; border-radius:18px; overflow:hidden;
+  display:flex; flex-direction:column;
+  box-shadow:0 20px 50px rgba(0,0,0,.3);
+  transform:scale(.92); transition:transform .25s cubic-bezier(.32,.72,0,1);
+}
+.modal-overlay.show .modal{transform:scale(1);}
+.modal-head{
+  flex:none; display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 10px; border-bottom:.5px solid var(--ios-sep);
+}
+.modal-head span{font-size:16px; font-weight:700;}
+.modal-close{
+  border:none; background:none; color:var(--ios-blue); font-size:17px;
+  font-family:inherit; font-weight:600; cursor:pointer; padding:2px 4px; touch-action:manipulation;
+}
+.modal-body{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.modal-foot{flex:none; border-top:.5px solid var(--ios-sep); padding:10px 12px; background:#fff;}
+/* 对话消息 */
+#guideChat{display:flex; flex-direction:column; gap:12px; padding:14px 14px 6px;}
+.msg-user{align-self:flex-end; max-width:80%; background:var(--ios-blue); color:#fff; padding:9px 13px; border-radius:16px 16px 4px 16px; font-size:14px; line-height:1.4; word-break:break-word;}
+.msg-bot{align-self:flex-start; max-width:100%; width:100%;}
+.msg-bot .bubble{background:#f2f6ff; border:1px solid rgba(0,122,255,.15); border-radius:14px; padding:12px 14px; font-size:13.5px; line-height:1.5;}
+.msg-bot .bubble .list-header{margin-top:14px; margin-bottom:8px;}
+.msg-bot .bubble .list-header:first-child{margin-top:0;}
+/* 快捷提示词 + 输入 */
+.chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+.chip{border:1px solid var(--ios-blue); background:#fff; color:var(--ios-blue); font-size:13px; font-family:inherit; padding:6px 12px; border-radius:16px; cursor:pointer; touch-action:manipulation;}
+.chip:active{background:var(--ios-blue); color:#fff;}
+.guide-input-row{display:flex; gap:8px;}
+.guide-input{flex:1; min-width:0; border:1px solid var(--ios-sep); border-radius:12px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none; background:#fff;}
+.guide-input:focus{border-color:var(--ios-blue);}
+.guide-send{border:none; background:var(--ios-blue); color:#fff; font-size:14px; font-weight:600; font-family:inherit; padding:0 16px; border-radius:12px; cursor:pointer; touch-action:manipulation;}
+/* 使用指南页 · 整页对话，撑满底部 Tab 栏上方 */
+#tab-guide{
+  display:flex; flex-direction:column;
+  height:100%; margin-bottom:-14px;   /* 抵消 .content 的 padding-bottom */
+}
+#tab-guide .page-pad{
+  flex:1; display:flex; flex-direction:column;
+  height:100%; padding-bottom:0;
+}
+/* 使用指南页 · 页面内对话卡片 */
+.guide-page-chat{
+  background:#fff; border-radius:18px; overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,.06); margin-top:14px;
+  flex:1; min-height:0; display:flex; flex-direction:column;
+}
+.guide-chat-body{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.guide-chat-foot{flex:none; border-top:.5px solid var(--ios-sep); padding:10px 12px; background:#fff;}
+
 .pipe-badge{
   display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:600;
   color:var(--ios-blue); background:rgba(0,122,255,.1); padding:6px 12px; border-radius:20px;
@@ -321,7 +442,7 @@ body{
   display:flex; align-items:center; justify-content:center; font-size:42px;
   box-shadow:0 12px 30px rgba(0,122,255,.35); overflow:hidden;
 }
-.app-icon img{width:100%; height:100%; object-fit:cover; display:block;}
+.app-icon svg{width:54px; height:54px;}
 .app-name{font-size:28px; font-weight:700; margin:0 0 6px; letter-spacing:-.4px;}
 .app-sub{font-size:14px; color:var(--ios-gray); margin:0 0 40px;}
 .login-tip{font-size:12px; color:var(--ios-gray); line-height:1.5; margin-top:22px; padding:0 10px;}
@@ -332,6 +453,119 @@ body{
 .login-input:focus{outline:none; border-color:var(--ios-blue);}
 .login-form .btn-primary{width:100%; margin-top:4px;}
 .login-error{display:none; color:#ff3b30; font-size:12px; margin:12px 0 0; text-align:center;}
+
+/* ───────────────────────── 多角色扩展样式 ───────────────────────── */
+.tag.manual{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.tag.ai-pass{background:rgba(52,199,89,.14); color:var(--ios-green);}
+.tag.ai-warn{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.tag.ai-block{background:rgba(255,59,48,.14); color:var(--ios-red);}
+.tag.status-archived{background:rgba(94,92,230,.14); color:var(--ios-indigo);}
+.tag.status-paid{background:rgba(90,200,250,.22); color:#0071a4;}
+.tag.status-transferred{background:rgba(255,204,0,.24); color:#8a6d00;}
+.tag.status-rejected{background:rgba(255,59,48,.14); color:var(--ios-red);}
+.ai-note{margin:10px 0 2px; padding:9px 11px; border-radius:10px; background:var(--ios-gray6); font-size:12.5px; line-height:1.5; color:#3a3a3c;}
+.item-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
+.btn-mini{
+  flex:1; min-width:0; border:none; border-radius:10px; padding:9px 8px;
+  font-size:13px; font-weight:600; font-family:inherit; cursor:pointer;
+  touch-action:manipulation; transition:filter .12s, transform .12s; white-space:nowrap;
+}
+.btn-mini:active{filter:brightness(.93); transform:scale(.97);}
+.btn-mini.gray{background:var(--ios-gray6); color:var(--ios-blue);}
+.btn-mini.blue{background:var(--ios-blue); color:#fff;}
+.btn-mini.green{background:var(--ios-green); color:#fff;}
+.btn-mini.red{background:rgba(255,59,48,.12); color:var(--ios-red);}
+.btn-mini.orange{background:rgba(255,149,0,.14); color:var(--ios-orange);}
+.btn-mini.teal{background:#30B0C7; color:#fff;}
+.btn-mini:disabled{opacity:.5; cursor:default;}
+
+/* iOS 开关 UISwitch */
+.ios-switch{
+  position:relative; width:51px; height:31px; background:rgba(120,120,128,.16);
+  border-radius:16px; flex:none; cursor:pointer; transition:background .25s; touch-action:manipulation;
+}
+.ios-switch::after{
+  content:""; position:absolute; top:2px; left:2px; width:27px; height:27px;
+  background:#fff; border-radius:50%;
+  box-shadow:0 3px 8px rgba(0,0,0,.15), 0 1px 1px rgba(0,0,0,.16);
+  transition:transform .25s cubic-bezier(.32,.72,0,1);
+}
+.ios-switch.on{background:var(--ios-green);}
+.ios-switch.on::after{transform:translateX(20px);}
+
+/* 系统配置输入 */
+.cfg-input{
+  width:110px; border:none; background:var(--ios-gray6); border-radius:8px;
+  padding:8px 10px; font-family:inherit; font-size:14px; text-align:right; color:var(--ios-label);
+}
+.cfg-input.wide{flex:1; min-width:0; text-align:left;}
+.cfg-input:focus{outline:2px solid rgba(0,122,255,.35);}
+.cfg-input:disabled{opacity:.45;}
+.cfg-suffix{font-size:13px; color:var(--ios-gray); flex:none;}
+.cfg-env{display:block; font-size:10px; color:var(--ios-gray2); font-family:ui-monospace,SFMono-Regular,monospace; margin-top:1px;}
+
+/* 指标卡 */
+.metric-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
+.metric-card{background:#fff; border-radius:14px; padding:14px 10px; box-shadow:var(--shadow); text-align:center;}
+.metric-icon{font-size:22px;}
+.metric-value{font-size:19px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums;}
+.metric-value.blue{color:var(--ios-blue);}
+.metric-value.green{color:var(--ios-green);}
+.metric-value.orange{color:var(--ios-orange);}
+.metric-value.purple{color:var(--ios-indigo);}
+.metric-label{font-size:12px; color:var(--ios-gray); margin-top:2px;}
+.metric-sub{font-size:10.5px; color:var(--ios-gray2); margin-top:2px;}
+
+/* 迷你柱状图 */
+.chart-box{display:flex; align-items:flex-end; gap:8px; height:140px; padding-top:18px; border-bottom:1px solid var(--ios-sep); margin-bottom:6px;}
+.chart-col{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%;}
+.chart-bar{
+  width:100%; max-width:30px; border-radius:6px 6px 0 0; min-height:4px;
+  background:linear-gradient(180deg, var(--ios-blue), #5AC8FA); position:relative;
+}
+.chart-bar .bar-calls{position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--ios-gray); font-weight:600;}
+.chart-labels{display:flex; gap:8px;}
+.chart-labels span{flex:1; text-align:center; font-size:10px; color:var(--ios-gray);}
+
+/* 类型占比条 */
+.type-row{margin-bottom:12px;}
+.type-row:last-child{margin-bottom:0;}
+.type-head{display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; margin-bottom:4px; gap:8px;}
+.type-head .tn{font-weight:600; flex:none;}
+.type-head .ts{color:var(--ios-gray); font-size:10.5px; text-align:right;}
+.type-track{height:8px; background:var(--ios-gray6); border-radius:5px; overflow:hidden;}
+.type-fill{height:100%; border-radius:5px;}
+
+/* 审计日志卡片 */
+.audit-item{background:#fff; border-radius:14px; padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow);}
+.audit-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.audit-action-tag{font-size:12px; font-weight:600; background:var(--ios-gray6); border-radius:7px; padding:2px 8px;}
+.audit-result{font-size:11px; font-weight:700; flex:none;}
+.audit-result.ok{color:var(--ios-green);}
+.audit-result.err{color:var(--ios-red);}
+.audit-target{font-size:13px; margin-top:6px; line-height:1.45; word-break:break-all;}
+.audit-meta{display:flex; gap:10px; margin-top:6px; font-size:11px; color:var(--ios-gray); flex-wrap:wrap;}
+
+/* 存档备案复选行 */
+.check-row{display:flex; align-items:center; gap:10px; padding:11px 2px; font-size:14px; border-top:.5px solid var(--ios-sep);}
+.check-row:first-of-type{border-top:none;}
+.check-row input{width:18px; height:18px; accent-color:var(--ios-blue); flex:none;}
+.file-block{border:.5px solid var(--ios-sep); border-radius:12px; padding:12px; margin-bottom:12px;}
+.file-block .fb-title{font-weight:700; font-size:14px; margin-bottom:8px;}
+
+/* 用量记录卡片 */
+.usage-rec{background:#fff; border-radius:12px; padding:11px 13px; margin-bottom:9px; box-shadow:var(--shadow); font-size:12px;}
+.usage-rec .ur-top{display:flex; justify-content:space-between; gap:8px; font-weight:600; font-size:13px; align-items:center;}
+.usage-rec .ur-meta{color:var(--ios-gray); margin-top:4px; display:flex; flex-wrap:wrap; gap:4px 10px;}
+.usage-pill{font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:8px; flex:none;}
+.usage-pill.success{background:rgba(52,199,89,.14); color:var(--ios-green);}
+.usage-pill.error{background:rgba(255,59,48,.14); color:var(--ios-red);}
+
+/* 定价横幅 */
+.pricing-note{
+  background:rgba(0,122,255,.08); border-radius:12px; padding:10px 12px;
+  font-size:11.5px; color:#28527a; line-height:1.6; margin-bottom:14px;
+}
 
 /* 真机全屏自适应 */
 @media (max-width:430px){
@@ -452,17 +686,150 @@ body{
           </div>
         </section>
 
+        <!-- Tab 3: 待审工作台（主管） -->
+        <section id="tab-approve" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="list-header">待审报销单<span id="approvePendingCount">0</span></div>
+            <p class="lead">下属提交的报销申请已由 AI 预校验。请审核 AI 结果并决定通过 / 驳回 / 转审。本月已审 <b id="approveDoneCount">0</b> 单。</p>
+            <div id="approveList"></div>
+          </div>
+        </section>
+
+        <!-- Tab 4: 财务（FIN-001） -->
+        <section id="tab-fin-review" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="list-header">待复核<span id="finReviewPending">0</span></div>
+            <p class="lead">主管已通过的报销单：复核 AI 校验结果，确认复核完成。本岗（FIN-001）仅可复核，不可打款；最终归档在打款后由出纳完成。</p>
+            <div id="finReviewList"></div>
+          </div>
+        </section>
+
+        <!-- Tab 5: 出纳（FIN-002） -->
+        <section id="tab-fin-pay" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="list-header">待打款报销单<span id="finPayPending">0</span></div>
+            <p class="lead">财务岗（FIN-001）已复核的报销单，须由出纳岗（FIN-002）发起打款，与复核人不同人，防舞弊。本月已打款 <b id="finPayDone">0</b> 单。</p>
+            <div id="finPayList"></div>
+            <div class="list-header" style="margin-top:22px;">待存档备案<span id="finFilePending">0</span></div>
+            <p class="lead">已打款报销单。须将凭证（银行回单）、审批记录、发票影像三项统一存档备案。</p>
+            <div id="finFileList"></div>
+          </div>
+        </section>
+
+        <!-- Tab 6: 系统配置（系统管理员） -->
+        <section id="tab-admin" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <p class="lead">启用 DeepSeek 大模型、异常检测规则、费用限额、审批权限。所有变更会进入审计日志并立即生效。</p>
+
+            <div class="group">
+              <div class="group-title">🤖 DeepSeek 大模型</div>
+              <div class="row">
+                <div class="row-label" style="font-weight:600;">启用 DeepSeek 大模型</div>
+                <div class="ios-switch on" id="ds-enabled" onclick="toggleDeepSeek(this)"></div>
+              </div>
+              <div class="row">
+                <div class="row-label">API 密钥<span class="cfg-env">DEEPSEEK_API_KEY</span></div>
+                <input type="password" class="cfg-input wide" placeholder="留空使用环境变量默认值">
+              </div>
+              <div class="row">
+                <div class="row-label">API 地址<span class="cfg-env">DEEPSEEK_BASE_URL</span></div>
+                <input type="text" class="cfg-input wide" value="https://api.deepseek.com/chat/completions">
+              </div>
+              <div class="row">
+                <div class="row-label">模型名称<span class="cfg-env">DEEPSEEK_MODEL</span></div>
+                <input type="text" class="cfg-input wide" value="deepseek-v4-flash">
+              </div>
+            </div>
+
+            <div class="group">
+              <div class="group-title">🚨 异常检测规则</div>
+              <div class="row"><div class="row-label">检测金额异常（与申请不一致）</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">检测发票真伪（国税查验）</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">行程单字段完整性检查</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">DeepSeek 语义复核</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+            </div>
+
+            <div class="group">
+              <div class="group-title">💰 费用限额配置（月度）</div>
+              <div class="row"><div class="row-label">交通</div><input type="number" class="cfg-input" value="600"><span class="cfg-suffix">元</span></div>
+              <div class="row"><div class="row-label">住宿</div><input type="number" class="cfg-input" value="1000"><span class="cfg-suffix">元</span></div>
+              <div class="row"><div class="row-label">餐饮</div><input type="number" class="cfg-input" value="1000"><span class="cfg-suffix">元</span></div>
+              <div class="row"><div class="row-label">办公</div><input type="number" class="cfg-input" value="200"><span class="cfg-suffix">元</span></div>
+              <div class="row"><div class="row-label">其他</div><input type="number" class="cfg-input" value="200"><span class="cfg-suffix">元</span></div>
+            </div>
+
+            <div class="group">
+              <div class="group-title">👥 审批权限分配</div>
+              <div class="row"><div class="row-label">≤ 3000 元 — 直属领导审批</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">3000 ~ 10000 元 — 部门总监审批</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">10000 ~ 50000 元 — VP/分管副总审批</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">&gt; 50000 元 — CEO 审批</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+              <div class="row"><div class="row-label">≥ 10000 元 需两人会签</div><div class="ios-switch on" onclick="this.classList.toggle('on')"></div></div>
+            </div>
+
+            <button class="btn-primary" onclick="saveConfig()">💾 保存配置</button>
+            <button class="btn-primary" style="margin-top:10px; background:var(--ios-gray6); color:var(--ios-blue); box-shadow:none;" onclick="resetConfig()">↩️ 恢复默认</button>
+            <p class="footnote">所有配置变更会写入审计日志（原型演示，不实际保存）。</p>
+          </div>
+        </section>
+
+        <!-- Tab 7: 审计日志（系统管理员） -->
+        <section id="tab-audit" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="list-header">审计日志<span id="auditCount">0</span></div>
+            <p class="lead">所有用户操作、AI 校验、系统配置变更的完整记录，支持追溯与合规审查。</p>
+            <div id="auditList"></div>
+          </div>
+        </section>
+
+        <!-- Tab 8: 用量统计（系统管理员） -->
+        <section id="tab-usage" class="tab-panel" style="display:none">
+          <div class="page-pad">
+            <div class="pricing-note">🏷️ <b>DeepSeek-V4-Flash 定价</b>：输入 ¥0.001 / 1K tokens · 输出 ¥0.002 / 1K tokens<br>费用 = 输入量 ÷ 1000 × 0.001 + 输出量 ÷ 1000 × 0.002</div>
+            <div class="metric-grid" id="usageOverview"></div>
+
+            <div class="card">
+              <div class="field-label" style="margin:0 0 10px;">📈 每日调用趋势（近 7 天）</div>
+              <div class="chart-box" id="usageDailyBars"></div>
+              <div class="chart-labels" id="usageDailyLabels"></div>
+              <p class="footnote" style="margin:8px 0 0;">柱高 = Token 消耗量 · 柱顶数字 = 调用次数</p>
+            </div>
+
+            <div class="card">
+              <div class="field-label" style="margin:0 0 10px;">🧩 按调用类型统计</div>
+              <div id="usageByType"></div>
+            </div>
+
+            <div class="list-header">调用明细记录<span id="usageRecCount">0</span></div>
+            <div id="usageRecords"></div>
+          </div>
+        </section>
+
+        <!-- Tab 9: 使用指南（系统管理员） -->
+        <section id="tab-guide" class="tab-panel" style="display:none">
+          <div class="page-pad">
+
+            <div class="guide-page-chat">
+              <div class="guide-chat-body" id="guideChat"></div>
+              <div class="guide-chat-foot">
+                <div class="chips">
+                  <button class="chip" onclick="sendGuidePreset('用户角色')">用户角色</button>
+                  <button class="chip" onclick="sendGuidePreset('使用场景')">使用场景</button>
+                  <button class="chip" onclick="sendGuidePreset('系统配置')">系统配置</button>
+                </div>
+                <div class="guide-input-row">
+                  <input class="guide-input" id="guideInput" type="text" placeholder="输入提示词，如「用户角色」…" onkeydown="if(event.key==='Enter')sendGuide()">
+                  <button class="guide-send" onclick="sendGuide()">发送</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </div>
 
-      <!-- 底部 Tab Bar -->
-      <div class="tab-bar">
-        <button class="tab-item active" data-tab="reimburse" onclick="switchTab('reimburse')">
-          <span class="ic">📝</span><span>报销申请</span>
-        </button>
-        <button class="tab-item" data-tab="my" onclick="switchTab('my')">
-          <span class="ic">📂</span><span>我的报销</span>
-        </button>
-      </div>
+      <!-- 底部 Tab Bar（按角色动态渲染） -->
+      <div class="tab-bar" id="tabBar"></div>
 
       <!-- 流水线 Sheet -->
       <div class="sheet-overlay" id="pipelineSheet" onclick="if(event.target===this)closePipelineSheet()">
@@ -492,6 +859,18 @@ body{
         </div>
       </div>
 
+      <!-- 存档备案 Sheet -->
+      <div class="sheet-overlay" id="fileSheet" onclick="if(event.target===this)closeFileSheet()">
+        <div class="sheet">
+          <div class="sheet-grab"></div>
+          <div class="sheet-head">
+            <span id="fileSheetTitle">存档备案</span>
+            <button class="sheet-close" onclick="closeFileSheet()">取消</button>
+          </div>
+          <div class="sheet-body" id="fileSheetBody"></div>
+        </div>
+      </div>
+
       <!-- 成功 Sheet -->
       <div class="sheet-overlay" id="successSheet" onclick="if(event.target===this)closeSuccess()">
         <div class="sheet">
@@ -507,13 +886,23 @@ body{
       <!-- 登录页 -->
       <div class="login-screen" id="loginScreen">
         <div class="login-inner">
-          <div class="app-icon"><img src="../web/static/app_icon.png" alt="OA报销助手"></div>
+          <div class="app-icon"><svg viewBox="0 0 84 84" xmlns="http://www.w3.org/2000/svg"><rect x="14" y="6" width="48" height="62" rx="10" fill="white" opacity="0.96"/><path d="M54 6 L62 14 L54 14 Z" fill="#cbd5e1" opacity="0.7"/><rect x="24" y="28" width="28" height="4" rx="2" fill="var(--ios-blue)"/><rect x="24" y="38" width="20" height="3" rx="1.5" fill="#94a3b8"/><rect x="24" y="46" width="24" height="3" rx="1.5" fill="#94a3b8"/><rect x="24" y="54" width="16" height="3" rx="1.5" fill="#94a3b8"/><circle cx="26" cy="68" r="10" fill="#34c759"/><path d="M22 68 L25 71 L30 65" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           <h1 class="app-name">智能化报销助手</h1>
           <p class="app-sub">AI 智能体驱动的企业报销</p>
           <form class="login-form" id="loginForm" onsubmit="return doLogin(event)">
             <div class="field-row">
-              <label class="login-label" for="loginId">员工工号</label>
-              <input class="login-input" id="loginId" type="text" value="EMP-2026" autocomplete="username">
+              <label class="login-label" for="loginRole">登录身份（5 角色）</label>
+              <select class="login-input" id="loginRole" onchange="onRoleChange()">
+                <option value="employee">👤 员工</option>
+                <option value="approver">👔 主管</option>
+                <option value="finance_review">💼 财务</option>
+                <option value="finance_pay">🏦 出纳</option>
+                <option value="admin" selected>⚙️ 系统管理员</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <label class="login-label" for="loginId">工号 / 账号</label>
+              <input class="login-input" id="loginId" type="text" value="ADM-001" autocomplete="username">
             </div>
             <div class="field-row">
               <label class="login-label" for="loginPwd">密码</label>
@@ -522,7 +911,7 @@ body{
             <button class="btn-primary" type="submit">登录</button>
             <p class="login-error" id="loginError">请输入工号和密码</p>
           </form>
-          <p class="login-tip">员工工号：EMP-2026 ／ 密码：123456<br>本原型聚焦员工侧核心链路：上传 → AI 识别 → 校验 → 我的报销</p>
+          <p class="login-tip">员工 EMP-2026 · 主管 APR-001 · 财务 FIN-001<br>出纳 FIN-002 · 系统管理员 ADM-001（密码均为 123456）<br>财务与出纳须由不同财务人员操作，防舞弊</p>
         </div>
       </div>
 
@@ -543,6 +932,37 @@ updateClock(); setInterval(updateClock,15000);
 var currentTicketType='';
 var lastCheckPassed=false;
 var MOCK_MY_LIST=[];
+var currentRole='admin';
+var approveDoneTotal=42;   // 主管本月已审（累计）
+var financePaidTotal=86;   // 出纳本月打款（累计）
+
+/* ───────────────── 角色定义 ───────────────── */
+var ROLES={
+  employee:      {icon:'👤', name:'员工',       desc:'提交日常差旅、餐饮、住宿等报销', user:'张三',   account:'EMP-2026'},
+  approver:      {icon:'👔', name:'主管',       desc:'审核下属报销申请',               user:'李总',   account:'APR-001'},
+  finance_review:{icon:'💼', name:'财务',       desc:'复核AI结果',            user:'王会计', account:'FIN-001'},
+  finance_pay:   {icon:'🏦', name:'出纳',       desc:'发起费用发放·回单归档·存档备案', user:'李出纳', account:'FIN-002'},
+  admin:         {icon:'⚙️', name:'系统管理员', desc:'维护报销制度规则',               user:'赵管理', account:'ADM-001'}
+};
+var ROLE_TABS={
+  employee:['reimburse','my'],
+  approver:['approve'],
+  finance_review:['fin-review'],
+  finance_pay:['fin-pay'],
+  admin:['admin','audit','usage','guide']
+};
+var TAB_META={
+  'reimburse':{icon:'📝', label:'报销申请'},
+  'my':{icon:'📂', label:'我的报销'},
+  'approve':{icon:'📥', label:'待审工作台'},
+  'fin-review':{icon:'💼', label:'财务'},
+  'fin-pay':{icon:'🏦', label:'出纳'},
+  'admin':{icon:'⚙️', label:'系统配置'},
+  'audit':{icon:'📜', label:'审计日志'},
+  'usage':{icon:'📊', label:'用量统计'},
+  'guide':{icon:'📘', label:'使用指南'}
+};
+var ALL_TABS=['reimburse','my','approve','fin-review','fin-pay','admin','audit','usage','guide'];
 
 /* ───────────────── 模拟数据（与原型一致） ───────────────── */
 var INVOICE_STEPS=[
@@ -590,8 +1010,16 @@ function fmtVal(v){if(v==null)return '—';if(typeof v==='boolean')return v?'是
 function nowStr(){var d=new Date();function p(n){return(n<10?'0':'')+n;}return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
 
 /* ───────────────── 登录 / 退出 ───────────────── */
+function onRoleChange(){
+  var role=document.getElementById('loginRole').value;
+  var cfg=ROLES[role];
+  if(cfg) document.getElementById('loginId').value=cfg.account;
+  document.getElementById('loginPwd').value='123456';
+}
 function doLogin(e){
   e.preventDefault();
+  var role=document.getElementById('loginRole').value;
+  var cfg=ROLES[role]||ROLES.employee;
   var id=document.getElementById('loginId').value.trim();
   var pwd=document.getElementById('loginPwd').value.trim();
   var err=document.getElementById('loginError');
@@ -600,38 +1028,68 @@ function doLogin(e){
     err.style.display='block';
     return;
   }
-  if(id!=='EMP-2026'||pwd!=='123456'){
-    err.textContent='工号或密码错误（演示账号：EMP-2026 / 123456）';
+  if(id!==cfg.account||pwd!=='123456'){
+    err.textContent='工号或密码错误（'+cfg.name+'演示账号：'+cfg.account+' / 123456）';
     err.style.display='block';
     return;
   }
   err.style.display='none';
+  currentRole=role;
   enterApp();
 }
 function enterApp(){
   document.getElementById('loginScreen').classList.add('hide');
+  renderTabBar(currentRole);
+  var tabs=ROLE_TABS[currentRole]||['reimburse'];
+  switchTab(currentRole==='admin'?'guide':tabs[0]);
   renderMyList();
+  renderApproveList();
+  renderFinReviewList();
+  renderFinPayList();
+  renderFinFileList();
+  renderAuditLog();
+  renderUsageAll();
+  addAuditLog('LOGIN','工号 '+(ROLES[currentRole]||ROLES.employee).account,'成功');
 }
 function logout(){
-  if(!confirm('确定退出演示吗？'))return;
+  if(!confirm('确定退出登录吗？'))return;
   document.getElementById('loginScreen').classList.remove('hide');
-  document.getElementById('loginForm').reset();
   document.getElementById('loginError').style.display='none';
+  document.getElementById('loginPwd').value='123456';
   resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
   setSubmitMode('check');
-  switchTab('reimburse');
+  document.getElementById('navTitle').textContent='登录';
+  /* 内存状态在多次登录间保持连续（职责分离演示流程），刷新页面即可恢复初始数据 */
 }
 
-/* ───────────────── Tab 切换 ───────────────── */
+/* ───────────────── Tab Bar 动态渲染 / Tab 切换 ───────────────── */
+function renderTabBar(role){
+  var tabs=ROLE_TABS[role]||[];
+  var html='';
+  tabs.forEach(function(t,i){
+    var m=TAB_META[t];
+    var active=(role==='admin'?t==='guide':i===0);
+    html+='<button class="tab-item'+(active?' active':'')+'" data-tab="'+t+'" onclick="switchTab(\''+t+'\')">'+
+      '<span class="ic">'+m.icon+'</span><span>'+m.label+'</span></button>';
+  });
+  document.getElementById('tabBar').innerHTML=html;
+}
 function switchTab(tab){
   document.querySelectorAll('.tab-item').forEach(function(b){
     b.classList.toggle('active', b.getAttribute('data-tab')===tab);
   });
-  document.getElementById('tab-reimburse').style.display = tab==='reimburse'?'block':'none';
-  document.getElementById('tab-my').style.display = tab==='my'?'block':'none';
-  document.getElementById('navTitle').textContent = '登录';
+  ALL_TABS.forEach(function(t){
+    var el=document.getElementById('tab-'+t);
+    if(el) el.style.display = t===tab?(t==='guide'?'flex':'block'):'none';
+  });
+  var m=TAB_META[tab];
+  var cfg=ROLES[currentRole]||ROLES.employee;
+  document.getElementById('navTitle').textContent = m?(cfg.icon+' '+m.label):'登录';
   document.querySelector('.content').scrollTop=0;
+  if(tab==='guide') ensureGuideChat();
 }
+
+
 
 /* ───────────────── 票据类型下拉 ───────────────── */
 function onTicketTypeChange(){
@@ -694,7 +1152,18 @@ function onSubmitClick(){
 }
 
 /* ───────────────── 智能体流水线 ───────────────── */
+function dsOn(){
+  var el=document.getElementById('ds-enabled');
+  return !el || el.classList.contains('on');
+}
 function runCheck(){
+  if(!dsOn()){
+    alert('⚠️ DeepSeek 大模型已停用（系统配置）。\n请联系系统管理员启用，或人工填写报销单后直接提交审批。');
+    document.getElementById('autoFields').style.display='block';
+    document.getElementById('apply_date').value=new Date().toISOString().slice(0,10);
+    setSubmitMode('approve');
+    return;
+  }
   var isIt=currentTicketType==='行程单';
   var steps=isIt?ITINERARY_STEPS:INVOICE_STEPS;
   document.getElementById('pipeTitle').textContent=isIt?'行程单智能体执行流水线':'发票智能体执行流水线';
@@ -780,7 +1249,19 @@ function submitApprove(){
   var newId='RB-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+seq;
   var item={id:newId,type:type,category:category,amount:amount,reason:reason,status:'待审批',submitTime:nowStr()};
   MOCK_MY_LIST.unshift(item);
+  // 路由至主管待审队列
+  var cfg=ROLES.employee;
+  var enabled=dsOn();
+  var pendingItem=Object.assign({},item,{
+    submitter:cfg.user+'（'+cfg.account+'）',
+    disabled:!enabled,
+    aiStatus:enabled?'pass':'',
+    aiSummary:enabled?'AI 校验通过 · 金额匹配 · 未超限额':'人工填写'
+  });
+  MOCK_PENDING_LIST.unshift(pendingItem);
+  addAuditLog('SUBMIT', newId+' · ¥'+amount.toFixed(2), '成功');
   renderMyList();
+  renderApproveList();
   showSuccess(item);
 }
 function showSuccess(item){
@@ -800,6 +1281,91 @@ function closeSuccess(){
   switchTab('reimburse'); resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
   setSubmitMode('check');
 }
+/* ───────────────── 使用指南 · OA 报销助手对话 ───────────────── */
+var GUIDE_ROLES = `
+  <div class="list-header">角色说明</div>
+  <div class="group">
+    <div class="group-title">👤 员工 · 张三（EMP-2026）</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">提交人</div><div class="row-sub">提交日常差旅、餐饮、住宿等报销申请，上传发票 / 行程单影像，等待审批结果。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">👔 主管 · 李总（APR-001）</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">一级审批</div><div class="row-sub">审核下属报销申请，依据费用限额与审批权限通过 / 驳回 / 转审（上级或部门总监）。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">💼 财务 · 王会计（FIN-001）</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">复核</div><div class="row-sub">复核 AI 校验结果，确认发票原件、凭证与审批记录齐全；与出纳须为不同人。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">🏦 出纳 · 李出纳（FIN-002）</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">打款、回单归档 和存档备案</div><div class="row-sub">对已复核报销单发起打款，上传银行回单归档，并将凭证、审批记录、发票原件统一存档备案。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">⚙️ 系统管理员 · 赵管理（ADM-001）</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">系统配置、审计日志和用量统计</div><div class="row-sub">系统配置：维护 DeepSeek 大模型、异常检测规则、费用限额与审批权限；审计日志：追溯全部操作；用量统计：查看 AI 调用与费用。</div></div>
+  </div>
+  <p class="footnote">员工与主管、财务与出纳职责分离，关键操作均写入审计日志。</p>
+`;
+var GUIDE_SCENES = `
+  <div class="list-header">使用场景</div>
+  <div class="card guide-scene">
+    <div class="scene-step"><span class="scene-dot">1</span><div><b>员工提交报销</b><br><span class="row-sub">在「报销申请」页选择发票 / 行程单，AI 智能体自动 OCR 提取、异常检测、分类限额校验，提交后进入审批流转。</span></div></div>
+    <div class="scene-step"><span class="scene-dot">2</span><div><b>主管审批</b><br><span class="row-sub">在「待审工作台」查看 AI 摘要与校验结论，通过 / 驳回 / 转审。大额或需会签时由多人把关。</span></div></div>
+    <div class="scene-step"><span class="scene-dot">3</span><div><b>财务复核</b><br><span class="row-sub">财务在「财务」页复核 AI 结果，确认发票原件齐全后，流转至出纳。</span></div></div>
+    <div class="scene-step"><span class="scene-dot">4</span><div><b>出纳打款和回单归档</b><br><span class="row-sub">出纳在「出纳」页对复核单发起打款，上传银行回单归档，并进入待存档备案。</span></div></div>
+    <div class="scene-step"><span class="scene-dot">5</span><div><b>出纳存档备案</b><br><span class="row-sub">出纳确认凭证、审批记录、发票原件三项齐全后存档备案，报销单归档结案。</span></div></div>
+    <div class="scene-step end"><span class="scene-dot">6</span><div><b>管理员维护与审计</b><br><span class="row-sub">系统管理员在「系统配置」维护制度规则，在「审计日志」追溯全部操作，在「用量统计」查看 AI 调用与费用。</span></div></div>
+  </div>
+`;
+var GUIDE_CONFIG = `
+  <div class="list-header">系统配置说明</div>
+  <p class="row-sub" style="margin:0 2px 10px;">系统管理员在「系统配置」中维护制度规则，所有变更进入审计日志并立即生效：</p>
+  <div class="group">
+    <div class="group-title">🤖 DeepSeek 大模型</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">AI 引擎</div><div class="row-sub">启用 DeepSeek 大模型驱动 OCR 提取、语义复核与异常检测；可配置 API 密钥 / 地址 / 模型名称（环境变量 DEEPSEEK_API_KEY、DEEPSEEK_BASE_URL、DEEPSEEK_MODEL）。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">🚨 异常检测规则</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">风控开关</div><div class="row-sub">金额异常、发票真伪（国税查验）、行程单字段完整性、DeepSeek 语义复核，均可单独开启 / 关闭。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">💰 费用限额配置（月度）</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">分类限额</div><div class="row-sub">交通 600 元、住宿 1000 元、餐饮 1000 元、办公 200 元、其他 200 元，提交时自动分类校验。</div></div>
+  </div>
+  <div class="group">
+    <div class="group-title">👥 审批权限分配</div>
+    <div class="row col"><div class="row-label" style="font-weight:600;">分级审批</div><div class="row-sub">≤3000 元直属领导；3000~10000 元部门总监；10000~50000 元 VP；&gt;50000 元 CEO；≥10000 元需两人会签。</div></div>
+  </div>
+  <p class="footnote">所有配置变更会写入审计日志（原型演示，不实际保存）。</p>
+`;
+var guideInit=false;
+function ensureGuideChat(){
+  if(!guideInit){ initGuideChat(); guideInit=true; }
+}
+function guideAppend(cls, html){
+  var c=document.getElementById('guideChat');
+  var d=document.createElement('div'); d.className='msg-'+cls;
+  if(cls==='user'){ d.textContent=html; }
+  else { d.innerHTML='<div class="bubble">'+html+'</div>'; }
+  c.appendChild(d); c.scrollTop=c.scrollHeight;
+}
+function initGuideChat(){
+  document.getElementById('guideChat').innerHTML='';
+  guideAppend('bot','你好，我是 <b>智能化报销助手</b> 👋<br>点击下方快捷提示词，或在输入框输入「用户角色 / 使用场景 / 系统配置」等关键词，了解系统说明。');
+}
+function sendGuidePreset(kw){ var i=document.getElementById('guideInput'); i.value=kw; sendGuide(); }
+function sendGuide(){
+  var inp=document.getElementById('guideInput'); var v=inp.value.trim();
+  if(!v) return; inp.value='';
+  guideAppend('user', v);
+  var k=v;
+  if(k.indexOf('角色')>=0 || k.indexOf('用户')>=0){ guideAppend('bot', GUIDE_ROLES); }
+  else if(k.indexOf('场景')>=0){ guideAppend('bot', GUIDE_SCENES); }
+  else if(k.indexOf('配置')>=0 || k.indexOf('制度')>=0 || k.indexOf('权限')>=0 || k.indexOf('限额')>=0){ guideAppend('bot', GUIDE_CONFIG); }
+  else {
+    guideAppend('bot','我可以帮你了解：<br>• <b>用户角色</b> — 5 类角色职责说明<br>• <b>使用场景</b> — 报销全流程 6 步<br>• <b>系统配置</b> — DeepSeek 大模型、异常检测、费用限额与审批权限<br>请输入以上任一关键词，或点击下方快捷提示词。');
+  }
+}
 function infoRow(k,v){
   return '<div class="row" style="border-top:.5px solid var(--ios-sep);"><div class="row-label" style="color:var(--ios-gray);font-weight:500;">'+escHtml(k)+'</div><div style="font-size:15px;font-weight:600;max-width:60%;text-align:right;">'+escHtml(v)+'</div></div>';
 }
@@ -814,7 +1380,11 @@ function renderMyList(){
   }else{
     MOCK_MY_LIST.forEach(function(item){
       var typeTag=item.type==='发票'?'<span class="tag invoice">🧾 发票</span>':'<span class="tag itinerary">🚕 行程单</span>';
-      var statusTag='<span class="tag pending">⏳ 待审批</span>';
+      var statusTag=item.status==='已通过'
+        ? '<span class="tag approved">✓ 已通过</span>'
+        : item.status==='已打款'
+          ? '<span class="tag status-paid">💰 已打款</span>'
+          : '<span class="tag pending">⏳ 待审批</span>';
       html+='<div class="reimb-item" onclick="openDetail(\''+item.id+'\')">'+
         '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
         '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
@@ -826,25 +1396,489 @@ function renderMyList(){
   document.getElementById('myCount').textContent=MOCK_MY_LIST.length;
 }
 
-/* ───────────────── 详情 Sheet ───────────────── */
-function openDetail(id){
+/* ───────────────── 详情 Sheet（全角色通用） ───────────────── */
+function findItem(id){
   var item=null;
-  MOCK_MY_LIST.some(function(x){if(x.id===id){item=x;return true;}return false;});
-  if(!item)return;
+  [MOCK_PENDING_LIST,MOCK_FINAL_LIST,MOCK_MY_LIST].some(function(list){
+    var f=list.find(function(x){return x.id===id;});
+    if(f){item=f;return true;}
+    return false;
+  });
+  return item;
+}
+function openDetail(id){
+  var item=findItem(id);
+  if(!item){alert('未找到报销单 '+id);return;}
   var typeTag=item.type==='发票'?'🧾 发票':'🚕 行程单';
+  var statusText=item.archiveStatus==='archived'
+    ? (item.filed?'📦 已存档备案':(item.paid?'💰 已打款':'📦 已复核'))
+    : (item.archiveStatus==='pending'?'⏳ 待复核'
+    : (item.transferred?'↪️ 已转审':(item.status||'⏳ 待审批')));
   var html=''+
     infoRow('报销单号',item.id)+
     infoRow('票据类型',typeTag)+
-    infoRow('申请金额','¥'+item.amount.toFixed(2))+
-    infoRow('费用类型',item.category)+
-    infoRow('报销事由',item.reason)+
-    infoRow('提交时间',item.submitTime)+
-    infoRow('当前状态','⏳ 待审批');
+    infoRow('申请金额','¥'+(item.amount!=null?item.amount.toFixed(2):'—'))+
+    infoRow('费用类型',item.category||'—')+
+    infoRow('报销事由',item.reason||'—')+
+    (item.submitter?infoRow('提交人',item.submitter):'')+
+    infoRow('提交时间',item.submitTime||'—')+
+    (item.approver?infoRow('审批人',item.approver):'')+
+    (item.archivedBy?infoRow('复核人',item.archivedBy):'')+
+    (item.paidBy?infoRow('打款人',item.paidBy):'')+
+    (item.filedBy?infoRow('存档备案人',item.filedBy):'')+
+    (item.filedTime?infoRow('备案时间',item.filedTime):'')+
+    infoRow('当前状态',statusText);
+  var body='<div class="detail-list">'+html+'</div>';
+
   document.getElementById('detailTitle').textContent='报销单详情';
-  document.getElementById('detailBody').innerHTML='<div class="detail-list">'+html+'</div>';
+  document.getElementById('detailBody').innerHTML=body;
   document.getElementById('detailSheet').classList.add('show');
 }
 function closeDetail(){document.getElementById('detailSheet').classList.remove('show');}
+
+/* ═════════════════ 主管 / 财务 / 出纳 / 管理员 ═════════════════ */
+
+/* ── 主管待审队列 ── */
+var MOCK_PENDING_LIST=[
+  {id:'RB-20260723-001',submitter:'张三（EMP-2026）',submitTime:'2026-07-23 09:15',type:'发票',category:'交通',amount:285.00,reason:'市内出差打车费',disabled:true,aiStatus:'',aiSummary:'人工填写'},
+  {id:'RB-2026-0714-001',submitter:'张三（EMP-2026）',submitTime:'2026-07-14 10:23',type:'发票',category:'住宿',amount:358.50,reason:'北京出差酒店住宿费（6/15-6/17）',aiStatus:'pass',aiSummary:'发票查验通过 · 金额匹配 · 未超限额'},
+  {id:'RB-2026-0714-002',submitter:'李四（EMP-2024）',submitTime:'2026-07-14 11:05',type:'行程单',category:'交通',amount:186.50,reason:'上海出差市内网约车',aiStatus:'pass',aiSummary:'行程连续 · 金额匹配 · 5 段行程均合理'},
+  {id:'RB-2026-0714-003',submitter:'王五（EMP-2018）',submitTime:'2026-07-14 13:42',type:'发票',category:'餐饮',amount:1280.00,reason:'部门季度团建聚餐',aiStatus:'warn',aiSummary:'⚠️ 单笔金额超 1000 元餐饮月度限额，建议人工确认'},
+  {id:'RB-2026-0714-004',submitter:'赵六（EMP-2015）',submitTime:'2026-07-14 14:18',type:'发票',category:'交通',amount:4520.00,reason:'北京-上海往返机票',aiStatus:'pass',aiSummary:'行程合理 · 已超出直属领导审批权限（≤3000元），需部门总监审批'}
+];
+
+function renderApproveList(){
+  var el=document.getElementById('approveList');
+  if(!el)return;
+  var html='';
+  if(MOCK_PENDING_LIST.length===0){
+    html='<div class="empty"><div class="ei">📭</div><div class="et">暂无待审报销单</div></div>';
+  }else{
+    MOCK_PENDING_LIST.forEach(function(item){
+      var aiTag='';
+      if(item.disabled) aiTag='<span class="tag manual">✍️ 人工填写</span>';
+      else if(item.aiStatus==='pass') aiTag='<span class="tag ai-pass">✓ AI 通过</span>';
+      else if(item.aiStatus==='warn') aiTag='<span class="tag ai-warn">⚠️ AI 预警</span>';
+      else if(item.aiStatus==='block') aiTag='<span class="tag ai-block">⛔ AI 拦截</span>';
+      var typeTag=item.type==='发票'?'<span class="tag invoice">🧾 发票</span>':'<span class="tag itinerary">🚕 行程单</span>';
+      var stTag=item.transferred?'<span class="tag status-transferred">↪️ 已转审</span>':'<span class="tag pending">⏳ 待审</span>';
+      html+='<div class="reimb-item" style="cursor:default;">'+
+        '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
+        '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
+        '<div class="ri-meta"><span><span class="mk">提交</span>'+escHtml(item.submitter)+'</span><span><span class="mk">类型</span>'+escHtml(item.category)+'</span></div>'+
+        (item.disabled?'':'<div class="ai-note">🤖 <b>AI 校验：</b>'+escHtml(item.aiSummary)+'</div>')+
+        '<div class="ri-foot">'+typeTag+aiTag+stTag+'</div>'+
+        '<div class="item-actions">'+
+          '<button class="btn-mini gray" onclick="openDetail(\''+item.id+'\')">📄 明细</button>'+
+          (item.transferred
+            ? '<button class="btn-mini orange" disabled>↪️ 已转审</button>'
+            : '<button class="btn-mini orange" onclick="handleApprove(\''+item.id+'\',\'转审\')">↪️ 转审</button>'+
+              '<button class="btn-mini red" onclick="handleApprove(\''+item.id+'\',\'驳回\')">✕ 驳回</button>'+
+              '<button class="btn-mini green" onclick="handleApprove(\''+item.id+'\',\'通过\')">✓ 通过</button>')+
+        '</div></div>';
+    });
+  }
+  el.innerHTML=html;
+  document.getElementById('approvePendingCount').textContent=MOCK_PENDING_LIST.length;
+  document.getElementById('approveDoneCount').textContent=approveDoneTotal;
+}
+
+function handleApprove(id,action){
+  var item=MOCK_PENDING_LIST.find(function(x){return x.id===id;});
+  if(!item)return;
+  if(action==='驳回'){
+    if(!confirm('确认驳回报销单 '+id+'？'))return;
+    MOCK_PENDING_LIST=MOCK_PENDING_LIST.filter(function(x){return x.id!==id;});
+    approveDoneTotal++;
+    addAuditLog('REJECT', id+' · ¥'+item.amount.toFixed(2), '成功');
+    alert('已驳回：'+id+'\n（原型演示，未实际提交）');
+    renderApproveList();
+    return;
+  }
+  if(action==='转审'){
+    if(!confirm('确认将报销单 '+id+' 转交上级审批？'))return;
+    item.transferred=true;
+    addAuditLog('TRANSFER', id+' · ¥'+item.amount.toFixed(2)+' → 上级', '成功');
+    alert('已转审：'+id+'\n（已提交上级审批，原型演示）');
+    renderApproveList();
+    return;
+  }
+  if(action==='通过'){
+    if(!confirm('确认通过报销单 '+id+'？'))return;
+    var finItem=Object.assign({},item,{
+      archiveStatus:'pending',
+      approver:ROLES.approver.user+'（已审批通过 '+nowStr()+'）',
+      paid:false,paidBy:null,receiptArchived:false,
+      filed:false,filedBy:null,filedTime:null
+    });
+    MOCK_FINAL_LIST.unshift(finItem);
+    MOCK_PENDING_LIST=MOCK_PENDING_LIST.filter(function(x){return x.id!==id;});
+    approveDoneTotal++;
+    var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
+    if(myItem){myItem.status='已通过';myItem.approver=finItem.approver;}
+    addAuditLog('APPROVE', id+' · ¥'+item.amount.toFixed(2), '成功');
+    alert('已通过：'+id+'\n（已流转至财务复核列表）');
+    renderApproveList();
+    renderFinReviewList();
+    renderMyList();
+    return;
+  }
+}
+
+/* ── 财务 / 出纳（职责分离） ── */
+var MOCK_FINAL_LIST=[
+  {id:'RB-2026-0713-018',submitter:'钱七（EMP-2012）',approver:'李总（已审批通过 07-13 18:20）',submitTime:'2026-07-13 16:42',type:'发票',category:'住宿',amount:680.00,reason:'上海客户拜访住宿',aiStatus:'pass',aiSummary:'发票查验通过 · 金额匹配 · 未超限额',archiveStatus:'pending',archivedBy:null,paid:false,paidBy:null,receiptArchived:false},
+  {id:'RB-2026-0713-021',submitter:'孙八（EMP-2010）',approver:'李总（已审批通过 07-13 19:05）',submitTime:'2026-07-13 17:33',type:'行程单',category:'交通',amount:425.80,reason:'北京出差市内交通（3 天）',aiStatus:'pass',aiSummary:'行程连续 · 总金额匹配 · 12 段行程均合理',archiveStatus:'pending',archivedBy:null,paid:false,paidBy:null,receiptArchived:false},
+  {id:'RB-2026-0713-024',submitter:'周九（EMP-2008）',approver:'李总（已审批通过 07-14 09:15）',submitTime:'2026-07-13 18:50',type:'发票',category:'交通',amount:2380.00,reason:'北京-深圳往返机票',aiStatus:'pass',aiSummary:'行程合理 · 金额匹配 · 审批权限合规',archiveStatus:'pending',archivedBy:null,paid:false,paidBy:null,receiptArchived:false}
+];
+
+function renderFinReviewList(){
+  var el=document.getElementById('finReviewList');
+  if(!el)return;
+  var list=MOCK_FINAL_LIST.filter(function(x){return x.archiveStatus==='pending';});
+  var html='';
+  if(list.length===0){
+    html='<div class="empty"><div class="ei">📦</div><div class="et">暂无待复核的报销单</div></div>';
+  }else{
+    list.forEach(function(item){
+      var typeTag=item.type==='发票'?'<span class="tag invoice">🧾 发票</span>':'<span class="tag itinerary">🚕 行程单</span>';
+      html+='<div class="reimb-item" style="cursor:default;">'+
+        '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
+        '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
+        '<div class="ri-meta"><span><span class="mk">提交</span>'+escHtml(item.submitter)+'</span><span><span class="mk">类型</span>'+escHtml(item.category)+'</span></div>'+
+        '<div class="ai-note">🤖 <b>AI 复核：</b>'+escHtml(item.aiSummary)+'</div>'+
+        '<div class="ri-foot">'+typeTag+'<span class="tag ai-pass">✓ AI 通过</span><span class="tag pending">⏳ 待复核</span></div>'+
+        '<div class="item-actions">'+
+          '<button class="btn-mini gray" onclick="openDetail(\''+item.id+'\')">📄 明细</button>'+
+          '<button class="btn-mini green" onclick="handleFinance(\''+item.id+'\',\'归档\')">📦 复核通过</button>'+
+        '</div></div>';
+    });
+  }
+  el.innerHTML=html;
+  document.getElementById('finReviewPending').textContent=list.length;
+}
+
+function renderFinPayList(){
+  var el=document.getElementById('finPayList');
+  if(!el)return;
+  var list=MOCK_FINAL_LIST.filter(function(x){return x.archiveStatus==='archived'&&!x.paid;});
+  var html='';
+  if(list.length===0){
+    html='<div class="empty"><div class="ei">💰</div><div class="et">暂无待打款的报销单<br>（请先由财务岗 FIN-001 复核通过）</div></div>';
+  }else{
+    list.forEach(function(item){
+      var typeTag=item.type==='发票'?'<span class="tag invoice">🧾 发票</span>':'<span class="tag itinerary">🚕 行程单</span>';
+      html+='<div class="reimb-item" style="cursor:default;">'+
+        '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
+        '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
+        '<div class="ri-meta"><span><span class="mk">提交</span>'+escHtml(item.submitter)+'</span><span><span class="mk">复核</span>'+escHtml(item.archivedBy||'—')+'</span></div>'+
+        '<div class="ai-note">🤖 <b>AI 复核：</b>'+escHtml(item.aiSummary)+'</div>'+
+        '<div class="ri-foot">'+typeTag+'<span class="tag status-archived">📦 已复核</span></div>'+
+        '<div class="item-actions">'+
+          '<button class="btn-mini gray" onclick="openDetail(\''+item.id+'\')">📄 明细</button>'+
+          '<button class="btn-mini teal" onclick="handleFinance(\''+item.id+'\',\'打款\')">💰 发起打款</button>'+
+        '</div></div>';
+    });
+  }
+  el.innerHTML=html;
+  document.getElementById('finPayPending').textContent=list.length;
+  document.getElementById('finPayDone').textContent=financePaidTotal;
+}
+
+function renderFinFileList(){
+  var el=document.getElementById('finFileList');
+  if(!el)return;
+  var list=MOCK_FINAL_LIST.filter(function(x){return x.paid&&!x.filed;});
+  var html='';
+  if(list.length===0){
+    html='<div class="empty"><div class="ei">📦</div><div class="et">暂无待存档备案的报销单<br>（打款后在此统一存档备案）</div></div>';
+  }else{
+    list.forEach(function(item){
+      var typeTag=item.type==='发票'?'<span class="tag invoice">🧾 发票</span>':'<span class="tag itinerary">🚕 行程单</span>';
+      html+='<div class="reimb-item" style="cursor:default;">'+
+        '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
+        '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
+        '<div class="ri-meta"><span><span class="mk">打款</span>'+escHtml(item.paidBy||'—')+'</span><span><span class="mk">回单</span>'+(item.receiptArchived?'已归档':'未归档')+'</span></div>'+
+        '<div class="ri-foot">'+typeTag+'<span class="tag status-paid">💰 已打款·待存档</span></div>'+
+        '<div class="item-actions">'+
+          '<button class="btn-mini gray" onclick="openDetail(\''+item.id+'\')">📄 明细</button>'+
+          '<button class="btn-mini green" onclick="openFileSheet(\''+item.id+'\')">📦 存档备案</button>'+
+        '</div></div>';
+    });
+  }
+  el.innerHTML=html;
+  document.getElementById('finFilePending').textContent=list.length;
+}
+
+function handleFinance(id,action){
+  var item=MOCK_FINAL_LIST.find(function(x){return x.id===id;});
+  if(!item)return;
+  var currentAccount=(ROLES[currentRole]||ROLES.employee).account;
+
+  if(action==='归档'){
+    if(!confirm('确认复核报销单 '+id+'？'))return;
+    item.archiveStatus='archived';
+    item.archivedBy=currentAccount;
+    addAuditLog('ARCHIVE', id+' · ¥'+item.amount.toFixed(2)+' · 复核人 '+currentAccount, '成功');
+    alert('已复核：'+id+'\n（请切换「出纳岗 FIN-002」登录后发起打款）');
+    renderFinReviewList();
+    renderFinPayList();
+    return;
+  }
+
+  if(action==='打款'){
+    if(item.archiveStatus!=='archived'){
+      alert('请先由「财务岗（FIN-001）」确认复核，再发起打款。');
+      return;
+    }
+    if(item.archivedBy&&item.archivedBy===currentAccount){
+      alert('⚠️ 舞弊风险拦截：复核人（'+item.archivedBy+'）与打款人不能为同一人。\n请切换「出纳岗（FIN-002）」账号登录后再发起打款。');
+      return;
+    }
+    if(!confirm('确认打款报销单 '+id+'（金额 ¥'+item.amount.toFixed(2)+'）？'))return;
+    item.paid=true;
+    item.paidBy=currentAccount;
+    financePaidTotal++;
+    addAuditLog('PAYMENT_INIT', id+' · ¥'+item.amount.toFixed(2)+' · 打款人 '+currentAccount, '成功');
+    item.receiptArchived=true;
+    addAuditLog('RECEIPT_ARCHIVE', id+' · 银行回单已自动回写归档', '成功');
+    var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
+    if(myItem){myItem.status='已打款';myItem.paidBy=currentAccount;}
+    alert('已打款：'+id+'\n（费用已打款；银行回单已自动回写归档，请在「待存档备案」中完成存档）');
+    renderFinPayList();
+    renderFinFileList();
+    renderMyList();
+    return;
+  }
+}
+
+/* ── 存档备案 Sheet（凭证 + 审批记录 + 发票影像） ── */
+function openFileSheet(id){
+  var item=findItem(id);
+  if(!item){alert('未找到报销单 '+id);return;}
+  if(!item.paid){alert('该报销单尚未打款，无法存档备案。请先发起打款。');return;}
+  var imgIcon=item.type==='发票'?'🧾':'🚕';
+  var imgName=item.type==='发票'?'invoice':'itinerary';
+  var html='';
+  html+='<p style="font-size:13px;color:var(--ios-gray);margin:0 0 12px;">请核对以下三项材料齐全后，确认统一存档备案。</p>';
+  html+='<div class="file-block"><div class="fb-title">🧾 凭证（银行回单 / 付款凭证）</div><div class="detail-list">'+
+    infoRow('付款凭证号','PAY-'+item.id)+
+    infoRow('付款金额','¥'+(item.amount!=null?item.amount.toFixed(2):'—'))+
+    infoRow('打款人',item.paidBy||'—')+
+    infoRow('回单状态',item.receiptArchived?'已回写归档':'未回写')+
+    '</div></div>';
+  html+='<div class="file-block"><div class="fb-title">📝 审批记录</div><div class="detail-list">'+
+    infoRow('提交人',item.submitter||'—')+
+    infoRow('主管审批',item.approver||'—')+
+    infoRow('财务复核',item.archivedBy||'—')+
+    infoRow('AI 复核摘要',item.aiSummary||'—')+
+    '</div></div>';
+  html+='<div class="file-block"><div class="fb-title">🖼️ 发票影像（'+(item.type==='发票'?'发票':'行程单')+'）</div>'+
+    '<div style="display:flex;align-items:center;gap:12px;padding:8px;background:var(--ios-gray6);border-radius:10px;">'+
+      '<div style="width:52px;height:68px;border:1px dashed var(--ios-gray3);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;background:#fff;">'+imgIcon+'</div>'+
+      '<div style="font-size:12px;color:var(--ios-gray);word-break:break-all;">影像文件：'+escHtml(item.id)+'_'+imgName+'.jpg（已上传）</div>'+
+    '</div></div>';
+  html+='<div style="margin:6px 0 14px;">'+
+    '<label class="check-row"><input type="checkbox" id="chkVoucher" checked> 凭证（银行回单）已齐全</label>'+
+    '<label class="check-row"><input type="checkbox" id="chkApproval" checked> 审批记录已齐全</label>'+
+    '<label class="check-row"><input type="checkbox" id="chkImage" checked> 发票影像已齐全</label>'+
+    '</div>';
+  html+='<button class="btn-primary approve" onclick="confirmFile(\''+item.id+'\')">📦 确认存档备案</button>';
+  document.getElementById('fileSheetTitle').textContent='存档备案 · '+id;
+  document.getElementById('fileSheetBody').innerHTML=html;
+  document.getElementById('fileSheet').classList.add('show');
+}
+function closeFileSheet(){document.getElementById('fileSheet').classList.remove('show');}
+function confirmFile(id){
+  var item=findItem(id);
+  if(!item){alert('未找到报销单 '+id);return;}
+  var v=document.getElementById('chkVoucher')&&document.getElementById('chkVoucher').checked;
+  var a=document.getElementById('chkApproval')&&document.getElementById('chkApproval').checked;
+  var i=document.getElementById('chkImage')&&document.getElementById('chkImage').checked;
+  if(!(v&&a&&i)){alert('请确认凭证、审批记录、发票影像三项均已齐全后再存档备案。');return;}
+  var currentAccount=(ROLES[currentRole]||ROLES.employee).account;
+  item.filed=true;
+  item.filedBy=currentAccount;
+  item.filedTime=nowStr();
+  addAuditLog('ARCHIVE_FILING', id+' · 凭证+审批记录+发票影像 已统一存档备案 · 备案人 '+currentAccount, '成功');
+  closeFileSheet();
+  alert('已存档备案：'+id+'\n（凭证、审批记录及发票影像已统一归档备案）');
+  renderFinFileList();
+  renderFinPayList();
+  renderMyList();
+}
+
+/* ── 审计日志（系统管理员） ── */
+var MOCK_AUDIT_LOG=[
+  {time:'2026-07-14 14:32:18',user:'赵管理',role:'系统管理员',action:'CONFIG_UPDATE',target:'住宿 月度限额: 5000 → 6000',result:'成功',ip:'10.0.1.32'},
+  {time:'2026-07-14 14:28:05',user:'李出纳',role:'出纳',action:'PAYMENT_INIT',target:'RB-2026-0713-021 · ¥425.80',result:'成功',ip:'10.0.1.19'},
+  {time:'2026-07-14 14:25:42',user:'李总',role:'主管',action:'APPROVE',target:'RB-2026-0714-004 · ¥4520.00',result:'成功',ip:'10.0.1.12'},
+  {time:'2026-07-14 14:15:33',user:'王会计',role:'财务',action:'ARCHIVE',target:'RB-2026-0713-018 · ¥680.00',result:'成功',ip:'10.0.1.18'},
+  {time:'2026-07-14 14:10:08',user:'李总',role:'主管',action:'REJECT',target:'RB-2026-0714-005 · ¥3280.00',result:'成功',ip:'10.0.1.12'},
+  {time:'2026-07-14 13:58:22',user:'张三',role:'员工',action:'SUBMIT',target:'RB-2026-0714-001 · ¥358.50',result:'成功',ip:'10.0.1.45'},
+  {time:'2026-07-14 13:45:17',user:'赵管理',role:'系统管理员',action:'RULE_TOGGLE',target:'检测金额异常 → 启用',result:'成功',ip:'10.0.1.32'},
+  {time:'2026-07-14 11:20:05',user:'李总',role:'主管',action:'LOGIN',target:'工号 APR-001',result:'成功',ip:'10.0.1.12'},
+  {time:'2026-07-14 09:18:33',user:'赵管理',role:'系统管理员',action:'PERMISSION_GRANT',target:'王会计 → 财务权限',result:'成功',ip:'10.0.1.32'},
+  {time:'2026-07-13 18:42:09',user:'李总',role:'主管',action:'TRANSFER',target:'RB-2026-0713-019 · ¥5800.00 → 部门总监',result:'成功',ip:'10.0.1.12'},
+  {time:'2026-07-13 16:15:48',user:'李总',role:'主管',action:'LOGIN_FAILED',target:'工号 APR-001 · 密码错误',result:'失败',ip:'10.0.1.12'},
+  {time:'2026-07-13 14:22:11',user:'王会计',role:'财务',action:'LOGIN',target:'工号 FIN-001',result:'成功',ip:'10.0.1.18'}
+];
+var AUDIT_ACTION_LABELS={
+  'SUBMIT':'📤 提交报销','APPROVE':'✓ 审批通过','REJECT':'✕ 审批驳回','TRANSFER':'↪️ 转审',
+  'ARCHIVE':'📦 复核通过','ARCHIVE_FILING':'📦 存档备案',
+  'PAYMENT_INIT':'💰 发起打款','RECEIPT_ARCHIVE':'🏦 回单归档','LOGIN':'🔓 登录','LOGIN_FAILED':'⚠️ 登录失败',
+  'CONFIG_UPDATE':'⚙️ 配置更新','RULE_TOGGLE':'🚦 规则切换','PERMISSION_GRANT':'👥 权限授予'
+};
+function addAuditLog(action,target,result){
+  var cfg=ROLES[currentRole]||ROLES.employee;
+  var ip='10.0.1.'+(Math.floor(Math.random()*200)+10);
+  MOCK_AUDIT_LOG.unshift({time:nowStr(),user:cfg.user,role:cfg.name,action:action,target:target,result:result,ip:ip});
+  renderAuditLog();
+}
+function renderAuditLog(){
+  var el=document.getElementById('auditList');
+  if(!el)return;
+  var html='';
+  MOCK_AUDIT_LOG.forEach(function(r){
+    var label=AUDIT_ACTION_LABELS[r.action]||r.action;
+    html+='<div class="audit-item">'+
+      '<div class="audit-top"><span class="audit-action-tag">'+label+'</span>'+
+      '<span class="audit-result '+(r.result==='成功'?'ok':'err')+'">'+r.result+'</span></div>'+
+      '<div class="audit-target">'+escHtml(r.target)+'</div>'+
+      '<div class="audit-meta"><span>👤 '+escHtml(r.user)+' · '+escHtml(r.role)+'</span><span>🕐 '+r.time+'</span><span>IP '+r.ip+'</span></div>'+
+      '</div>';
+  });
+  el.innerHTML=html;
+  var c=document.getElementById('auditCount');
+  if(c) c.textContent=MOCK_AUDIT_LOG.length;
+}
+
+/* ── 系统配置（系统管理员） ── */
+function toggleDeepSeek(el){
+  el.classList.toggle('on');
+  var enabled=el.classList.contains('on');
+  var group=el.closest('.group');
+  group.querySelectorAll('.cfg-input').forEach(function(inp){inp.disabled=!enabled;});
+  addAuditLog('RULE_TOGGLE','DeepSeek 大模型 → '+(enabled?'启用':'停用'),'成功');
+}
+function saveConfig(){
+  var rows=document.querySelectorAll('#tab-admin .row');
+  var count=0;
+  rows.forEach(function(row){
+    if(row.querySelector('.cfg-input')||row.querySelector('.ios-switch'))count++;
+  });
+  addAuditLog('CONFIG_UPDATE','费用限额 / 异常规则 / 审批权限 / 环境变量 已保存（'+count+' 项）','成功');
+  alert('配置已保存（原型演示）\n共 '+count+' 项配置进入审计日志。');
+}
+function resetConfig(){
+  if(!confirm('确认恢复所有配置为默认值？'))return;
+  document.querySelectorAll('#tab-admin .cfg-input').forEach(function(inp){
+    inp.value=inp.defaultValue;
+    inp.disabled=false;
+  });
+  document.querySelectorAll('#tab-admin .ios-switch').forEach(function(t){t.classList.add('on');});
+  alert('已恢复默认值（原型演示）');
+}
+
+/* ── 用量统计（系统管理员） ── */
+var PRICE_INPUT_PER_1K=0.001, PRICE_OUTPUT_PER_1K=0.002;
+function calcCostCny(pt,ct){return (pt/1000)*PRICE_INPUT_PER_1K+(ct/1000)*PRICE_OUTPUT_PER_1K;}
+function formatTokens(n){
+  if(n>=1000000)return (n/1000000).toFixed(2)+'M';
+  if(n>=1000)return (n/1000).toFixed(1)+'K';
+  return String(n);
+}
+var MOCK_OVERVIEW={total_calls:1286,total_prompt_tokens:2856000,total_completion_tokens:1344000,total_tokens:4200000,estimated_cost_cny:5.54,avg_latency_ms:2300,success_rate:97.3,error_count:35};
+var MOCK_DAILY=[
+  {date:'07-08',calls:152,tokens:486000},{date:'07-09',calls:198,tokens:632000},
+  {date:'07-10',calls:176,tokens:561000},{date:'07-11',calls:223,tokens:748000},
+  {date:'07-12',calls:165,tokens:528000},{date:'07-13',calls:189,tokens:615000},
+  {date:'07-14',calls:183,tokens:630000}
+];
+var MOCK_BY_TYPE=[
+  {type:'发票OCR提取',calls:520,prompt_tokens:1820000,completion_tokens:780000,tokens:2600000,cost:3.38},
+  {type:'行程单OCR提取',calls:186,prompt_tokens:620000,completion_tokens:310000,tokens:930000,cost:1.24},
+  {type:'异常检测',calls:320,prompt_tokens:280000,completion_tokens:156000,tokens:436000,cost:0.59},
+  {type:'分类限额',calls:225,prompt_tokens:120000,completion_tokens:84000,tokens:204000,cost:0.29},
+  {type:'Vision API',calls:35,prompt_tokens:16000,completion_tokens:14000,tokens:30000,cost:0.04}
+];
+var MOCK_RECORDS=[
+  {time:'2026-07-14 14:32:15',request_id:'a3f8b2c1e9d4',call_type:'发票OCR提取',prompt_tokens:3200,completion_tokens:1800,latency_ms:2100,status:'成功'},
+  {time:'2026-07-14 14:30:08',request_id:'b7e2d9f4a1c6',call_type:'异常检测',prompt_tokens:850,completion_tokens:420,latency_ms:1200,status:'成功'},
+  {time:'2026-07-14 14:28:33',request_id:'c1d5a8e3b2f7',call_type:'行程单OCR提取',prompt_tokens:3100,completion_tokens:1650,latency_ms:2350,status:'成功'},
+  {time:'2026-07-14 14:25:51',request_id:'d9f3c7b1e6a2',call_type:'分类限额',prompt_tokens:520,completion_tokens:380,latency_ms:900,status:'成功'},
+  {time:'2026-07-14 14:20:17',request_id:'e2a6b9d4c8f1',call_type:'发票OCR提取',prompt_tokens:2800,completion_tokens:1500,latency_ms:1980,status:'成功'},
+  {time:'2026-07-14 14:10:05',request_id:'a4b7e2d9c6f3',call_type:'Vision API',prompt_tokens:480,completion_tokens:420,latency_ms:3200,status:'成功'},
+  {time:'2026-07-14 13:58:11',request_id:'b5e8a1d4c7f2',call_type:'发票OCR提取',prompt_tokens:3500,completion_tokens:1900,latency_ms:2200,status:'成功'},
+  {time:'2026-07-14 13:45:07',request_id:'d1f4c8b3e7a6',call_type:'行程单OCR提取',prompt_tokens:2900,completion_tokens:1400,latency_ms:2100,status:'成功'},
+  {time:'2026-07-13 17:45:22',request_id:'f2c7e5b8a1d4',call_type:'发票OCR提取',prompt_tokens:3100,completion_tokens:0,latency_ms:0,status:'失败'},
+  {time:'2026-07-13 16:30:08',request_id:'a8b3f6c1e9d2',call_type:'分类限额',prompt_tokens:540,completion_tokens:0,latency_ms:600,status:'失败'},
+  {time:'2026-07-13 15:12:33',request_id:'c5f1b8e3a7d6',call_type:'Vision API',prompt_tokens:460,completion_tokens:400,latency_ms:3100,status:'成功'}
+];
+
+function renderUsageOverview(){
+  var el=document.getElementById('usageOverview');
+  if(!el)return;
+  var o=MOCK_OVERVIEW;
+  var ok=o.total_calls-o.error_count;
+  el.innerHTML=''+
+    '<div class="metric-card"><div class="metric-icon">📋</div><div class="metric-value blue">'+o.total_calls.toLocaleString()+'</div><div class="metric-label">总调用次数</div><div class="metric-sub">成功 '+ok.toLocaleString()+' · 失败 '+o.error_count+'</div></div>'+
+    '<div class="metric-card"><div class="metric-icon">🔢</div><div class="metric-value purple">'+formatTokens(o.total_tokens)+'</div><div class="metric-label">Token 总量</div><div class="metric-sub">输入 '+formatTokens(o.total_prompt_tokens)+' · 输出 '+formatTokens(o.total_completion_tokens)+'</div></div>'+
+    '<div class="metric-card"><div class="metric-icon">💰</div><div class="metric-value green">¥'+o.estimated_cost_cny.toFixed(2)+'</div><div class="metric-label">预估费用 (CNY)</div><div class="metric-sub">按 DeepSeek-V4-Flash 定价</div></div>'+
+    '<div class="metric-card"><div class="metric-icon">⚡</div><div class="metric-value orange">'+(o.avg_latency_ms/1000).toFixed(1)+'s</div><div class="metric-label">平均延迟</div><div class="metric-sub">成功率 '+o.success_rate+'%</div></div>';
+}
+function renderUsageDaily(){
+  var bars=document.getElementById('usageDailyBars');
+  var labels=document.getElementById('usageDailyLabels');
+  if(!bars)return;
+  var max=Math.max.apply(null,MOCK_DAILY.map(function(d){return d.tokens;}));
+  var bh='', lh='';
+  MOCK_DAILY.forEach(function(d){
+    var pct=Math.max(4,(d.tokens/max*100));
+    bh+='<div class="chart-col"><div class="chart-bar" style="height:'+pct.toFixed(0)+'%;"><span class="bar-calls">'+d.calls+'</span></div></div>';
+    lh+='<span>'+d.date+'</span>';
+  });
+  bars.innerHTML=bh;
+  labels.innerHTML=lh;
+}
+function renderUsageByType(){
+  var el=document.getElementById('usageByType');
+  if(!el)return;
+  var total=MOCK_BY_TYPE.reduce(function(s,t){return s+t.tokens;},0);
+  var colors=['var(--ios-blue)','var(--ios-indigo)','var(--ios-orange)','#30B0C7','var(--ios-green)'];
+  var html='';
+  MOCK_BY_TYPE.forEach(function(t,i){
+    var pct=(t.tokens/total*100).toFixed(1);
+    html+='<div class="type-row"><div class="type-head"><span class="tn">'+t.type+'</span>'+
+      '<span class="ts">'+t.calls+' 次 · '+formatTokens(t.tokens)+' · ¥'+t.cost.toFixed(2)+' · '+pct+'%</span></div>'+
+      '<div class="type-track"><div class="type-fill" style="width:'+pct+'%;background:'+colors[i%colors.length]+';"></div></div></div>';
+  });
+  el.innerHTML=html;
+}
+function renderUsageRecords(){
+  var el=document.getElementById('usageRecords');
+  if(!el)return;
+  var html='';
+  MOCK_RECORDS.forEach(function(r){
+    var total=r.prompt_tokens+r.completion_tokens;
+    var cost=calcCostCny(r.prompt_tokens,r.completion_tokens);
+    var latency=r.latency_ms===0?'—':(r.latency_ms+'ms');
+    html+='<div class="usage-rec">'+
+      '<div class="ur-top"><span>'+r.call_type+'</span><span class="usage-pill '+(r.status==='成功'?'success':'error')+'">'+r.status+'</span></div>'+
+      '<div class="ur-meta"><span>🕐 '+r.time+'</span><span>ID '+r.request_id+'</span></div>'+
+      '<div class="ur-meta"><span>输入 '+r.prompt_tokens.toLocaleString()+'</span><span>输出 '+r.completion_tokens.toLocaleString()+'</span><span>总 '+total.toLocaleString()+'</span><span>延迟 '+latency+'</span><span style="color:var(--ios-green);font-weight:700;">¥'+cost.toFixed(4)+'</span></div>'+
+      '</div>';
+  });
+  el.innerHTML=html;
+  var c=document.getElementById('usageRecCount');
+  if(c) c.textContent=MOCK_RECORDS.length;
+}
+function renderUsageAll(){
+  renderUsageOverview();
+  renderUsageDaily();
+  renderUsageByType();
+  renderUsageRecords();
+}
 </script>
 <style>
 /* 详情列表容器内边距 */

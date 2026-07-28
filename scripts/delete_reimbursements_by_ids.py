@@ -5,6 +5,7 @@
     python scripts/delete_reimbursements_by_ids.py <id1> <id2> ...
     # 不传参时使用脚本内 DEFAULT_IDS
 """
+
 import shutil
 import sys
 from datetime import datetime
@@ -45,7 +46,9 @@ def main():
 
         print("[统计] 目标单状态：")
         for r in targets:
-            print(f"  - {r.request_id}  workflow_status={r.workflow_status}  ai_status={r.ai_status}")
+            print(
+                f"  - {r.request_id}  workflow_status={r.workflow_status}  ai_status={r.ai_status}"
+            )
         if missing:
             print(f"[提示] 以下单号不存在，将跳过：{missing}")
 
@@ -70,14 +73,20 @@ def main():
         # 仅清理「仅属于被删打款单、且其他打款单未持有」的发票号防重记录
         safe_hist_nums = hist_target_nums - other_hist_nums
 
-        del_inv = s.query(InvoiceRecord).filter(InvoiceRecord.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_inv = (
+            s.query(InvoiceRecord)
+            .filter(InvoiceRecord.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
-        del_ai = s.query(AICheckResult).filter(AICheckResult.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_ai = (
+            s.query(AICheckResult)
+            .filter(AICheckResult.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
-        del_appr = s.query(ApprovalRecord).filter(ApprovalRecord.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_appr = (
+            s.query(ApprovalRecord)
+            .filter(ApprovalRecord.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
         del_hist = (
             s.query(InvoiceHistory)
@@ -89,14 +98,14 @@ def main():
             if safe_hist_nums
             else 0
         )
-        del_main = s.query(Reimbursement).filter(Reimbursement.request_id.in_(ids)).delete(
-            synchronize_session=False
+        del_main = (
+            s.query(Reimbursement)
+            .filter(Reimbursement.request_id.in_(ids))
+            .delete(synchronize_session=False)
         )
         s.commit()
 
-        remain = (
-            s.query(Reimbursement).filter(Reimbursement.request_id.in_(TARGET_IDS)).count()
-        )
+        remain = s.query(Reimbursement).filter(Reimbursement.request_id.in_(TARGET_IDS)).count()
 
     print(
         f"[删除] 报销单 {del_main} / 发票记录 {del_inv} / AI结果 {del_ai} / "

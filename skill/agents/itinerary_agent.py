@@ -81,11 +81,10 @@ class ItineraryAgent(BaseAgent):
             if synced_amount is not None
             else (apply_amount if apply_amount is not None else 0.0)
         )
-        written_category = (
-            state.get("expense_category") or _derive_expense_category(ocr_result)
-        )
+        written_category = state.get("expense_category") or _derive_expense_category(ocr_result)
 
-        # ── 持久化：仅保存行程单 OCR 结果（报销单在「提交审批」时创建，见 workflow.create_reimbursement_on_submit）──
+        # ── 持久化：仅保存行程单 OCR 结果
+        # （报销单在「提交审批」时创建，见 workflow.create_reimbursement_on_submit）──
         if request_id:
             try:
                 # 行程单复用 InvoiceRecord 表存储 OCR 原始结果

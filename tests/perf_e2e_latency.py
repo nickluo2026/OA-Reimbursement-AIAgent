@@ -171,8 +171,7 @@ def _print_stats(stats: dict) -> None:
     print(f"  平均耗时           : {stats['avg_ms']:.1f} ms")
     print(f"  P95 耗时           : {stats['p95_ms']:.1f} ms")
     print(f"  N3 阈值 (P95 ≤)    : {stats['threshold_ms']} ms")
-    print(f"  AI 调用次数        : {stats.get('ai_calls')} "
-          f"({stats.get('ai_call_breakdown')})")
+    print(f"  AI 调用次数        : {stats.get('ai_calls')} " f"({stats.get('ai_call_breakdown')})")
     print(f"  最终状态           : {stats['status']}")
     print(f"  判定               : {'通过' if stats['pass'] else '不通过'}")
     print("=" * 64)
@@ -183,9 +182,9 @@ def test_e2e_latency_with_stub_ai():
     stats = run_benchmark(ai_delay_ms=2000.0, runs=11)
     _print_stats(stats)
     assert stats["status"] in ("通过", "预警", "拦截"), f"返回状态异常: {stats['status']}"
-    assert stats["pass"], (
-        f"端到端 P95 耗时 {stats['p95_ms']:.1f}ms 超过 N3 阈值 {THRESHOLD_E2E_MS}ms"
-    )
+    assert stats[
+        "pass"
+    ], f"端到端 P95 耗时 {stats['p95_ms']:.1f}ms 超过 N3 阈值 {THRESHOLD_E2E_MS}ms"
 
 
 if __name__ == "__main__":

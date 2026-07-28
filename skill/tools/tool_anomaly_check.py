@@ -160,8 +160,7 @@ def _rule_based_check(
 
     # --- 重复报销检查（查询 invoice_history / invoice_record 表）---
     if invoice_no and not any(
-        a["异常类型"] == "字段缺失" and "发票号码" in a["异常描述"]
-        for a in anomalies
+        a["异常类型"] == "字段缺失" and "发票号码" in a["异常描述"] for a in anomalies
     ):
         window_days = rules.get("duplicate_check_window_days", 30)
         try:
@@ -173,7 +172,9 @@ def _rule_based_check(
             anomalies.append(
                 {
                     "异常类型": "重复报销",
-                    "异常描述": f"发票号码 {invoice_no} 已在 {window_days} 天内报销过，不可重复报销",
+                    "异常描述": (
+                        f"发票号码 {invoice_no} 已在 {window_days} 天内报销过，不可重复报销"
+                    ),
                     "严重程度": "严重",
                 }
             )

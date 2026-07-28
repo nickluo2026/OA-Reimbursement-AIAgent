@@ -135,36 +135,32 @@ class TestOcrPerformance:
         assert len(text) > 0
         assert elapsed < 500, f"大 PDF 提取耗时 {elapsed:.1f}ms > 500ms"
 
-    def test_image_base64_encoding_performance(self):
-        """图片 base64 编码性能（50KB 图片）"""
-        from skill.tools.tool_ocr_extract import _encode_image_base64
+    def test_image_local_ocr_pipeline_routing_performance(self):
+        """图片分支路由性能（mock 本地 OCR 与 DeepSeek，验证管线本地开销）"""
+        from skill.tools.tool_ocr_extract import ocr_extract_invoice
 
         img_path = _generate_test_image(size_kb=50)
         try:
-            start = time.perf_counter()
-            data_uri = _encode_image_base64(img_path)
-            elapsed = _elapsed_ms(start)
+            with (
+                patch(
+                    "skill.utils.image_ocr.extract_image_text",
+                    return_value="发票号码: 12345678\n发票金额: 300.00",
+                ),
+                patch(
+                    "skill.tools.tool_ocr_extract.call_deepseek_function",
+                    return_value={"发票号码": "12345678", "发票金额": 300.00},
+                ),
+            ):
+                start = time.perf_counter()
+                result = ocr_extract_invoice(img_path)
+                elapsed = _elapsed_ms(start)
         finally:
             os.unlink(img_path)
 
-        assert data_uri.startswith("data:image/png;base64,")
+        assert result["发票号码"] == "12345678"
         assert (
             elapsed < THRESHOLD_LOCAL_CALC_MS
-        ), f"base64 编码耗时 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
-
-    def test_large_image_base64_encoding_performance(self):
-        """大图片 base64 编码性能（500KB 图片）"""
-        from skill.tools.tool_ocr_extract import _encode_image_base64
-
-        img_path = _generate_test_image(size_kb=500)
-        try:
-            start = time.perf_counter()
-            _encode_image_base64(img_path)
-            elapsed = _elapsed_ms(start)
-        finally:
-            os.unlink(img_path)
-
-        assert elapsed < 500, f"大图片 base64 编码耗时 {elapsed:.1f}ms > 500ms"
+        ), f"图片管线本地开销 {elapsed:.1f}ms > {THRESHOLD_LOCAL_CALC_MS}ms"
 
 
 # ═══════════════════════════════════════════════

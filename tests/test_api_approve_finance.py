@@ -161,7 +161,7 @@ class TestFinanceAPI:
 
         r1 = client.post("/api/finance", json={"request_id": "REQ-API-001", "action": "归档"})
         assert r1.status_code == 200
-        assert r1.get_json()["data"]["workflow_status"] == "已复核并归档"
+        assert r1.get_json()["data"]["workflow_status"] == "已复核"
 
         # 打款须由出纳岗（FIN-002）执行，落实职责分离
         _login(client, "FIN-002", "finance_pay", "李出纳")
@@ -202,14 +202,90 @@ class TestFinanceAPI:
 
 
 # ── 报销单更新 API（AI 回写落库） ──
+# ── 财务：存档备案（新增 备案 动作） ──
+class TestFinanceFile:
+    def _full_chain(self, c, rid="REQ-FILE-001"):
+        _make_reimbursement(rid=rid)
+        _login(c, "APR-001", "approver", "李总")
+        c.post("/api/approve", json={"request_id": rid, "action": "通过"})
+        _login(c, "FIN-001", "finance_review", "王会计")
+        c.post("/api/finance", json={"request_id": rid, "action": "归档"})
+        _login(c, "FIN-002", "finance_pay", "李出纳")
+        c.post("/api/finance", json={"request_id": rid, "action": "打款"})
+
+    def test_finance_file_full_chain(self, client, fresh_db):
+        """FIN-001 归档 → FIN-002 打款 → FIN-002 存档备案 → 已存档备案（终态）"""
+        rid = "REQ-FILE-001"
+        self._full_chain(client, rid)
+        _login(client, "FIN-002", "finance_pay", "李出纳")
+        r = client.post("/api/finance", json={"request_id": rid, "action": "备案"})
+        assert r.status_code == 200, r.get_data(as_text=True)
+        d = r.get_json()["data"]
+        assert d["workflow_status"] == "已存档备案"
+        assert d["archived_by"] == "FIN-001"
+        assert d["paid_by"] == "FIN-002"
+        assert d["filed_by"] == "FIN-002"
+        # 终态不可再操作
+        r2 = client.post("/api/finance", json={"request_id": rid, "action": "归档"})
+        assert r2.status_code == 400
+
+    def test_finance_file_before_pay_rejected(self, client, fresh_db):
+        """未打款直接存档备案须被拦截，提示需先打款"""
+        rid = "REQ-FILE-002"
+        _make_reimbursement(rid=rid)
+        _login(client, "APR-001", "approver", "李总")
+        client.post("/api/approve", json={"request_id": rid, "action": "通过"})
+        _login(client, "FIN-001", "finance_review", "王会计")
+        client.post("/api/finance", json={"request_id": rid, "action": "归档"})
+        _login(client, "FIN-002", "finance_pay", "李出纳")
+        r = client.post("/api/finance", json={"request_id": rid, "action": "备案"})
+        assert r.status_code == 400
+        assert "打款" in r.get_json()["error"]
+
+    def test_finance_file_audit_log(self, client, fresh_db):
+        """存档备案须写入 ARCHIVE_FILING 审计记录（出纳岗）"""
+        rid = "REQ-FILE-003"
+        self._full_chain(client, rid)
+        _login(client, "FIN-002", "finance_pay", "李出纳")
+        client.post("/api/finance", json={"request_id": rid, "action": "备案"})
+        _login(client, "ADM-001", "admin", "系统管理员")
+        resp = client.get("/api/admin/audit")
+        assert resp.status_code == 200
+        actions = [a["action"] for a in resp.get_json()["items"]]
+        assert "ARCHIVE_FILING" in actions
+
+
+class TestMobilePage:
+    def test_mobile_page_role_injection(self, client, fresh_db):
+        """已登录移动端须注入 data-role，供前端按角色动态渲染 Tab Bar"""
+        _login(client, "ADM-001", "admin", "系统管理员")
+        resp = client.get("/m")
+        assert resp.status_code == 200
+        html = resp.get_data(as_text=True)
+        assert 'data-role="admin"' in html
+        # 角色下拉 + 动态 Tab Bar 容器
+        assert 'id="loginRole"' in html
+        assert 'id="tabBar"' in html
+        assert 'id="tab-admin"' in html
+
+    def test_mobile_page_anonymous_no_role(self, client, fresh_db):
+        resp = client.get("/m")
+        assert resp.status_code == 200
+        assert 'data-role=""' in resp.get_data(as_text=True)
+
+
 class TestReimbursementUpdate:
     def test_update_fields_while_pending(self, client, fresh_db):
         _make_reimbursement()
         _login(client, "EMP-2026", "employee", "张三")
         resp = client.post(
             "/api/reimbursement/REQ-API-001/update",
-            json={"apply_amount": "999.00", "apply_date": "2026-07-20",
-                  "expense_category": "住宿", "reason": "AI 回写后确认"},
+            json={
+                "apply_amount": "999.00",
+                "apply_date": "2026-07-20",
+                "expense_category": "住宿",
+                "reason": "AI 回写后确认",
+            },
         )
         assert resp.status_code == 200
         d = resp.get_json()
@@ -261,8 +337,12 @@ class TestReimbursementUpdate:
         )
         resp = client.post(
             "/api/reimbursement/REQ-WARN-001/update",
-            json={"apply_amount": "200.00", "apply_date": "2026-07-20",
-                  "expense_category": "住宿", "reason": "预警后提交"},
+            json={
+                "apply_amount": "200.00",
+                "apply_date": "2026-07-20",
+                "expense_category": "住宿",
+                "reason": "预警后提交",
+            },
         )
         assert resp.status_code == 200
         d = resp.get_json()
@@ -301,13 +381,21 @@ class TestReimbursementUpdate:
         # 先建一个已存在该发票号的报销单
         client.post(
             "/api/reimbursement/REQ-DIS-A/update",
-            json={"apply_amount": "100", "expense_category": "交通", "invoice_number": "DUP-DIS-001"},
+            json={
+                "apply_amount": "100",
+                "expense_category": "交通",
+                "invoice_number": "DUP-DIS-001",
+            },
         )
         assert check_duplicate_invoice("DUP-DIS-001") is True
         # 另一个单复用同一发票号 → 409
         resp = client.post(
             "/api/reimbursement/REQ-DIS-B/update",
-            json={"apply_amount": "100", "expense_category": "交通", "invoice_number": "DUP-DIS-001"},
+            json={
+                "apply_amount": "100",
+                "expense_category": "交通",
+                "invoice_number": "DUP-DIS-001",
+            },
         )
         assert resp.status_code == 409
         assert "重复" in resp.get_json()["error"]
