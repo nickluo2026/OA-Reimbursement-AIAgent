@@ -47,14 +47,18 @@ def _rule_based_check(
     anomalies: list[dict[str, str]] = []
 
     # --- 字段缺失检查 ---
+    # 购买方/销售方名称为辅助信息：缺失仅作「警告」（预警放行），避免 OCR/Vision 偶发漏识别时
+    # 误拦截有效发票（优化点：配合 OCR 重试收敛，详见 perf 基线 image_vision）。
+    soft_required_fields = {"购买方名称", "销售方名称"}
     for field in rules.get("required_fields", []):
         val = invoice.get(field)
         if val is None or val == "" or val == 0:
+            severity = "警告" if field in soft_required_fields else "严重"
             anomalies.append(
                 {
                     "异常类型": "字段缺失",
                     "异常描述": f"必填字段「{field}」缺失或为空",
-                    "严重程度": "严重",
+                    "严重程度": severity,
                 }
             )
 

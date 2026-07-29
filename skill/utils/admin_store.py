@@ -65,11 +65,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "deepseek_base_url": "https://api.deepseek.com/chat/completions",
     "deepseek_model": "deepseek-v4-flash",
     # 费用限额（与 rules/category_limits.yaml 业务默认值对齐）
-    "limit_travel_transport": 600,
+    "limit_travel_transport": 1000,
     "limit_travel_hotel": 1000,
     "limit_meal_single": 1000,
-    "limit_office": 200,
-    "limit_other": 200,
+    "limit_office": 500,
+    "limit_other": 500,
     # 异常检测规则开关
     "rule_amount": True,
     "rule_invoice_auth": True,
@@ -124,19 +124,19 @@ CONFIG_SCHEMA: list[dict[str, Any]] = [
         "items": [
             {
                 "key": "limit_travel_transport",
-                "label": "差旅-交通 月度限额",
+                "label": "差旅-交通 单笔限额",
                 "type": "number",
                 "unit": "元",
             },
             {
                 "key": "limit_travel_hotel",
-                "label": "差旅-住宿 月度限额",
+                "label": "差旅-住宿 单笔限额",
                 "type": "number",
                 "unit": "元",
             },
-            {"key": "limit_meal_single", "label": "餐饮 月度限额", "type": "number", "unit": "元"},
-            {"key": "limit_office", "label": "办公 月度限额", "type": "number", "unit": "元"},
-            {"key": "limit_other", "label": "其他 月度限额", "type": "number", "unit": "元"},
+            {"key": "limit_meal_single", "label": "餐饮 单笔限额", "type": "number", "unit": "元"},
+            {"key": "limit_office", "label": "办公 单笔限额", "type": "number", "unit": "元"},
+            {"key": "limit_other", "label": "其他 单笔限额", "type": "number", "unit": "元"},
         ],
     },
     {
@@ -466,7 +466,7 @@ _SEED_AUDIT_LOG = [
         "赵管理",
         "系统管理员",
         "CONFIG_UPDATE",
-        "差旅-住宿 月度限额: 5000 → 6000",
+        "差旅-住宿 单笔限额: 5000 → 6000",
         "成功",
         "10.0.1.32",
         "2026-07-14 14:32:18",

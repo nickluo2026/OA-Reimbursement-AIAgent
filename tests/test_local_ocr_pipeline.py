@@ -4,7 +4,7 @@
   - 发票/行程单图片先经本地 OCR 抽文本，再与 PDF 分支共用文本管线
     （call_deepseek_function，call_type 分别为「发票OCR提取」「行程单OCR提取」）
   - OCR 文本被拼入 user_content，且使用带 OCR 容错提示的 system_prompt
-  - 本地 OCR 依赖缺失 / 识别失败时返回 _error（不发起模型调用）
+  - 本地 OCR 依赖缺失 / 识别失败时降级为 DeepSeek Vision 直接识别图片
   - 扫描件 PDF（无文本层）降级为「渲染页图 → 本地 OCR」后走同一文本管线
 
 不发起真实网络请求，不依赖真实 OCR 引擎（全部 mock）。
@@ -54,34 +54,48 @@ def test_invoice_image_uses_local_ocr_then_text_pipeline(mock_ocr, mock_call, tm
     assert "本地 OCR" in kw["system_prompt"]
 
 
+@patch("skill.utils.http_client.call_deepseek_vision")
 @patch("skill.tools.tool_ocr_extract.call_deepseek_function")
 @patch(
     "skill.utils.image_ocr.extract_image_text",
     side_effect=ImportError("未检测到可用的本地 OCR 引擎"),
 )
-def test_invoice_image_ocr_dependency_missing_returns_error(mock_ocr, mock_call, tmp_path):
+def test_invoice_image_ocr_dependency_missing_returns_error(mock_ocr, mock_call, mock_vision, tmp_path):
     img = _make_image(tmp_path)
+    mock_vision.return_value = {
+        "发票号码": "12345678",
+        "开票日期": "2026-07-01",
+        "发票金额": 300.00,
+    }
 
     result = ocr_extract_invoice(img)
 
-    assert "_error" in result
-    assert "本地 OCR 依赖缺失" in result["_error"]
-    mock_call.assert_not_called()
+    # 本地 OCR 依赖缺失 → 降级到 DeepSeek Vision 直接识别图片（不再返回依赖缺失错误）
+    mock_vision.assert_called_once()
+    assert "_error" not in result
+    assert result.get("发票号码") == "12345678"
 
 
+@patch("skill.utils.http_client.call_deepseek_vision")
 @patch("skill.tools.tool_ocr_extract.call_deepseek_function")
 @patch(
     "skill.utils.image_ocr.extract_image_text",
     side_effect=RuntimeError("本地 OCR（tesseract）未能从图片中识别出文字"),
 )
-def test_invoice_image_ocr_no_text_returns_error(mock_ocr, mock_call, tmp_path):
+def test_invoice_image_ocr_no_text_returns_error(mock_ocr, mock_call, mock_vision, tmp_path):
     img = _make_image(tmp_path)
+    mock_vision.return_value = {
+        "发票号码": "12345678",
+        "开票日期": "2026-07-01",
+        "发票金额": 300.00,
+    }
 
     result = ocr_extract_invoice(img)
 
-    assert "_error" in result
-    assert "未能从图片中识别出文字" in result["_error"]
-    mock_call.assert_not_called()
+    # 本地 OCR 识别失败 → 降级到 DeepSeek Vision 直接识别图片
+    mock_vision.assert_called_once()
+    assert "_error" not in result
+    assert result.get("发票号码") == "12345678"
 
 
 # ═══════════════════════════════════════════════

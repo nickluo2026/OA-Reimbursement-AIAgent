@@ -144,11 +144,24 @@ class TestOcrPerformance:
             with (
                 patch(
                     "skill.utils.image_ocr.extract_image_text",
-                    return_value="发票号码: 12345678\n发票金额: 300.00",
+                    return_value="发票号码: 12345678\n开票日期: 2026-07-01\n发票金额: 300.00",
                 ),
                 patch(
                     "skill.tools.tool_ocr_extract.call_deepseek_function",
-                    return_value={"发票号码": "12345678", "发票金额": 300.00},
+                    return_value={
+                        "发票号码": "12345678",
+                        "开票日期": "2026-07-01",
+                        "发票金额": 300.00,
+                    },
+                ),
+                # 防御性 mock：避免字段缺失时触发 Vision 降级重试打到真实网络
+                patch(
+                    "skill.utils.http_client.call_deepseek_vision",
+                    return_value={
+                        "发票号码": "12345678",
+                        "开票日期": "2026-07-01",
+                        "发票金额": 300.00,
+                    },
                 ),
             ):
                 start = time.perf_counter()

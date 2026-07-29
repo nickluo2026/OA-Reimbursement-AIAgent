@@ -48,7 +48,7 @@ class TestClassifyAndCheckLimit:
 
     @patch("skill.tools.tool_classify_limit.call_deepseek_function")
     def test_travel_merges_into_other(self, mock_ds):
-        """差旅限额已并入「其他」：差旅分类回退到「其他」限额（200）"""
+        """差旅限额已并入「其他」：差旅分类回退到「其他」限额（500）"""
         mock_ds.return_value = {
             "费用分类": "差旅",
             "分类依据": "发票项目名称为'住宿费'",
@@ -58,7 +58,7 @@ class TestClassifyAndCheckLimit:
             "校验结果": "金额300 ≤ 限额1000，通过",
         }
         result = classify_and_check_limit({"发票金额": 300})
-        # 回退到「其他=200」，300 > 200 → 超限
+        # 回退到「其他=500」，300 < 500 → 不超限
         assert result["费用分类"] == "差旅"
-        assert result["分类限额"] == 200
-        assert result["是否超限"] is True
+        assert result["分类限额"] == 500
+        assert result["是否超限"] is False

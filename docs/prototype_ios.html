@@ -101,9 +101,15 @@ body{
   font-size:13px; font-weight:600; color:var(--ios-gray);
   text-transform:none; margin:0 0 8px 4px; letter-spacing:.2px;
 }
+.required{color:#ff3b30;}
 .ai-dot{
   display:inline-block; margin-left:6px; font-size:10px; font-weight:700;
   color:#fff; background:var(--ios-indigo); padding:1px 6px; border-radius:6px;
+  vertical-align:middle; letter-spacing:.5px;
+}
+.sys-dot{
+  display:inline-block; margin-left:6px; font-size:10px; font-weight:700;
+  color:#fff; background:var(--ios-gray); padding:1px 6px; border-radius:6px;
   vertical-align:middle; letter-spacing:.5px;
 }
 
@@ -240,6 +246,7 @@ body{
 }
 .row.col .row-input{text-align:left;}
 .row-input::placeholder{color:var(--ios-gray2);}
+.unit{flex:none; font-size:15px; color:var(--ios-gray); margin-left:4px;}
 
 /* 校验结果卡片 */
 .result-card{
@@ -463,6 +470,7 @@ body{
 .tag.status-paid{background:rgba(90,200,250,.22); color:#0071a4;}
 .tag.status-transferred{background:rgba(255,204,0,.24); color:#8a6d00;}
 .tag.status-rejected{background:rgba(255,59,48,.14); color:var(--ios-red);}
+.tag.filed{background:rgba(94,92,230,.14); color:var(--ios-indigo);}
 .ai-note{margin:10px 0 2px; padding:9px 11px; border-radius:10px; background:var(--ios-gray6); font-size:12.5px; line-height:1.5; color:#3a3a3c;}
 .item-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;}
 .btn-mini{
@@ -580,6 +588,30 @@ body{
   .island{display:none;}
   .status-bar{height:calc(env(safe-area-inset-top,0px) + 44px); padding-top:env(safe-area-inset-top,0px);}
 }
+
+/* ───────────────── iOS 弹窗（替换原生 alert / confirm） ───────────────── */
+#protoOverlay{
+  position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s ease; padding:32px;
+}
+#protoOverlay.show{opacity:1; pointer-events:auto;}
+.ios-dialog{
+  width:100%; max-width:300px; background:#fff; border-radius:18px; padding:20px 18px 14px;
+  text-align:center; transform:scale(.92); opacity:0;
+  transition:transform .26s cubic-bezier(.32,.72,0,1), opacity .26s ease;
+  box-shadow:0 20px 50px rgba(0,0,0,.3);
+}
+#protoOverlay.show .ios-dialog{transform:scale(1); opacity:1;}
+.ios-dialog-msg{font-size:14px; line-height:1.5; color:#1c1c1e; margin-bottom:18px; white-space:pre-line;}
+.ios-dialog-btns{display:flex; gap:10px;}
+.ios-btn{
+  flex:1; border:none; border-radius:12px; padding:11px 0; font-size:16px; font-weight:600;
+  font-family:inherit; cursor:pointer; -webkit-appearance:none; appearance:none; touch-action:manipulation;
+  background:#f2f2f7; color:#007aff; transition:filter .12s, transform .12s;
+}
+.ios-btn:active{filter:brightness(.94); transform:scale(.97);}
+.ios-btn.ok{background:#007aff; color:#fff;}
+.ios-btn.ok.danger{background:#ff3b30; color:#fff;}
 </style>
 </head>
 <body>
@@ -615,7 +647,7 @@ body{
             <p class="lead">选择票据类型并上传，AI 智能体将自动识别并校验，回写金额与费用类型。</p>
 
             <div class="field-block">
-              <div class="field-label">票据类型</div>
+              <div class="field-label">票据类型 <span class="required">*</span></div>
               <select class="ticket-select" id="ticketType" onchange="onTicketTypeChange()">
                 <option value="" selected disabled hidden>请选择票据类型</option>
                 <option value="发票">🧾 发票</option>
@@ -645,17 +677,9 @@ body{
             </div>
 
             <div class="group" id="autoFields" style="display:none">
-              <div class="group-title">AI 回写信息</div>
+              <div class="group-title">必填信息 <span class="required">*</span></div>
               <div class="row">
-                <div class="row-label">申请金额<span class="ai-dot">AI</span></div>
-                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—">
-              </div>
-              <div class="row">
-                <div class="row-label">申请日期<span class="ai-dot">AI</span></div>
-                <input class="row-input" id="apply_date" type="date">
-              </div>
-              <div class="row">
-                <div class="row-label">费用类型<span class="ai-dot">AI</span></div>
+                <div class="row-label">费用类型<span class="required">*</span><span class="ai-dot">AI</span></div>
                 <select class="row-input" id="expense_category">
                   <option value="">—</option>
                   <option value="交通">交通</option>
@@ -665,16 +689,25 @@ body{
                   <option value="其他">其他</option>
                 </select>
               </div>
+              <div class="row">
+                <div class="row-label">申请金额<span class="required">*</span><span class="ai-dot">AI</span></div>
+                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—">
+                <span class="unit">元</span>
+              </div>
+              <div class="row">
+                <div class="row-label">申请日期<span class="required">*</span><span class="sys-dot">系统</span></div>
+                <input class="row-input" id="apply_date" type="date">
+              </div>
               <div class="row col">
-                <div class="row-label">报销事由</div>
+                <div class="row-label">报销事由<span class="required">*</span></div>
                 <input class="row-input" id="reason" placeholder="如：北京出差交通费">
               </div>
             </div>
 
             <div class="result-card" id="resultCard" style="display:none"></div>
 
-            <button class="btn-primary" id="submitBtn" onclick="onSubmitClick()">提交校验</button>
-            <p class="footnote">金额 / 费用类型 / 日期由 AI 智能体自动回写，请核对无误后提交审批。</p>
+            <button class="btn-primary" id="submitBtn" onclick="onSubmitClick()">提交审核</button>
+            <p class="footnote">申请金额和费用类型由 AI 智能体自动回写，申请日期为系统当前时间，报销事由为人工填写，请核对无误后提交审批。</p>
           </div>
         </section>
 
@@ -836,11 +869,10 @@ body{
         <div class="sheet">
           <div class="sheet-grab"></div>
           <div class="sheet-head">
-            <span id="pipeTitle">智能体执行流水线</span>
+            <span id="pipeTitle">🧾 发票智能体</span>
             <button class="sheet-close" onclick="closePipelineSheet()">完成</button>
           </div>
           <div class="sheet-body">
-            <div class="pipe-badge" id="pipeBadge">🧾 发票智能体</div>
             <div class="pipe-steps" id="pipeSteps"></div>
             <div class="result-card" id="pipeResult" style="display:none; margin-top:14px;"></div>
           </div>
@@ -856,6 +888,14 @@ body{
             <button class="sheet-close" onclick="closeDetail()">完成</button>
           </div>
           <div class="sheet-body" id="detailBody"></div>
+        </div>
+      </div>
+
+      <!-- 发票 / 行程单原件查看器 -->
+      <div class="inv-viewer" id="invoiceViewer" onclick="if(event.target===this)closeInvoiceViewer()">
+        <div class="inv-viewer-card">
+          <img class="inv-viewer-img" id="invViewerImg" src="" alt="发票原件">
+          <button class="inv-viewer-close" onclick="closeInvoiceViewer()">✕ 关闭</button>
         </div>
       </div>
 
@@ -920,6 +960,65 @@ body{
 </div>
 
 <script>
+/* ───────────────── iOS 弹窗（替换原生 alert / confirm） ───────────────── */
+var protoOverlay = null;
+var protoOverlayHideTimer = null;
+var protoOverlayGen = 0;   // 代际令牌：隐藏时自增，作废所有挂起的「显示」回调，避免 rAF 竞态导致遮罩残留
+function getProtoOverlay(){
+  if(!protoOverlay){
+    protoOverlay = document.createElement('div');
+    protoOverlay.id = 'protoOverlay';
+    document.body.appendChild(protoOverlay);
+  }
+  return protoOverlay;
+}
+// 显示遮罩前，先取消任何待执行的「清空内容」定时器，避免新弹窗被上一个定时器的清空操作覆盖
+function showProtoOverlay(){
+  if(protoOverlayHideTimer){ clearTimeout(protoOverlayHideTimer); protoOverlayHideTimer=null; }
+  if(!protoOverlay) return;
+  var g = ++protoOverlayGen;
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    if(protoOverlayGen===g && protoOverlay) protoOverlay.classList.add('show');
+  }); });
+}
+// 隐藏遮罩：作废挂起的显示回调，移除 show 类，并在过渡结束后清空内容
+function hideProtoOverlay(){
+  protoOverlayGen++;   // 使任何未执行的 showProtoOverlay rAF 失效
+  if(!protoOverlay) return;
+  protoOverlay.classList.remove('show');
+  if(protoOverlayHideTimer) clearTimeout(protoOverlayHideTimer);
+  protoOverlayHideTimer = setTimeout(function(){
+    protoOverlayHideTimer=null;
+    if(protoOverlay && protoOverlay.parentNode) protoOverlay.innerHTML='';
+  }, 300);
+}
+// 信息提示（对应 alert）
+function iosAlert(msg){
+  var ov = getProtoOverlay();
+  if(protoOverlayHideTimer){ clearTimeout(protoOverlayHideTimer); protoOverlayHideTimer=null; }
+  ov.innerHTML = '<div class="ios-dialog"><div class="ios-dialog-msg"></div>' +
+    '<div class="ios-dialog-btns"><button class="ios-btn ok">确定</button></div></div>';
+  ov.querySelector('.ios-dialog-msg').textContent = msg;
+  ov.querySelector('.ios-btn.ok').onclick = hideProtoOverlay;
+  showProtoOverlay();
+}
+// 确认弹窗（对应 confirm），opts: {confirmText, cancelText, danger, onConfirm}
+function iosConfirm(msg, onConfirm, opts){
+  opts = opts || {};
+  var ov = getProtoOverlay();
+  if(protoOverlayHideTimer){ clearTimeout(protoOverlayHideTimer); protoOverlayHideTimer=null; }
+  ov.innerHTML = '<div class="ios-dialog"><div class="ios-dialog-msg"></div>' +
+    '<div class="ios-dialog-btns">' +
+    '<button class="ios-btn cancel">' + (opts.cancelText || '取消') + '</button>' +
+    '<button class="ios-btn ok' + (opts.danger ? ' danger' : '') + '">' + (opts.confirmText || '确定') + '</button>' +
+    '</div></div>';
+  ov.querySelector('.ios-dialog-msg').textContent = msg;
+  function close(){ hideProtoOverlay(); }
+  ov.querySelector('.ios-btn.cancel').onclick = close;
+  ov.querySelector('.ios-btn.ok').onclick = function(){ hideProtoOverlay(); if(onConfirm) onConfirm(); };
+  showProtoOverlay();
+}
+
 /* ───────────────── 状态时钟 ───────────────── */
 function updateClock(){
   var d=new Date(), h=d.getHours(), m=d.getMinutes();
@@ -1052,14 +1151,15 @@ function enterApp(){
   addAuditLog('LOGIN','工号 '+(ROLES[currentRole]||ROLES.employee).account,'成功');
 }
 function logout(){
-  if(!confirm('确定退出登录吗？'))return;
-  document.getElementById('loginScreen').classList.remove('hide');
-  document.getElementById('loginError').style.display='none';
-  document.getElementById('loginPwd').value='123456';
-  resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
-  setSubmitMode('check');
-  document.getElementById('navTitle').textContent='登录';
-  /* 内存状态在多次登录间保持连续（职责分离演示流程），刷新页面即可恢复初始数据 */
+  iosConfirm('确定退出登录吗？', function(){
+    document.getElementById('loginScreen').classList.remove('hide');
+    document.getElementById('loginError').style.display='none';
+    document.getElementById('loginPwd').value='123456';
+    resetUploadForm(); resetResultCard(); document.getElementById('resultCard').style.display='none';
+    setSubmitMode('check');
+    document.getElementById('navTitle').textContent='登录';
+    /* 内存状态在多次登录间保持连续（职责分离演示流程），刷新页面即可恢复初始数据 */
+  });
 }
 
 /* ───────────────── Tab Bar 动态渲染 / Tab 切换 ───────────────── */
@@ -1132,22 +1232,26 @@ function resetResultCard(){
 function setSubmitMode(mode){
   var btn=document.getElementById('submitBtn');
   if(mode==='approve'){btn.textContent='✅ 提交审批'; btn.classList.add('approve');}
-  else{btn.textContent='提交校验'; btn.classList.remove('approve');}
+  else{btn.textContent='提交审核'; btn.classList.remove('approve');}
 }
 
 /* ───────────────── 提交按钮分发 ───────────────── */
 function onSubmitClick(){
   if(!currentTicketType){
-    alert('请先选择票据类型。'); return;
+    iosAlert('请先选择票据类型。'); return;
   }
   var btn=document.getElementById('submitBtn');
   if(btn.classList.contains('approve')){
-    submitApprove();
+    iosConfirm('确认提交审批？\n提交后将流转至主管待审队列，请核对金额与事由无误。', function(){
+      submitApprove();
+    }, {confirmText:'提交审批'});
   }else{
     if(document.getElementById('uploadPreview').style.display!=='block'){
-      alert('请先点击上传票据，再提交校验。'); return;
+      iosAlert('请先点击上传票据，再提交校验。'); return;
     }
-    runCheck();
+    iosConfirm('确认提交审核？\n提交后由智能体执行 OCR 校验并回写报销字段。', function(){
+      runCheck();
+    }, {confirmText:'提交审核'});
   }
 }
 
@@ -1158,7 +1262,7 @@ function dsOn(){
 }
 function runCheck(){
   if(!dsOn()){
-    alert('⚠️ DeepSeek 大模型已停用（系统配置）。\n请联系系统管理员启用，或人工填写报销单后直接提交审批。');
+    iosAlert('⚠️ DeepSeek 大模型已停用（系统配置）。\n请联系系统管理员启用，或人工填写报销单后直接提交审批。');
     document.getElementById('autoFields').style.display='block';
     document.getElementById('apply_date').value=new Date().toISOString().slice(0,10);
     setSubmitMode('approve');
@@ -1166,8 +1270,7 @@ function runCheck(){
   }
   var isIt=currentTicketType==='行程单';
   var steps=isIt?ITINERARY_STEPS:INVOICE_STEPS;
-  document.getElementById('pipeTitle').textContent=isIt?'行程单智能体执行流水线':'发票智能体执行流水线';
-  document.getElementById('pipeBadge').innerHTML=(isIt?'🚕':'🧾')+' '+(isIt?'行程单智能体':'发票智能体');
+  document.getElementById('pipeTitle').textContent=isIt?'🚕 行程单智能体':'🧾 发票智能体';
   document.getElementById('pipeResult').style.display='none';
   document.getElementById('pipeResult').className='result-card';
 
@@ -1218,7 +1321,9 @@ function renderResult(){
   ic.innerHTML=rc.innerHTML;
 }
 function closeAfterDone(){
-  // 校验通过则把提交按钮切为「提交审批」（仅关闭时由用户决定）
+  // 校验通过则自动切为「提交审批」模式，并收起流水线弹层，
+  // 确保下方提交按钮进入 approve 模式、可被点击并弹出确认框
+  if(lastCheckPassed){ setTimeout(closePipelineSheet, 1000); }
 }
 
 /* ───────────────── AI 回写字段 ───────────────── */
@@ -1228,6 +1333,7 @@ function autoFillFromOcr(){
   var amount = isIt ? data.ocr_result['总金额_元'] : (data.ocr_result['价税合计_小写']||data.ocr_result['发票金额']);
   document.getElementById('apply_amount').value=amount;
   document.getElementById('expense_category').value = isIt?'交通':((data.classify_result&&data.classify_result['费用分类'])||'住宿');
+  // 申请日期为系统当前时间（非 AI 提取）
   document.getElementById('apply_date').value=new Date().toISOString().slice(0,10);
   document.getElementById('reason').value = isIt?'北京出差市内交通':'北京出差交通费';
   document.getElementById('autoFields').style.display='block';
@@ -1242,8 +1348,14 @@ function closePipelineSheet(){
 /* ───────────────── 提交审批 → 我的报销 ───────────────── */
 function submitApprove(){
   var amount=parseFloat(document.getElementById('apply_amount').value)||0;
-  var reason=document.getElementById('reason').value||'—';
-  var category=document.getElementById('expense_category').value||'—';
+  var reason=document.getElementById('reason').value.trim();
+  var category=document.getElementById('expense_category').value;
+  var applyDate=document.getElementById('apply_date').value;
+  if(!applyDate){ iosAlert('请填写申请日期（必填）。'); return; }
+  if(amount<=0){ iosAlert('请填写申请金额（必填）。'); return; }
+  if(!category){ iosAlert('请选择费用类型（必填）。'); return; }
+  if(!reason){ iosAlert('请填写报销事由（必填）。'); return; }
+  reason = reason||'—';
   var type=currentTicketType;
   var seq=(MOCK_MY_LIST.length+1).toString().padStart(3,'0');
   var newId='RB-'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'-'+seq;
@@ -1384,7 +1496,9 @@ function renderMyList(){
         ? '<span class="tag approved">✓ 已通过</span>'
         : item.status==='已打款'
           ? '<span class="tag status-paid">💰 已打款</span>'
-          : '<span class="tag pending">⏳ 待审批</span>';
+          : item.status==='已存档备案'
+            ? '<span class="tag filed">📦 已存档备案</span>'
+            : '<span class="tag pending">⏳ 待审批</span>';
       html+='<div class="reimb-item" onclick="openDetail(\''+item.id+'\')">'+
         '<div class="ri-head"><div><div class="ri-id">'+item.id+'</div><div class="ri-reason">'+escHtml(item.reason)+'</div></div>'+
         '<div class="ri-amount">¥'+item.amount.toFixed(2)+'</div></div>'+
@@ -1408,7 +1522,7 @@ function findItem(id){
 }
 function openDetail(id){
   var item=findItem(id);
-  if(!item){alert('未找到报销单 '+id);return;}
+  if(!item){iosAlert('未找到报销单 '+id);return;}
   var typeTag=item.type==='发票'?'🧾 发票':'🚕 行程单';
   var statusText=item.archiveStatus==='archived'
     ? (item.filed?'📦 已存档备案':(item.paid?'💰 已打款':'📦 已复核'))
@@ -1427,7 +1541,8 @@ function openDetail(id){
     (item.paidBy?infoRow('打款人',item.paidBy):'')+
     (item.filedBy?infoRow('存档备案人',item.filedBy):'')+
     (item.filedTime?infoRow('备案时间',item.filedTime):'')+
-    infoRow('当前状态',statusText);
+    infoRow('当前状态',statusText)+
+    invoiceRowHtml(item);
   var body='<div class="detail-list">'+html+'</div>';
 
   document.getElementById('detailTitle').textContent='报销单详情';
@@ -1435,6 +1550,58 @@ function openDetail(id){
   document.getElementById('detailSheet').classList.add('show');
 }
 function closeDetail(){document.getElementById('detailSheet').classList.remove('show');}
+
+/* ── 发票 / 行程单原件（缩略图 + 全屏查看） ── */
+// 根据报销单数据生成一张发票/行程单影像（SVG data URI，离线可用，原型演示）
+function invoiceDataUri(item, large){
+  var w = large? 680 : 228, h = large? 900 : 300;
+  var isInv = item.type!=='行程单';   // 非行程单按发票处理
+  var color = isInv? '#d93636' : '#0a7d3c';
+  var title = isInv? '增值税电子普通发票' : '差旅行程单';
+  var sub = isInv? 'INVOICE' : 'TRAVEL ITINERARY';
+  var id = item.id||'—';
+  var amount = item.amount!=null? '¥'+item.amount.toFixed(2) : '¥0.00';
+  var date = (item.submitTime||'—').slice(0,10);
+  var rows = isInv
+    ? [['销售方','示例科技有限公司'],['购买方',(item.submitter||'—')],['价税合计',amount],['开票日期',date]]
+    : [['行程',(item.category||'—')+'行程'],['金额',amount],['日期',date],['乘客',(item.submitter||'—')]];
+  var y = 138, rh = 40, rtxt='';
+  rows.forEach(function(r){
+    rtxt += '<text x="28" y="'+y+'" fill="#333" font-size="17" font-family="sans-serif">'+escHtml(r[0])+'</text>'+
+            '<text x="'+(w-28)+'" y="'+y+'" fill="#111" font-size="17" font-family="sans-serif" font-weight="bold" text-anchor="end">'+escHtml(r[1])+'</text>'+
+            '<line x1="28" y1="'+(y+12)+'" x2="'+(w-28)+'" y2="'+(y+12)+'" stroke="#eee" stroke-width="1"/>';
+    y += rh;
+  });
+  if(large){
+    rtxt += '<text x="28" y="'+(h-30)+'" fill="#999" font-size="14" font-family="sans-serif">原型演示 · 电子票据影像（仅供展示）</text>';
+  }
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+
+    '<rect width="100%" height="100%" fill="#fff"/>'+
+    '<rect x="0" y="0" width="100%" height="92" fill="'+color+'"/>'+
+    '<text x="28" y="46" fill="#fff" font-size="25" font-family="sans-serif" font-weight="bold">'+title+'</text>'+
+    '<text x="28" y="74" fill="rgba(255,255,255,.85)" font-size="14" font-family="sans-serif">'+sub+' · '+escHtml(id)+'</text>'+
+    '<text x="28" y="124" fill="#111" font-size="20" font-family="sans-serif" font-weight="bold">'+amount+'</text>'+
+    rtxt+'</svg>';
+  return 'data:image/svg+xml,'+encodeURIComponent(svg);
+}
+// 详情内「发票原件」最后一栏：缩略图，点击查看原件
+function invoiceRowHtml(item){
+  var label = item.type==='行程单'? '行程单原件' : '发票原件';
+  return '<div class="row inv-row" style="border-top:.5px solid var(--ios-sep);">'+
+    '<div class="row-label" style="color:var(--ios-gray);font-weight:500;">'+label+'</div>'+
+    '<div class="inv-thumb" onclick="openInvoiceOriginal(\''+item.id+'\')">'+
+      '<img src="'+invoiceDataUri(item,false)+'" alt="'+label+'缩略图">'+
+      '<span class="inv-zoom">🔍</span>'+
+    '</div></div>';
+}
+// 全屏查看发票/行程单原件
+function openInvoiceOriginal(id){
+  var item=findItem(id);
+  if(!item){ iosAlert('未找到报销单 '+id); return; }
+  document.getElementById('invViewerImg').src=invoiceDataUri(item,true);
+  document.getElementById('invoiceViewer').classList.add('show');
+}
+function closeInvoiceViewer(){ document.getElementById('invoiceViewer').classList.remove('show'); }
 
 /* ═════════════════ 主管 / 财务 / 出纳 / 管理员 ═════════════════ */
 
@@ -1487,40 +1654,43 @@ function handleApprove(id,action){
   var item=MOCK_PENDING_LIST.find(function(x){return x.id===id;});
   if(!item)return;
   if(action==='驳回'){
-    if(!confirm('确认驳回报销单 '+id+'？'))return;
-    MOCK_PENDING_LIST=MOCK_PENDING_LIST.filter(function(x){return x.id!==id;});
-    approveDoneTotal++;
-    addAuditLog('REJECT', id+' · ¥'+item.amount.toFixed(2), '成功');
-    alert('已驳回：'+id+'\n（原型演示，未实际提交）');
-    renderApproveList();
+    iosConfirm('确认驳回报销单 '+id+'？', function(){
+      MOCK_PENDING_LIST=MOCK_PENDING_LIST.filter(function(x){return x.id!==id;});
+      approveDoneTotal++;
+      addAuditLog('REJECT', id+' · ¥'+item.amount.toFixed(2), '成功');
+      iosAlert('已驳回：'+id+'\n（原型演示，未实际提交）');
+      renderApproveList();
+    }, {confirmText:'驳回', danger:true});
     return;
   }
   if(action==='转审'){
-    if(!confirm('确认将报销单 '+id+' 转交上级审批？'))return;
-    item.transferred=true;
-    addAuditLog('TRANSFER', id+' · ¥'+item.amount.toFixed(2)+' → 上级', '成功');
-    alert('已转审：'+id+'\n（已提交上级审批，原型演示）');
-    renderApproveList();
+    iosConfirm('确认将报销单 '+id+' 转交上级审批？', function(){
+      item.transferred=true;
+      addAuditLog('TRANSFER', id+' · ¥'+item.amount.toFixed(2)+' → 上级', '成功');
+      iosAlert('已转审：'+id+'\n（已提交上级审批，原型演示）');
+      renderApproveList();
+    }, {confirmText:'转审'});
     return;
   }
   if(action==='通过'){
-    if(!confirm('确认通过报销单 '+id+'？'))return;
-    var finItem=Object.assign({},item,{
-      archiveStatus:'pending',
-      approver:ROLES.approver.user+'（已审批通过 '+nowStr()+'）',
-      paid:false,paidBy:null,receiptArchived:false,
-      filed:false,filedBy:null,filedTime:null
-    });
-    MOCK_FINAL_LIST.unshift(finItem);
-    MOCK_PENDING_LIST=MOCK_PENDING_LIST.filter(function(x){return x.id!==id;});
-    approveDoneTotal++;
-    var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
-    if(myItem){myItem.status='已通过';myItem.approver=finItem.approver;}
-    addAuditLog('APPROVE', id+' · ¥'+item.amount.toFixed(2), '成功');
-    alert('已通过：'+id+'\n（已流转至财务复核列表）');
-    renderApproveList();
-    renderFinReviewList();
-    renderMyList();
+    iosConfirm('确认通过报销单 '+id+'？', function(){
+      var finItem=Object.assign({},item,{
+        archiveStatus:'pending',
+        approver:ROLES.approver.user+'（已审批通过 '+nowStr()+'）',
+        paid:false,paidBy:null,receiptArchived:false,
+        filed:false,filedBy:null,filedTime:null
+      });
+      MOCK_FINAL_LIST.unshift(finItem);
+      MOCK_PENDING_LIST=MOCK_PENDING_LIST.filter(function(x){return x.id!==id;});
+      approveDoneTotal++;
+      var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
+      if(myItem){myItem.status='已通过';myItem.approver=finItem.approver;}
+      addAuditLog('APPROVE', id+' · ¥'+item.amount.toFixed(2), '成功');
+      iosAlert('已通过：'+id+'\n（已流转至财务复核列表）');
+      renderApproveList();
+      renderFinReviewList();
+      renderMyList();
+    }, {confirmText:'通过'});
     return;
   }
 }
@@ -1616,38 +1786,40 @@ function handleFinance(id,action){
   var currentAccount=(ROLES[currentRole]||ROLES.employee).account;
 
   if(action==='归档'){
-    if(!confirm('确认复核报销单 '+id+'？'))return;
-    item.archiveStatus='archived';
-    item.archivedBy=currentAccount;
-    addAuditLog('ARCHIVE', id+' · ¥'+item.amount.toFixed(2)+' · 复核人 '+currentAccount, '成功');
-    alert('已复核：'+id+'\n（请切换「出纳岗 FIN-002」登录后发起打款）');
-    renderFinReviewList();
-    renderFinPayList();
+    iosConfirm('确认复核报销单 '+id+'？', function(){
+      item.archiveStatus='archived';
+      item.archivedBy=currentAccount;
+      addAuditLog('ARCHIVE', id+' · ¥'+item.amount.toFixed(2)+' · 复核人 '+currentAccount, '成功');
+      iosAlert('已复核：'+id+'\n（请切换「出纳岗 FIN-002」登录后发起打款）');
+      renderFinReviewList();
+      renderFinPayList();
+    }, {confirmText:'复核'});
     return;
   }
 
   if(action==='打款'){
     if(item.archiveStatus!=='archived'){
-      alert('请先由「财务岗（FIN-001）」确认复核，再发起打款。');
+      iosAlert('请先由「财务岗（FIN-001）」确认复核，再发起打款。');
       return;
     }
     if(item.archivedBy&&item.archivedBy===currentAccount){
-      alert('⚠️ 舞弊风险拦截：复核人（'+item.archivedBy+'）与打款人不能为同一人。\n请切换「出纳岗（FIN-002）」账号登录后再发起打款。');
+      iosAlert('⚠️ 舞弊风险拦截：复核人（'+item.archivedBy+'）与打款人不能为同一人。\n请切换「出纳岗（FIN-002）」账号登录后再发起打款。');
       return;
     }
-    if(!confirm('确认打款报销单 '+id+'（金额 ¥'+item.amount.toFixed(2)+'）？'))return;
-    item.paid=true;
-    item.paidBy=currentAccount;
-    financePaidTotal++;
-    addAuditLog('PAYMENT_INIT', id+' · ¥'+item.amount.toFixed(2)+' · 打款人 '+currentAccount, '成功');
-    item.receiptArchived=true;
-    addAuditLog('RECEIPT_ARCHIVE', id+' · 银行回单已自动回写归档', '成功');
-    var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
-    if(myItem){myItem.status='已打款';myItem.paidBy=currentAccount;}
-    alert('已打款：'+id+'\n（费用已打款；银行回单已自动回写归档，请在「待存档备案」中完成存档）');
-    renderFinPayList();
-    renderFinFileList();
-    renderMyList();
+    iosConfirm('确认打款报销单 '+id+'（金额 ¥'+item.amount.toFixed(2)+'）？', function(){
+      item.paid=true;
+      item.paidBy=currentAccount;
+      financePaidTotal++;
+      addAuditLog('PAYMENT_INIT', id+' · ¥'+item.amount.toFixed(2)+' · 打款人 '+currentAccount, '成功');
+      item.receiptArchived=true;
+      addAuditLog('RECEIPT_ARCHIVE', id+' · 银行回单已自动回写归档', '成功');
+      var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
+      if(myItem){myItem.status='已打款';myItem.paidBy=currentAccount;}
+      iosAlert('已打款：'+id+'\n（费用已打款；银行回单已自动回写归档，请在「待存档备案」中完成存档）');
+      renderFinPayList();
+      renderFinFileList();
+      renderMyList();
+    }, {confirmText:'打款', danger:true});
     return;
   }
 }
@@ -1655,10 +1827,8 @@ function handleFinance(id,action){
 /* ── 存档备案 Sheet（凭证 + 审批记录 + 发票影像） ── */
 function openFileSheet(id){
   var item=findItem(id);
-  if(!item){alert('未找到报销单 '+id);return;}
-  if(!item.paid){alert('该报销单尚未打款，无法存档备案。请先发起打款。');return;}
-  var imgIcon=item.type==='发票'?'🧾':'🚕';
-  var imgName=item.type==='发票'?'invoice':'itinerary';
+  if(!item){iosAlert('未找到报销单 '+id);return;}
+  if(!item.paid){iosAlert('该报销单尚未打款，无法存档备案。请先发起打款。');return;}
   var html='';
   html+='<p style="font-size:13px;color:var(--ios-gray);margin:0 0 12px;">请核对以下三项材料齐全后，确认统一存档备案。</p>';
   html+='<div class="file-block"><div class="fb-title">🧾 凭证（银行回单 / 付款凭证）</div><div class="detail-list">'+
@@ -1673,10 +1843,15 @@ function openFileSheet(id){
     infoRow('财务复核',item.archivedBy||'—')+
     infoRow('AI 复核摘要',item.aiSummary||'—')+
     '</div></div>';
-  html+='<div class="file-block"><div class="fb-title">🖼️ 发票影像（'+(item.type==='发票'?'发票':'行程单')+'）</div>'+
-    '<div style="display:flex;align-items:center;gap:12px;padding:8px;background:var(--ios-gray6);border-radius:10px;">'+
-      '<div style="width:52px;height:68px;border:1px dashed var(--ios-gray3);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;background:#fff;">'+imgIcon+'</div>'+
-      '<div style="font-size:12px;color:var(--ios-gray);word-break:break-all;">影像文件：'+escHtml(item.id)+'_'+imgName+'.jpg（已上传）</div>'+
+  var invLabel=item.type==='行程单'?'行程单原件':'发票原件';
+  html+='<div class="file-block"><div class="fb-title">🖼️ '+invLabel+'</div>'+
+    '<div class="detail-list" style="padding:0;">'+
+      '<div class="row inv-row">'+
+        '<div class="inv-thumb" onclick="openInvoiceOriginal(\''+item.id+'\')">'+
+          '<img src="'+invoiceDataUri(item,false)+'" alt="'+invLabel+'缩略图">'+
+          '<span class="inv-zoom">🔍</span>'+
+        '</div>'+
+      '</div>'+
     '</div></div>';
   html+='<div style="margin:6px 0 14px;">'+
     '<label class="check-row"><input type="checkbox" id="chkVoucher" checked> 凭证（银行回单）已齐全</label>'+
@@ -1691,18 +1866,21 @@ function openFileSheet(id){
 function closeFileSheet(){document.getElementById('fileSheet').classList.remove('show');}
 function confirmFile(id){
   var item=findItem(id);
-  if(!item){alert('未找到报销单 '+id);return;}
+  if(!item){iosAlert('未找到报销单 '+id);return;}
   var v=document.getElementById('chkVoucher')&&document.getElementById('chkVoucher').checked;
   var a=document.getElementById('chkApproval')&&document.getElementById('chkApproval').checked;
   var i=document.getElementById('chkImage')&&document.getElementById('chkImage').checked;
-  if(!(v&&a&&i)){alert('请确认凭证、审批记录、发票影像三项均已齐全后再存档备案。');return;}
+  if(!(v&&a&&i)){iosAlert('请确认凭证、审批记录、发票影像三项均已齐全后再存档备案。');return;}
   var currentAccount=(ROLES[currentRole]||ROLES.employee).account;
   item.filed=true;
   item.filedBy=currentAccount;
   item.filedTime=nowStr();
+  // 同步更新「我的报销」卡片状态
+  var myItem=MOCK_MY_LIST.find(function(x){return x.id===id;});
+  if(myItem){myItem.status='已存档备案';myItem.filedBy=currentAccount;myItem.filedTime=nowStr();}
   addAuditLog('ARCHIVE_FILING', id+' · 凭证+审批记录+发票影像 已统一存档备案 · 备案人 '+currentAccount, '成功');
   closeFileSheet();
-  alert('已存档备案：'+id+'\n（凭证、审批记录及发票影像已统一归档备案）');
+  iosAlert('已存档备案：'+id+'\n（凭证、审批记录及发票影像已统一归档备案）');
   renderFinFileList();
   renderFinPayList();
   renderMyList();
@@ -1768,16 +1946,17 @@ function saveConfig(){
     if(row.querySelector('.cfg-input')||row.querySelector('.ios-switch'))count++;
   });
   addAuditLog('CONFIG_UPDATE','费用限额 / 异常规则 / 审批权限 / 环境变量 已保存（'+count+' 项）','成功');
-  alert('配置已保存（原型演示）\n共 '+count+' 项配置进入审计日志。');
+  iosAlert('配置已保存（原型演示）\n共 '+count+' 项配置进入审计日志。');
 }
 function resetConfig(){
-  if(!confirm('确认恢复所有配置为默认值？'))return;
-  document.querySelectorAll('#tab-admin .cfg-input').forEach(function(inp){
-    inp.value=inp.defaultValue;
-    inp.disabled=false;
-  });
-  document.querySelectorAll('#tab-admin .ios-switch').forEach(function(t){t.classList.add('on');});
-  alert('已恢复默认值（原型演示）');
+  iosConfirm('确认恢复所有配置为默认值？', function(){
+    document.querySelectorAll('#tab-admin .cfg-input').forEach(function(inp){
+      inp.value=inp.defaultValue;
+      inp.disabled=false;
+    });
+    document.querySelectorAll('#tab-admin .ios-switch').forEach(function(t){t.classList.add('on');});
+    iosAlert('已恢复默认值（原型演示）');
+  }, {confirmText:'恢复默认', danger:true});
 }
 
 /* ── 用量统计（系统管理员） ── */
@@ -1884,6 +2063,35 @@ function renderUsageAll(){
 /* 详情列表容器内边距 */
 .detail-list{padding:2px 0;}
 .detail-list .row:first-child{border-top:none;}
+
+/* 发票原件缩略图（详情内最后一栏） */
+.inv-row{align-items:center;}
+.inv-thumb{
+  position:relative; width:76px; height:100px; flex:none; border-radius:10px; overflow:hidden;
+  background:#fff; border:1px solid var(--ios-sep); box-shadow:0 2px 8px rgba(0,0,0,.12);
+  cursor:pointer; touch-action:manipulation;
+}
+.inv-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.inv-thumb:active{transform:scale(.97);}
+.inv-thumb .inv-zoom{
+  position:absolute; right:4px; bottom:4px; font-size:12px; line-height:1.4;
+  background:rgba(0,0,0,.5); color:#fff; border-radius:6px; padding:1px 5px;
+}
+
+/* 发票 / 行程单原件全屏查看器 */
+.inv-viewer{
+  position:absolute; inset:0; background:rgba(0,0,0,.92);
+  opacity:0; pointer-events:none; transition:opacity .25s; z-index:200;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.inv-viewer.show{opacity:1; pointer-events:auto;}
+.inv-viewer-card{position:relative; max-width:100%; max-height:100%; display:flex; flex-direction:column; align-items:center; gap:14px;}
+.inv-viewer-img{max-width:100%; max-height:78vh; border-radius:12px; background:#fff; box-shadow:0 12px 40px rgba(0,0,0,.5);}
+.inv-viewer-close{
+  background:rgba(255,255,255,.16); color:#fff; border:none; border-radius:12px;
+  padding:11px 22px; font-size:16px; font-weight:600; cursor:pointer; -webkit-appearance:none;
+}
+.inv-viewer-close:active{background:rgba(255,255,255,.28);}
 </style>
 </body>
 </html>

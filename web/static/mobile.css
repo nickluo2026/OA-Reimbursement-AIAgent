@@ -92,11 +92,20 @@ body{
   font-size:13px; font-weight:600; color:var(--ios-gray);
   text-transform:none; margin:0 0 8px 4px; letter-spacing:.2px;
 }
+.required{color:#ff3b30;}
 .ai-dot{
   display:inline-block; margin-left:6px; font-size:10px; font-weight:700;
   color:#fff; background:var(--ios-indigo); padding:1px 6px; border-radius:6px;
   vertical-align:middle; letter-spacing:.5px;
 }
+/* 申请日期「系统」徽标（对齐 prototype_ios.html） */
+.sys-dot{
+  display:inline-block; margin-left:6px; font-size:10px; font-weight:700;
+  color:#fff; background:var(--ios-gray); padding:1px 6px; border-radius:6px;
+  vertical-align:middle; letter-spacing:.5px;
+}
+/* 金额单位（对齐 prototype_ios.html） */
+.unit{flex:none; font-size:15px; color:var(--ios-gray); margin-left:4px;}
 
 /* 票据类型下拉列表 */
 .select-wrap{
@@ -180,7 +189,8 @@ body{
 .result-card.pass .rc-label{color:#1d7a36;}
 .result-card.warning .rc-label{color:#b25e00;}
 .result-card.block .rc-label{color:#c0241a;}
-.rc-summary{font-size:13px; line-height:1.5; color:#3a3a3c;}
+.rc-summary{font-size:13px; line-height:1.5; color:#3a3a3c; white-space:pre-line;}
+.reupload-btn{display:inline-block; margin-top:8px; padding:6px 12px; background:none; border:1px solid var(--ios-blue); border-radius:8px; color:var(--ios-blue); font-size:13px; cursor:pointer;}
 
 /* 主按钮（iOS 实心胶囊） */
 .btn-primary{
@@ -588,3 +598,67 @@ body{
 .scene-step.end .scene-dot{background:var(--ios-indigo);}
 .scene-step b{font-size:15px;}
 .scene-step .row-sub{margin-top:2px;}
+
+/* ───────────────────────── 统一弹窗：Toast + Confirm（替换原生 alert/confirm） ───────────────────────── */
+#appOverlayRoot{position:absolute; inset:0; pointer-events:none; z-index:100;}
+
+/* 轻提示 Toast */
+.toast{
+  position:absolute; top:60px; left:50%; transform:translate(-50%,-12px);
+  max-width:84%; display:flex; align-items:center; gap:8px;
+  padding:11px 16px; border-radius:14px; font-size:14px; font-weight:600;
+  color:#fff; background:rgba(28,28,30,.92); box-shadow:0 8px 24px rgba(0,0,0,.28);
+  opacity:0; transition:opacity .28s ease, transform .28s cubic-bezier(.32,.72,0,1);
+  pointer-events:auto; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+}
+.toast.show{opacity:1; transform:translate(-50%,0);}
+.toast-info{background:rgba(28,28,30,.92);}
+.toast-success{background:rgba(52,199,89,.96);}
+.toast-error{background:rgba(255,59,48,.96);}
+.toast-warning{background:rgba(255,149,0,.97);}
+.toast-ic{font-size:16px; line-height:1; flex:none;}
+.toast-msg{line-height:1.35; word-break:break-word;}
+
+/* iOS 风格确认弹窗 Confirm */
+.confirm-overlay{
+  position:absolute; inset:0; background:rgba(0,0,0,.4);
+  display:flex; align-items:center; justify-content:center; padding:32px;
+  opacity:0; transition:opacity .22s ease; pointer-events:auto; z-index:101;
+}
+.confirm-overlay.show{opacity:1;}
+.confirm-box{
+  width:100%; max-width:300px; background:#fff; border-radius:18px;
+  padding:20px 18px 14px; text-align:center;
+  transform:scale(.92); opacity:0;
+  transition:transform .26s cubic-bezier(.32,.72,0,1), opacity .26s ease;
+  box-shadow:0 20px 50px rgba(0,0,0,.3);
+}
+.confirm-overlay.show .confirm-box{transform:scale(1); opacity:1;}
+.confirm-title{font-size:17px; font-weight:700; margin-bottom:8px; letter-spacing:-.2px;}
+.confirm-msg{font-size:13.5px; line-height:1.5; color:#3a3a3c; margin-bottom:18px; white-space:pre-line;}
+.confirm-actions{display:flex; gap:10px;}
+.confirm-btn{
+  flex:1; border:none; border-radius:12px; padding:11px 0; font-size:16px; font-weight:600;
+  font-family:inherit; cursor:pointer; -webkit-appearance:none; appearance:none; touch-action:manipulation;
+  transition:filter .12s, transform .12s;
+}
+.confirm-btn:active{filter:brightness(.93); transform:scale(.97);}
+.confirm-btn.cancel{background:var(--ios-gray6); color:var(--ios-blue);}
+.confirm-btn.ok{background:var(--ios-blue); color:#fff;}
+.confirm-btn.ok.danger{background:var(--ios-red); color:#fff;}
+
+/* ───────────────────────── 克制动效 ───────────────────────── */
+@keyframes panelIn{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+@keyframes fadeUp{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
+.panel-in{animation:panelIn .3s cubic-bezier(.32,.72,0,1) both;}
+.anim-fade-up{animation:fadeUp .34s cubic-bezier(.32,.72,0,1) both;}
+.anim-fade-in{animation:fadeIn .3s ease both;}
+/* 列表错峰：按 --i 递增延迟入场 */
+.stagger-item{animation:fadeUp .34s cubic-bezier(.32,.72,0,1) both; animation-delay:calc(var(--i,0) * 38ms);}
+
+/* 尊重系统「减少动态效果」偏好（克制、无障碍） */
+@media (prefers-reduced-motion: reduce){
+  .panel-in,.anim-fade-up,.anim-fade-in,.stagger-item{animation:none !important;}
+  .toast,.confirm-overlay,.confirm-box{transition:opacity .15s ease !important; animation:none !important;}
+}

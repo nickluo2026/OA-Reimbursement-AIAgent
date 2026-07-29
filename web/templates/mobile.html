@@ -46,10 +46,10 @@
             <p class="lead">选择票据类型并上传，AI 智能体将自动识别并校验，回写金额与费用类型。</p>
 
             <div class="field-block">
-              <div class="field-label">票据类型</div>
+              <div class="field-label">票据类型 <span class="required">*</span></div>
               <div class="select-wrap">
                 <select class="row-input" id="ticketType">
-                  <option value="" selected>请选择票据类型</option>
+                  <option value="" selected disabled hidden>请选择票据类型</option>
                   <option value="发票">🧾 发票</option>
                   <option value="行程单">🚕 行程单</option>
                 </select>
@@ -76,30 +76,15 @@
                     </div>
                   </div>
                   <div class="ocr-status" id="ocrStatus"></div>
+                  <button class="reupload-btn" id="reuploadBtn" data-action="reupload" style="display:none">↻ 重新上传</button>
                 </div>
               </div>
             </div>
 
             <div class="group" id="autoFields" style="display:none">
-              <div class="group-title">AI 回写信息</div>
-              <div class="row col" id="invoiceNumberRow" style="display:none">
-                <div class="row-label">发票号码<span class="ai-dot">AI</span></div>
-                <input class="row-input" id="invoice_number" placeholder="发票号码由 AI 识别">
-              </div>
-              <div class="row col" id="invoiceDateRow" style="display:none">
-                <div class="row-label">开票日期<span class="ai-dot">AI</span></div>
-                <input class="row-input" id="invoice_date" type="date">
-              </div>
+              <div class="group-title">必填信息 <span class="required">*</span></div>
               <div class="row">
-                <div class="row-label">申请金额<span class="ai-dot">AI</span></div>
-                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—"><span class="unit-suffix">元</span>
-              </div>
-              <div class="row">
-                <div class="row-label">申请日期<span class="ai-dot">AI</span></div>
-                <input class="row-input" id="apply_date" type="date">
-              </div>
-              <div class="row">
-                <div class="row-label">费用类型<span class="ai-dot">AI</span></div>
+                <div class="row-label">费用类型<span class="required">*</span><span class="ai-dot">AI</span></div>
                 <select class="row-input" id="expense_category">
                   <option value="">—</option>
                   <option value="交通">交通</option>
@@ -109,17 +94,28 @@
                   <option value="其他">其他</option>
                 </select>
               </div>
+              <div class="row">
+                <div class="row-label">申请金额<span class="required">*</span><span class="ai-dot">AI</span></div>
+                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—"><span class="unit">元</span>
+              </div>
+              <div class="row">
+                <div class="row-label">申请日期<span class="required">*</span><span class="sys-dot">系统</span></div>
+                <input class="row-input" id="apply_date" type="date">
+              </div>
               <div class="row col">
-                <div class="row-label">报销事由<span class="field-badge manual">✍️ 人工</span></div>
+                <div class="row-label">报销事由<span class="required">*</span></div>
                 <input class="row-input" id="reason" placeholder="如：北京出差交通费">
               </div>
+              <!-- 发票号码 / 开票日期：AI 内部回写，不向员工展示（与最新原型一致） -->
+              <input type="hidden" id="invoice_number">
+              <input type="hidden" id="invoice_date">
               <p class="footnote" id="autoFieldsNote" style="display:none;margin-top:10px;text-align:left;"></p>
             </div>
 
             <div class="result-card" id="resultCard" style="display:none"></div>
 
-            <button class="btn-primary" id="submitBtn" data-action="submit">提交校验</button>
-            <p class="footnote">金额 / 费用类型 / 日期由 AI 智能体自动回写，请核对无误后提交审批。</p>
+            <button class="btn-primary" id="submitBtn" data-action="submit">提交审核</button>
+            <p class="footnote">申请金额和费用类型由 AI 智能体自动回写，申请日期为系统当前时间，报销事由为人工填写，请核对无误后提交审批。</p>
           </div>
         </section>
 

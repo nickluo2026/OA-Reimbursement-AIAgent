@@ -58,7 +58,10 @@ WS_TRANSFERRED = "已转审"
 # 主管可见（待处理）状态：转审后进入「已转审」，不再出现在主管待审批列表
 PENDING_STATUSES = (WS_PENDING, WS_IN_REVIEW)
 # 财务可见（待复核 / 已复核待打款 / 已打款待备案 / 已存档备案）状态
-FINANCE_STATUSES = (WS_APPROVED, WS_ARCHIVED)
+# [修复] 原仅含 (待复核, 已复核)，导致「已打款」单据不返回，
+# 出纳端「待存档备案」列表（前端按 workflow_status=='已打款' 筛选）永远为空。
+# 现加入 WS_PAID，使打款后单据进入待存档备案列表；WS_FILED 为终态，无需出现在处理队列。
+FINANCE_STATUSES = (WS_APPROVED, WS_ARCHIVED, WS_PAID)
 
 # 终结状态（不可再被审批）：已转审的单据已移出主管队列，不可被原主管重复审批
 TERMINAL_STATUSES = (WS_REJECTED, WS_PAID, WS_FILED, WS_TRANSFERRED)
@@ -97,7 +100,7 @@ def list_pending() -> list:
 
 
 def list_for_finance() -> list:
-    """待复核 / 已复核的报销单（财务工作台列表）"""
+    """财务工作台列表：待复核 / 已复核（待打款）/ 已打款（待存档备案）的报销单。"""
     from .database import Reimbursement
 
     with get_session() as s:

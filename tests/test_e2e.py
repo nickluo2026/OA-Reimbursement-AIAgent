@@ -139,8 +139,8 @@ class TestEndToEndFlow:
         # 发票已标记报销（防重生效）
         assert check_duplicate_invoice("E2E-INV-001") is True
 
-        # 财务列表已清空（已打款不出现在待处理列表）
-        assert wf.list_for_finance() == []
+        # 财务列表仍含该单：已打款 → 进入「待存档备案」队列（见 workflow.FINANCE_STATUSES）
+        assert len(wf.list_for_finance()) == 1
 
     def test_employee_reject_flow(self, mock_ocr, mock_anomaly, mock_classify, client, fresh_db):
         """审批驳回后不可再进入财务流程"""

@@ -76,7 +76,7 @@ class TestSystemConfigSchema:
         labels = [
             it["label"] for g in schema for it in g["items"] if it["key"] == "limit_meal_single"
         ]
-        assert labels == ["餐饮 月度限额"]
+        assert labels == ["餐饮 单笔限额"]
 
 
 # ─────────────────────────────────────────────
@@ -270,13 +270,13 @@ class TestCountersignToggle:
 class TestCategoryLimitOverride:
     def test_office_limit_overrides_yaml(self, fresh_db):
         # 默认 YAML 办公限额
-        assert get_category_limits()["办公"] == 200.0
+        assert get_category_limits()["办公"] == 500.0
         # 管理员保存新限额后，覆盖应生效
         admin_store.save_system_config({"limit_office": 500}, operator="赵管理")
         assert get_category_limits()["办公"] == 500.0
 
     def test_other_limit_overrides_yaml(self, fresh_db):
-        assert get_category_limits()["其他"] == 200.0
+        assert get_category_limits()["其他"] == 500.0
         admin_store.save_system_config({"limit_other": 800}, operator="赵管理")
         assert get_category_limits()["其他"] == 800.0
 

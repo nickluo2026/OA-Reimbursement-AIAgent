@@ -17,14 +17,15 @@ from ..utils.http_client import call_deepseek_function
 logger = logging.getLogger(__name__)
 
 # 「其他」分类的兜底限额（仅在 YAML 未配置「其他」时使用，避免魔法数字散落）
-DEFAULT_OTHER_LIMIT = 200.0
+DEFAULT_OTHER_LIMIT = 500.0
 
 SYSTEM_PROMPT = (
     "你是费用分类助手。\n"
     "\n"
     "工作流程：\n"
     "1. 根据发票内容（项目名称、销售方、商品明细）判断费用分类\n"
-    "2. 费用分类必须从以下选项中选择：差旅、餐饮、住宿、交通、办公、其他\n"
+    "2. 费用分类必须从以下选项中选择：餐饮、住宿、交通、办公、其他\n"
+    "   （机票、车票、打车等出行费用统一归为「交通」；酒店、住宿费统一归为「住宿」）\n"
     "3. 给出分类依据（说明判断理由）\n"
     "4. 必须调用 classify_and_check_limit 函数返回结构化结果\n"
     "5. 分类依据要具体，引用发票中的实际字段值"

@@ -77,8 +77,8 @@ class TestAdminConfig:
         assert "schema" in data and "config" in data
         # 默认值生效
         assert data["config"]["limit_travel_hotel"] == 1000
-        assert data["config"]["limit_office"] == 200
-        assert data["config"]["limit_other"] == 200
+        assert data["config"]["limit_office"] == 500
+        assert data["config"]["limit_other"] == 500
         # schema 分组完整
         groups = [g["group"] for g in data["schema"]]
         assert "💰 费用限额配置" in groups

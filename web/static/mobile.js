@@ -107,6 +107,143 @@
             '<div style="font-size:15px;font-weight:600;max-width:60%;text-align:right;">' + escHtml(v) + '</div></div>';
     }
 
+    /* ───────────────── 统一弹窗组件（替换原生 alert/confirm） ───────────────── */
+    var overlayRoot = null;
+    function getOverlayRoot() {
+        if (!overlayRoot) {
+            overlayRoot = document.createElement('div');
+            overlayRoot.id = 'appOverlayRoot';
+            var screen = document.querySelector('.screen') || document.body;
+            screen.appendChild(overlayRoot);
+        }
+        return overlayRoot;
+    }
+
+    // 轻提示：type ∈ info|success|error|warning，自动消失，可叠放
+    function showToast(message, type, duration) {
+        type = type || 'info';
+        duration = duration || 2600;
+        var root = getOverlayRoot();
+        var t = document.createElement('div');
+        t.className = 'toast toast-' + type;
+        var ic = { info: 'ℹ️', success: '✅', error: '⚠️', warning: '⚠️' }[type] || 'ℹ️';
+        var icEl = document.createElement('span'); icEl.className = 'toast-ic'; icEl.textContent = ic;
+        var msg = document.createElement('span'); msg.className = 'toast-msg'; msg.textContent = message;
+        t.appendChild(icEl); t.appendChild(msg);
+        root.appendChild(t);
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { t.classList.add('show'); });
+        });
+        setTimeout(function () {
+            t.classList.remove('show');
+            setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 360);
+        }, duration);
+        return t;
+    }
+
+    // iOS 风格确认弹窗：messageOrOpts 可为字符串或 {title,message,confirmText,cancelText,danger,onConfirm,onCancel}
+    function showConfirm(messageOrOpts, onConfirm, opts) {
+        var o;
+        if (messageOrOpts && typeof messageOrOpts === 'object') {
+            o = messageOrOpts;
+        } else {
+            o = Object.assign({ message: messageOrOpts || '' }, opts || {});
+            o.onConfirm = onConfirm;
+        }
+        var title = o.title || '提示';
+        var message = o.message || '';
+        var confirmText = o.confirmText || '确定';
+        var cancelText = o.cancelText || '取消';
+        var danger = !!o.danger;
+
+        var root = getOverlayRoot();
+        var overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        var box = document.createElement('div');
+        box.className = 'confirm-box' + (danger ? ' danger' : '');
+        var h = document.createElement('div'); h.className = 'confirm-title'; h.textContent = title;
+        box.appendChild(h);
+        if (message) {
+            var p = document.createElement('div'); p.className = 'confirm-msg'; p.textContent = message;
+            box.appendChild(p);
+        }
+        var actions = document.createElement('div'); actions.className = 'confirm-actions';
+        var cancelBtn = document.createElement('button'); cancelBtn.className = 'confirm-btn cancel'; cancelBtn.textContent = cancelText;
+        var okBtn = document.createElement('button'); okBtn.className = 'confirm-btn ok' + (danger ? ' danger' : ''); okBtn.textContent = confirmText;
+        actions.appendChild(cancelBtn); actions.appendChild(okBtn);
+        box.appendChild(actions); overlay.appendChild(box); root.appendChild(overlay);
+
+        function close() {
+            overlay.classList.remove('show');
+            setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 240);
+        }
+        function onOk() { close(); if (o.onConfirm) o.onConfirm(); }
+        function onCancel() { close(); if (o.onCancel) o.onCancel(); }
+
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { overlay.classList.add('show'); });
+        });
+        cancelBtn.addEventListener('click', onCancel);
+        okBtn.addEventListener('click', onOk);
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) onCancel(); });
+        return { close: close };
+    }
+    // iOS 风格提示框（仅「确定」按钮，对应 UIAlertController 的 alert 样式）
+    function showAlert(messageOrOpts) {
+        var title, message, confirmText;
+        if (messageOrOpts && typeof messageOrOpts === 'object') {
+            title = messageOrOpts.title || '提示';
+            message = messageOrOpts.message || '';
+            confirmText = messageOrOpts.confirmText || '确定';
+        } else {
+            title = '提示';
+            message = messageOrOpts || '';
+            confirmText = '确定';
+        }
+        var root = getOverlayRoot();
+        var overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        var box = document.createElement('div');
+        box.className = 'confirm-box';
+        var h = document.createElement('div'); h.className = 'confirm-title'; h.textContent = title;
+        box.appendChild(h);
+        if (message) {
+            var p = document.createElement('div'); p.className = 'confirm-msg'; p.textContent = message;
+            box.appendChild(p);
+        }
+        var actions = document.createElement('div'); actions.className = 'confirm-actions';
+        var okBtn = document.createElement('button'); okBtn.className = 'confirm-btn ok'; okBtn.textContent = confirmText;
+        actions.appendChild(okBtn); box.appendChild(actions); overlay.appendChild(box); root.appendChild(overlay);
+        function close() {
+            overlay.classList.remove('show');
+            setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 240);
+        }
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { overlay.classList.add('show'); });
+        });
+        okBtn.addEventListener('click', close);
+        return { close: close };
+    }
+    window.showToast = showToast;
+    window.showConfirm = showConfirm;
+    window.showAlert = showAlert;
+
+    /* ───────────────── 克制动效工具 ───────────────── */
+    // 触发一次性入场动画（重排以重启动画）
+    function animateIn(el, cls) {
+        if (!el) return;
+        cls = cls || 'anim-fade-up';
+        el.classList.remove(cls);
+        void el.offsetWidth;
+        el.classList.add(cls);
+    }
+    // 为容器内子元素按序设置错峰入场（--i 递增延迟）
+    function staggerChildren(container, sel) {
+        if (!container) return;
+        var els = container.querySelectorAll(sel);
+        els.forEach(function (el, i) { el.style.setProperty('--i', i); el.classList.add('stagger-item'); });
+    }
+
     /* ───────────────── 登录 / 退出 ───────────────── */
     var loginRoleSel = document.getElementById('loginRole');
     if (loginRoleSel) {
@@ -143,12 +280,20 @@
     }
 
     window.logout = function () {
-        if (!confirm('确定退出登录吗？')) return;
-        fetch('/api/auth/logout', {
-            method: 'POST',
-            headers: { 'X-CSRF-Token': csrfToken() }
-        }).then(function () { location.reload(); })
-            .catch(function () { location.reload(); });
+        showConfirm({
+            title: '退出登录',
+            message: '确定退出当前账号吗？',
+            confirmText: '退出',
+            cancelText: '取消',
+            danger: true,
+            onConfirm: function () {
+                fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': csrfToken() }
+                }).then(function () { location.reload(); })
+                    .catch(function () { location.reload(); });
+            }
+        });
     };
 
     /* ───────────────── Tab Bar 动态渲染 / Tab 切换 ───────────────── */
@@ -175,6 +320,9 @@
             var el = document.getElementById('tab-' + t);
             if (el) el.style.display = t === tab ? (t === 'guide' ? 'flex' : 'block') : 'none';
         });
+        // Tab 切换：入场动效（面板淡入上滑）
+        var panel = document.getElementById('tab-' + tab);
+        if (panel) { panel.classList.remove('panel-in'); void panel.offsetWidth; panel.classList.add('panel-in'); }
         var m = TAB_META[tab];
         var cfg = ROLES[currentRole] || ROLES.employee;
         document.getElementById('navTitle').textContent = m ? (cfg.icon + ' ' + m.label) : '登录';
@@ -219,10 +367,10 @@
             if (!f) return;
             var ext = '.' + f.name.split('.').pop().toLowerCase();
             if (['.pdf', '.jpg', '.jpeg', '.png'].indexOf(ext) === -1) {
-                alert('仅支持 PDF / JPG / PNG 格式'); fileInput.value = ''; return;
+                showToast('仅支持 PDF / JPG / PNG 格式', 'error'); fileInput.value = ''; return;
             }
             if (f.size > 10 * 1024 * 1024) {
-                alert('文件超过 10MB 限制'); fileInput.value = ''; return;
+                showToast('文件超过 10MB 限制', 'error'); fileInput.value = ''; return;
             }
             selectedFile = f;
             document.getElementById('uploadPlaceholder').style.display = 'none';
@@ -243,17 +391,17 @@
         document.getElementById('uploadPlaceholder').style.display = 'block';
         document.getElementById('uploadPreview').style.display = 'none';
         var o = document.getElementById('ocrStatus'); o.className = 'ocr-status'; o.innerHTML = '';
-        ['apply_amount', 'apply_date', 'invoice_date'].forEach(function (id) { document.getElementById(id).value = ''; });
+        ['apply_amount', 'apply_date', 'invoice_number', 'invoice_date'].forEach(function (id) { document.getElementById(id).value = ''; });
         document.getElementById('expense_category').value = '';
         document.getElementById('reason').value = '';
-        document.getElementById('invoice_number').value = '';
-        document.getElementById('invoiceNumberRow').style.display = 'none';
-        document.getElementById('invoiceDateRow').style.display = 'none';
         document.getElementById('autoFields').style.display = 'none';
         var note = document.getElementById('autoFieldsNote');
         if (note) note.style.display = 'none';
         // 复位 AI/人工徽标（停用态切换回启用态时，恢复"申请金额/日期/费用类型"的 AI 徽标）
         restoreAiBadges();
+        // 收起「重新上传」入口（下次拦截时由 finalize 重新显示）
+        var rb = document.getElementById('reuploadBtn');
+        if (rb) rb.style.display = 'none';
     }
     function resetResultCard() {
         var rc = document.getElementById('resultCard');
@@ -265,7 +413,7 @@
     function setSubmitMode(mode) {
         var btn = document.getElementById('submitBtn');
         if (mode === 'approve') { btn.textContent = '✅ 提交审批'; btn.classList.add('approve'); }
-        else { btn.textContent = '提交校验'; btn.classList.remove('approve'); }
+        else { btn.textContent = '提交审核'; btn.classList.remove('approve'); }
     }
     window.setSubmitMode = setSubmitMode;
 
@@ -273,10 +421,23 @@
         var btn = document.getElementById('submitBtn');
         if (btn.classList.contains('approve')) { submitApprove(); }
         else {
-            if (document.getElementById('uploadPreview').style.display !== 'block') {
-                alert('请先选择票据文件，再提交校验。'); return;
+            // 提交校验前：票据类型 / 票据文件为必填，缺失则弹出 iOS 原生提示框
+            if (!currentTicketType) {
+                showAlert({ title: '请选择票据类型', message: '请先选择票据类型（发票 / 行程单），再提交审核。' });
+                return;
             }
-            runCheck();
+            if (document.getElementById('uploadPreview').style.display !== 'block') {
+                showAlert({ title: '请上传票据文件', message: '请先上传票据文件（PDF / JPG / PNG），再提交审核。' });
+                return;
+            }
+            // 对齐 prototype_ios.html：点击「提交审核」后弹出 iOS 确认框，确认后再执行 OCR 校验
+            showConfirm({
+                title: '确认提交审核？',
+                message: '提交后由智能体执行 OCR 校验并回写报销字段。',
+                confirmText: '提交审核',
+                cancelText: '取消',
+                onConfirm: function () { runCheck(); }
+            });
         }
     };
 
@@ -285,11 +446,11 @@
 
     function setupPipeSheet(isIt, steps) {
         pipeStepsData = steps; pipeIdx = 0; pipeResolved = false;
-        document.getElementById('pipeTitle').textContent = isIt ? '行程单智能体执行流水线' : '发票智能体执行流水线';
-        // 重置可能因「DeepSeek 停用」提示 Sheet 而隐藏的元素（保证下次正常显示）
+        // 对齐 prototype_ios.html：标题直接使用「emoji + 智能体名」，无「执行流水线」后缀
+        document.getElementById('pipeTitle').textContent = isIt ? '🚕 行程单智能体' : '🧾 发票智能体';
+        // 原型无 pipeBadge（标题已含 emoji + 智能体名），隐藏避免重复显示
         var badge = document.getElementById('pipeBadge');
-        badge.style.display = '';
-        badge.innerHTML = (isIt ? '🚕' : '🧾') + ' ' + (isIt ? '行程单智能体' : '发票智能体');
+        badge.style.display = 'none';
         document.getElementById('pipeSteps').style.display = '';
         var pr = document.getElementById('pipeResult'); pr.style.display = 'none'; pr.className = 'result-card'; pr.style.marginTop = '14px';
         var html = '';
@@ -333,7 +494,8 @@
     }
 
     function runCheck() {
-        if (!selectedFile) { alert('请先选择票据文件'); return; }
+        if (!currentTicketType) { showAlert({ title: '请选择票据类型', message: '请先选择票据类型（发票 / 行程单），再提交审核。' }); return; }
+        if (!selectedFile) { showAlert({ title: '请上传票据文件', message: '请先上传票据文件（PDF / JPG / PNG），再提交审核。' }); return; }
         var btn = document.getElementById('submitBtn');
         btn.disabled = true;
         isDisabledMode = false;
@@ -387,18 +549,12 @@
         });
     }
 
-    /* ── DeepSeek 停用时的替代 Sheet：不显示流水线，仅提示信息（与 Web 端 showDisabledModal 一致）── */
+    /* ── DeepSeek 停用：对齐 prototype_ios.html，改用 iOS 原生提示框（iosAlert），不再弹流水线替代 Sheet ── */
     function showDisabledSheet(res) {
         isDisabledMode = true;
         var data = (res && res.d) || {};
         lastRequestId = data._request_id || (data._form && data._form['报销单号']) || '';
         lastCheckPassed = false;
-
-        // 隐藏流水线步骤与智能体徽标，标题改为「AI 校验不可用」
-        document.getElementById('pipeTitle').textContent = 'AI 校验不可用';
-        document.getElementById('pipeBadge').style.display = 'none';
-        var stepsEl = document.getElementById('pipeSteps');
-        stepsEl.innerHTML = ''; stepsEl.style.display = 'none';
 
         // 优先采用后端返回的统一停用说明（来源：config.DEEPSEEK_DISABLED_MSG）
         var summary = DISABLED_MSG_FALLBACK;
@@ -407,14 +563,18 @@
         }
         lastDisabledSummary = summary;
 
-        var pr = document.getElementById('pipeResult');
-        pr.className = 'result-card warning'; pr.style.display = 'flex'; pr.style.marginTop = '0';
-        pr.innerHTML = '<div class="rc-icon">⚠️</div><div class="rc-body"><div class="rc-label">AI 校验已停用</div><div class="rc-summary">' + escHtml(summary) + '</div></div>';
+        // 对齐 prototype：弹 iOS 原生提示框（iosAlert 风格），文案与 prototype 一致
+        showAlert({
+            title: '⚠️ AI 校验已停用',
+            message: 'DeepSeek 大模型已停用（系统配置）。\n' + (summary || '请联系系统管理员启用，或人工填写报销单后直接提交审批。')
+        });
 
-        var ic = document.getElementById('resultCard');
-        ic.className = 'result-card warning'; ic.style.display = 'flex'; ic.innerHTML = pr.innerHTML;
-
-        document.getElementById('pipelineSheet').classList.add('show');
+        // 显示人工填写区、预填系统日期，并切换为「提交审批」模式（与原型 dsOn()=false 分支一致）
+        var af = document.getElementById('autoFields');
+        if (af) af.style.display = 'block';
+        var dEl = document.getElementById('apply_date');
+        if (dEl) dEl.value = new Date().toISOString().slice(0, 10);
+        setSubmitMode('approve');
     }
 
     function finalize(data) {
@@ -428,9 +588,24 @@
         } else {
             lastCheckPassed = false;
             setSubmitMode('check');
+            // 拦截/错误：开放「重新上传」入口，避免员工因字段缺失被卡死
+            var rb = document.getElementById('reuploadBtn');
+            if (rb) rb.style.display = 'inline-block';
         }
     }
 
+    // 从异常检测结果中解析「字段缺失」类异常，提取缺失的字段名（如「发票号码」）
+    function parseMissingFields(anomaly) {
+        var missing = [];
+        var list = (anomaly && anomaly['异常明细']) || [];
+        list.forEach(function (a) {
+            if (a && a['异常类型'] === '字段缺失') {
+                var m = /[「『](.+?)[」』]/.exec(a['异常描述'] || '');
+                if (m && missing.indexOf(m[1]) === -1) missing.push(m[1]);
+            }
+        });
+        return missing;
+    }
     function renderResult(data) {
         var meta = {
             '通过': { icon: '✅', label: '校验通过', cls: 'pass' },
@@ -440,10 +615,23 @@
         }[data.status] || { icon: '✅', label: '校验通过', cls: 'pass' };
         var rc = document.getElementById('pipeResult');
         rc.className = 'result-card ' + meta.cls; rc.style.display = 'flex';
-        rc.innerHTML = '<div class="rc-icon">' + meta.icon + '</div><div class="rc-body"><div class="rc-label">' + meta.label + '</div><div class="rc-summary">' + escHtml(data.summary || '') + '</div></div>';
+        // 拦截态：在后端 summary 基础上补充「缺失字段」与可操作的下一步引导（修复员工卡住问题）
+        var summary = data.summary || '';
+        if (data.status === '拦截') {
+            var missing = parseMissingFields(data.anomaly_result);
+            if (missing.length) {
+                summary = (summary ? summary + '\n' : '') +
+                    '缺失字段：' + missing.join('、') +
+                    '\n请重新上传清晰的票据原件，或更换后再次校验。';
+            } else if (!summary) {
+                summary = '校验未通过，请检查票据后重新提交校验。';
+            }
+        }
+        rc.innerHTML = '<div class="rc-icon">' + meta.icon + '</div><div class="rc-body"><div class="rc-label">' + meta.label + '</div><div class="rc-summary">' + escHtml(summary) + '</div></div>';
         var ic = document.getElementById('resultCard');
         ic.className = 'result-card ' + meta.cls; ic.style.display = 'flex';
         ic.innerHTML = rc.innerHTML;
+        animateIn(ic, 'anim-fade-up');
     }
     function renderErrorResult(msg) {
         var rc = document.getElementById('pipeResult');
@@ -451,6 +639,7 @@
         rc.innerHTML = '<div class="rc-icon">❌</div><div class="rc-body"><div class="rc-label">校验失败</div><div class="rc-summary">' + escHtml(msg) + '</div></div>';
         var ic = document.getElementById('resultCard');
         ic.className = 'result-card block'; ic.style.display = 'flex'; ic.innerHTML = rc.innerHTML;
+        animateIn(ic, 'anim-fade-up');
     }
 
     /* ───────────────── AI 回写字段（启用态） ───────────────── */
@@ -462,19 +651,15 @@
         var isIt = currentTicketType === '行程单';
         var ocr = data.ocr_result || {};
 
-        // 1) 发票号码（启用态 AI 回写）—— 仅发票
+        // 1) 发票号码（AI 内部回写，不向员工展示）
         if (!isIt && ocr['发票号码']) {
             document.getElementById('invoice_number').value = ocr['发票号码'];
             markAuto('invoice_number');
-            setFieldBadge('invoice_number', 'AI', 'ai-dot');
-            document.getElementById('invoiceNumberRow').style.display = 'flex';
         }
-        // 2) 开票日期（启用态 AI 回写）—— 仅发票
+        // 2) 开票日期（AI 内部回写，不向员工展示）
         if (!isIt && ocr['开票日期']) {
             document.getElementById('invoice_date').value = String(ocr['开票日期']).slice(0, 10);
             markAuto('invoice_date');
-            setFieldBadge('invoice_date', 'AI', 'ai-dot');
-            document.getElementById('invoiceDateRow').style.display = 'flex';
         }
         // 3) 申请金额（启用态 AI 回写）
         var amount = isIt ? ocr['总金额_元'] : (ocr['发票金额'] != null ? ocr['发票金额'] : ocr['价税合计_小写']);
@@ -489,7 +674,10 @@
         document.getElementById('expense_category').value = cat; markAuto('expense_category');
         // 6) 报销事由：保留默认 placeholder / 人工填写，标记为人工
         setFieldBadge('reason', '✍️ 人工', 'field-badge manual');
-        document.getElementById('autoFields').style.display = 'block';
+        var af = document.getElementById('autoFields');
+        af.style.display = 'block';
+        // 字段错峰入场
+        staggerChildren(af, '.row');
     }
 
     /* ── 通用徽标设置：找到字段对应 .row-label 下的 span，替换为指定样式与文案 ── */
@@ -510,12 +698,6 @@
     /* ───────────────── 停用态：人工填写（关闭提示 Sheet 后进入，与 Web 端一致）───────────────── */
     function enableManualMode() {
         setSubmitMode('approve');
-        document.getElementById('invoiceNumberRow').style.display = 'flex';
-        setFieldBadge('invoice_number', '✍️ 人工', 'field-badge manual');
-        if (currentTicketType === '发票') {
-            document.getElementById('invoiceDateRow').style.display = 'flex';
-            setFieldBadge('invoice_date', '✍️ 人工', 'field-badge manual');
-        }
         document.getElementById('autoFields').style.display = 'block';
         // 停用态：申请金额 / 申请日期 / 费用类型 → 人工徽标
         setFieldBadge('apply_amount', '✍️ 人工', 'field-badge manual');
@@ -530,8 +712,6 @@
 
     /* ───────────────── 切换回 AI 回写态时复原所有徽标 ───────────────── */
     function restoreAiBadges() {
-        setFieldBadge('invoice_number', 'AI', 'ai-dot');
-        setFieldBadge('invoice_date', 'AI', 'ai-dot');
         setFieldBadge('apply_amount', 'AI', 'ai-dot');
         setFieldBadge('apply_date', 'AI', 'ai-dot');
         setFieldBadge('expense_category', 'AI', 'ai-dot');
@@ -547,7 +727,7 @@
 
     /* ───────────────── 提交审批 → 我的报销 ───────────────── */
     function submitApprove() {
-        if (!lastRequestId) { alert('未找到报销单号，请重新提交校验'); return; }
+        if (!lastRequestId) { showToast('未找到报销单号，请重新提交校验', 'error'); return; }
         var amount = document.getElementById('apply_amount').value.trim();
         var category = document.getElementById('expense_category').value.trim();
         var date = document.getElementById('apply_date').value.trim();
@@ -555,7 +735,15 @@
         var invNo = document.getElementById('invoice_number').value.trim();
         var invDate = document.getElementById('invoice_date').value.trim();
         if (!amount || !category) {
-            alert('请先填写「申请金额」与「费用类型」后再提交审批');
+            showToast('请先填写「申请金额」与「费用类型」后再提交审批', 'warning');
+            return;
+        }
+        if (!date) {
+            showToast('请先填写「申请日期」后再提交审批', 'warning');
+            return;
+        }
+        if (!reason) {
+            showToast('请先填写「报销事由」后再提交审批', 'warning');
             return;
         }
         var payload = {
@@ -566,23 +754,31 @@
         };
         if (invNo) payload.invoice_number = invNo;
         if (invDate) payload.invoice_date = invDate;
-        fetch('/api/reimbursement/' + encodeURIComponent(lastRequestId) + '/update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-            body: JSON.stringify(payload)
-        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-            .then(function (res) {
-                if (!res.ok || res.d.error) {
-                    showSuccess(null, (res.d && res.d.error) || '提交失败');
-                    return;
-                }
-                showSuccess({
-                    requestId: lastRequestId, amount: amount, category: category,
-                    reason: reason, invoiceNumber: invNo, invoiceDate: invDate
-                });
-                loadMyList();
-            })
-            .catch(function () { showSuccess(null, '请求失败，请重试'); });
+        // 与主管审批一致的 iOS 统一确认框
+        showConfirm({
+            title: '提交审批',
+            message: '确认提交报销单 ' + lastRequestId + ' 并送审？',
+            confirmText: '提交审批',
+            onConfirm: function () {
+                fetch('/api/reimbursement/' + encodeURIComponent(lastRequestId) + '/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+                    body: JSON.stringify(payload)
+                }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                    .then(function (res) {
+                        if (!res.ok || res.d.error) {
+                            showSuccess(null, (res.d && res.d.error) || '提交失败');
+                            return;
+                        }
+                        showSuccess({
+                            requestId: lastRequestId, amount: amount, category: category,
+                            reason: reason, invoiceNumber: invNo, invoiceDate: invDate
+                        });
+                        loadMyList();
+                    })
+                    .catch(function () { showSuccess(null, '请求失败，请重试'); });
+            }
+        });
     }
 
     function showSuccess(item, errorMsg) {
@@ -627,7 +823,7 @@
                 el.innerHTML = '<div class="empty"><div class="ei">📭</div><div class="et">暂无报销记录<br>请在「报销申请」中提交</div></div>';
                 return;
             }
-            el.innerHTML = items.map(function (it) {
+            el.innerHTML = items.map(function (it, i) {
                 var wsMap = {
                     '待审批': '⏳ 待审批', '审批中': '🔄 审批中', '待复核': '✓ 待复核',
                     '已驳回': '✕ 已驳回', '已复核': '📦 已复核', '已打款': '💰 已打款',
@@ -644,7 +840,7 @@
                     ? '<span class="tag itinerary">🚕 行程单</span>'
                     : '<span class="tag invoice">🧾 发票</span>';
                 var stTag = '<span class="tag ' + wsCls + '">' + ws + '</span>';
-                return '<div class="reimb-item" data-action="open-detail" data-id="' + escHtml(it.request_id) + '">' +
+                return '<div class="reimb-item stagger-item" style="--i:' + i + '" data-action="open-detail" data-id="' + escHtml(it.request_id) + '">' +
                     '<div class="ri-head"><div><div class="ri-id">' + escHtml(it.request_id) + '</div>' +
                     '<div class="ri-reason">' + escHtml(it.reason || '—') + '</div></div>' +
                     '<div class="ri-amount">' + money(it.apply_amount) + '</div></div>' +
@@ -795,11 +991,11 @@
                 el.innerHTML = '<div class="empty"><div class="ei">📭</div><div class="et">暂无待审报销单</div></div>';
                 return;
             }
-            el.innerHTML = items.map(function (it) {
+            el.innerHTML = items.map(function (it, i) {
                 var stTag = it.workflow_status === '审批中'
                     ? '<span class="tag pending">🔄 审批中（会签）</span>'
                     : '<span class="tag pending">⏳ 待审</span>';
-                return '<div class="reimb-item" style="cursor:default;">' +
+                return '<div class="reimb-item stagger-item" style="--i:' + i + ';cursor:default;">' +
                     '<div class="ri-head"><div><div class="ri-id">' + escHtml(it.request_id) + '</div>' +
                     '<div class="ri-reason">' + escHtml(it.reason || '—') + '</div></div>' +
                     '<div class="ri-amount">' + money(it.apply_amount) + '</div></div>' +
@@ -825,21 +1021,29 @@
             '驳回': '确认驳回报销单 ' + id + '？',
             '转审': '确认将报销单 ' + id + ' 转交上级审批？'
         }[action];
-        if (confirmMsg && !confirm(confirmMsg)) return;
-        fetch('/api/approve', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-            body: JSON.stringify({ request_id: id, action: action })
-        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-            .then(function (res) {
-                if (!res.ok || res.d.error) { alert((res.d && res.d.error) || '操作失败'); }
-                else {
-                    var st = (res.d.data && res.d.data.workflow_status) || '';
-                    alert('已' + action + '：' + id + (st ? '\n当前状态：' + st : ''));
-                }
-                loadApproveList();
-            })
-            .catch(function () { alert('请求失败，请重试'); loadApproveList(); });
+        if (!confirmMsg) return;
+        showConfirm({
+            title: '审批确认',
+            message: confirmMsg,
+            confirmText: action,
+            danger: action === '驳回',
+            onConfirm: function () {
+                fetch('/api/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+                    body: JSON.stringify({ request_id: id, action: action })
+                }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                    .then(function (res) {
+                        if (!res.ok || res.d.error) { showToast((res.d && res.d.error) || '操作失败', 'error'); }
+                        else {
+                            var st = (res.d.data && res.d.data.workflow_status) || '';
+                            showToast('已' + action + '：' + id + (st ? '（当前状态：' + st + '）' : ''), 'success');
+                        }
+                        loadApproveList();
+                    })
+                    .catch(function () { showToast('请求失败，请重试', 'error'); loadApproveList(); });
+            }
+        });
     };
 
     /* ═════════════════ 财务 / 出纳（职责分离） ═════════════════ */
@@ -866,8 +1070,8 @@
             el.innerHTML = '<div class="empty"><div class="ei">📦</div><div class="et">暂无待复核的报销单</div></div>';
             return;
         }
-        el.innerHTML = list.map(function (it) {
-            return '<div class="reimb-item" style="cursor:default;">' +
+        el.innerHTML = list.map(function (it, i) {
+            return '<div class="reimb-item stagger-item" style="--i:' + i + ';cursor:default;">' +
                 '<div class="ri-head"><div><div class="ri-id">' + escHtml(it.request_id) + '</div>' +
                 '<div class="ri-reason">' + escHtml(it.reason || '—') + '</div></div>' +
                 '<div class="ri-amount">' + money(it.apply_amount) + '</div></div>' +
@@ -890,8 +1094,8 @@
             el.innerHTML = '<div class="empty"><div class="ei">💰</div><div class="et">暂无待打款的报销单<br>（请先由财务岗 FIN-001 受理）</div></div>';
             return;
         }
-        el.innerHTML = list.map(function (it) {
-            return '<div class="reimb-item" style="cursor:default;">' +
+        el.innerHTML = list.map(function (it, i) {
+            return '<div class="reimb-item stagger-item" style="--i:' + i + ';cursor:default;">' +
                 '<div class="ri-head"><div><div class="ri-id">' + escHtml(it.request_id) + '</div>' +
                 '<div class="ri-reason">' + escHtml(it.reason || '—') + '</div></div>' +
                 '<div class="ri-amount">' + money(it.apply_amount) + '</div></div>' +
@@ -914,8 +1118,8 @@
             el.innerHTML = '<div class="empty"><div class="ei">📦</div><div class="et">暂无待存档备案的报销单<br>（打款后在此统一存档备案）</div></div>';
             return;
         }
-        el.innerHTML = list.map(function (it) {
-            return '<div class="reimb-item" style="cursor:default;">' +
+        el.innerHTML = list.map(function (it, i) {
+            return '<div class="reimb-item stagger-item" style="--i:' + i + ';cursor:default;">' +
                 '<div class="ri-head"><div><div class="ri-id">' + escHtml(it.request_id) + '</div>' +
                 '<div class="ri-reason">' + escHtml(it.reason || '—') + '</div></div>' +
                 '<div class="ri-amount">' + money(it.apply_amount) + '</div></div>' +
@@ -936,18 +1140,24 @@
             body: JSON.stringify({ request_id: id, action: action })
         }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {
-                if (!res.ok || res.d.error) { alert((res.d && res.d.error) || '操作失败'); }
+                if (!res.ok || res.d.error) { showToast((res.d && res.d.error) || '操作失败', 'error'); }
                 else if (onDone) { onDone(res.d); }
                 loadFinanceLists();
             })
-            .catch(function () { alert('请求失败，请重试'); loadFinanceLists(); });
+            .catch(function () { showToast('请求失败，请重试', 'error'); loadFinanceLists(); });
     }
 
     window.handleFinance = function (id, action) {
         if (action === '归档') {
-            if (!confirm('确认复核并受理报销单 ' + id + '？')) return;
-            postFinance(id, '归档', function () {
-                alert('已复核并受理：' + id + '\n（请切换「出纳岗 FIN-002」登录后发起打款）');
+            showConfirm({
+                title: '复核受理',
+                message: '确认复核并受理报销单 ' + id + '？',
+                confirmText: '复核',
+                onConfirm: function () {
+                    postFinance(id, '归档', function () {
+                        showToast('已复核并受理：' + id + '（请切换「出纳岗 FIN-002」登录后发起打款）', 'success', 3200);
+                    });
+                }
             });
             return;
         }
@@ -955,12 +1165,19 @@
             var it = financeItems[id];
             // 舞弊风险拦截（职责分离）：复核人与打款人不能为同一人（后端 /api/finance 同样兜底校验）
             if (it && it.archived_by && currentAccount && it.archived_by === currentAccount) {
-                alert('⚠️ 舞弊风险拦截：复核人（' + it.archived_by + '）与打款人不能为同一人。\n请切换「出纳岗（FIN-002）」账号登录后再发起打款。');
+                showToast('⚠️ 舞弊风险拦截：复核人（' + it.archived_by + '）与打款人不能为同一人。请切换「出纳岗（FIN-002）」账号登录后再发起打款。', 'error', 4000);
                 return;
             }
-            if (!confirm('确认打款报销单 ' + id + (it ? '（金额 ' + money(it.apply_amount) + '）' : '') + '？')) return;
-            postFinance(id, '打款', function () {
-                alert('已打款：' + id + '\n（费用已打款；银行回单已自动回写归档，请在「待存档备案」中完成存档）');
+            showConfirm({
+                title: '发起打款',
+                message: '确认打款报销单 ' + id + (it ? '（金额 ' + money(it.apply_amount) + '）' : '') + '？',
+                confirmText: '打款',
+                danger: true,
+                onConfirm: function () {
+                    postFinance(id, '打款', function () {
+                        showToast('已打款：' + id + '（银行回单已自动回写归档，请在「待存档备案」中完成存档）', 'success', 3200);
+                    });
+                }
             });
             return;
         }
@@ -969,8 +1186,8 @@
     /* ── 存档备案 Sheet（凭证 + 审批记录 + 发票影像） ── */
     window.openFileSheet = function (id) {
         var item = financeItems[id];
-        if (!item) { alert('未找到报销单 ' + id); return; }
-        if (item.workflow_status !== '已打款') { alert('该报销单尚未打款，无法存档备案。请先发起打款。'); return; }
+        if (!item) { showToast('未找到报销单 ' + id, 'error'); return; }
+        if (item.workflow_status !== '已打款') { showToast('该报销单尚未打款，无法存档备案。请先发起打款。', 'warning'); return; }
         var html = '';
         html += '<p style="font-size:13px;color:var(--ios-gray);margin:0 0 12px;">请核对以下三项材料齐全后，确认统一存档备案。</p>';
         html += '<div class="file-block"><div class="fb-title">🧾 凭证（银行回单 / 付款凭证）</div><div class="detail-list">' +
@@ -1000,10 +1217,10 @@
         var v = document.getElementById('chkVoucher') && document.getElementById('chkVoucher').checked;
         var a = document.getElementById('chkApproval') && document.getElementById('chkApproval').checked;
         var i = document.getElementById('chkImage') && document.getElementById('chkImage').checked;
-        if (!(v && a && i)) { alert('请确认凭证、审批记录、发票原件三项均已齐全后再存档备案。'); return; }
+        if (!(v && a && i)) { showToast('请确认凭证、审批记录、发票原件三项均已齐全后再存档备案。', 'warning'); return; }
         postFinance(id, '备案', function () {
             closeFileSheet();
-            alert('已存档备案：' + id + '\n（凭证、审批记录及发票影像已统一归档备案）');
+            showToast('已存档备案：' + id + '（凭证、审批记录及发票影像已统一归档备案）', 'success', 3200);
         });
     };
 
@@ -1143,26 +1360,33 @@
             body: JSON.stringify({ items: items })
         }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {
-                if (!res.ok || res.d.error) { alert((res.d && res.d.error) || '保存失败'); return; }
-                alert('配置已保存\n共 ' + Object.keys(items).length + ' 项配置进入审计日志并立即生效。');
+                if (!res.ok || res.d.error) { showToast((res.d && res.d.error) || '保存失败', 'error'); return; }
+                showToast('配置已保存：共 ' + Object.keys(items).length + ' 项配置进入审计日志并立即生效。', 'success', 3200);
                 loadAdminConfig(true);
             })
-            .catch(function () { alert('请求失败，请重试'); });
+            .catch(function () { showToast('请求失败，请重试', 'error'); });
     };
 
     window.resetConfig = function () {
-        if (!confirm('确认恢复所有配置为默认值？')) return;
-        fetch('/api/admin/config/reset', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-            body: JSON.stringify({})
-        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-            .then(function (res) {
-                if (!res.ok || res.d.error) { alert((res.d && res.d.error) || '恢复失败'); return; }
-                alert('已恢复默认值');
-                loadAdminConfig(true);
-            })
-            .catch(function () { alert('请求失败，请重试'); });
+        showConfirm({
+            title: '恢复默认配置',
+            message: '确认将全部系统配置恢复为默认值？此操作会写入审计日志。',
+            confirmText: '恢复默认',
+            danger: true,
+            onConfirm: function () {
+                fetch('/api/admin/config/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+                    body: JSON.stringify({})
+                }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                    .then(function (res) {
+                        if (!res.ok || res.d.error) { showToast((res.d && res.d.error) || '恢复失败', 'error'); return; }
+                        showToast('已恢复默认值', 'success');
+                        loadAdminConfig(true);
+                    })
+                    .catch(function () { showToast('请求失败，请重试', 'error'); });
+            }
+        });
     };
 
     /* ═════════════════ 系统管理员：审计日志 ═════════════════ */
@@ -1185,9 +1409,9 @@
                 el.innerHTML = '<div class="empty"><div class="ei">📜</div><div class="et">暂无审计日志</div></div>';
                 return;
             }
-            el.innerHTML = items.map(function (r) {
+            el.innerHTML = items.map(function (r, i) {
                 var label = AUDIT_ACTION_LABELS[r.action] || r.action;
-                return '<div class="audit-item">' +
+                return '<div class="audit-item stagger-item" style="--i:' + i + '">' +
                     '<div class="audit-top"><span class="audit-action-tag">' + escHtml(label) + '</span>' +
                     '<span class="audit-result ' + (r.result === '成功' ? 'ok' : 'err') + '">' + escHtml(r.result || '—') + '</span></div>' +
                     '<div class="audit-target">' + escHtml(r.target || '—') + '</div>' +
@@ -1227,10 +1451,10 @@
         var errs = o.error_count || 0;
         var ok = total - errs;
         el.innerHTML = '' +
-            '<div class="metric-card"><div class="metric-icon">📋</div><div class="metric-value blue">' + total.toLocaleString() + '</div><div class="metric-label">总调用次数</div><div class="metric-sub">成功 ' + ok.toLocaleString() + ' · 失败 ' + errs + '</div></div>' +
-            '<div class="metric-card"><div class="metric-icon">🔢</div><div class="metric-value purple">' + formatTokens(o.total_tokens) + '</div><div class="metric-label">Token 总量</div><div class="metric-sub">输入 ' + formatTokens(o.total_prompt_tokens) + ' · 输出 ' + formatTokens(o.total_completion_tokens) + '</div></div>' +
-            '<div class="metric-card"><div class="metric-icon">💰</div><div class="metric-value green">¥' + Number(o.estimated_cost_cny || 0).toFixed(2) + '</div><div class="metric-label">预估费用 (CNY)</div><div class="metric-sub">按 DeepSeek-V4-Flash 定价</div></div>' +
-            '<div class="metric-card"><div class="metric-icon">⚡</div><div class="metric-value orange">' + (Number(o.avg_latency_ms || 0) / 1000).toFixed(1) + 's</div><div class="metric-label">平均延迟</div><div class="metric-sub">成功率 ' + (o.success_rate != null ? o.success_rate : 0) + '%</div></div>';
+            '<div class="metric-card stagger-item" style="--i:0"><div class="metric-icon">📋</div><div class="metric-value blue">' + total.toLocaleString() + '</div><div class="metric-label">总调用次数</div><div class="metric-sub">成功 ' + ok.toLocaleString() + ' · 失败 ' + errs + '</div></div>' +
+            '<div class="metric-card stagger-item" style="--i:1"><div class="metric-icon">🔢</div><div class="metric-value purple">' + formatTokens(o.total_tokens) + '</div><div class="metric-label">Token 总量</div><div class="metric-sub">输入 ' + formatTokens(o.total_prompt_tokens) + ' · 输出 ' + formatTokens(o.total_completion_tokens) + '</div></div>' +
+            '<div class="metric-card stagger-item" style="--i:2"><div class="metric-icon">💰</div><div class="metric-value green">¥' + Number(o.estimated_cost_cny || 0).toFixed(2) + '</div><div class="metric-label">预估费用 (CNY)</div><div class="metric-sub">按 DeepSeek-V4-Flash 定价</div></div>' +
+            '<div class="metric-card stagger-item" style="--i:3"><div class="metric-icon">⚡</div><div class="metric-value orange">' + (Number(o.avg_latency_ms || 0) / 1000).toFixed(1) + 's</div><div class="metric-label">平均延迟</div><div class="metric-sub">成功率 ' + (o.success_rate != null ? o.success_rate : 0) + '%</div></div>';
     }
 
     function renderUsageDaily(daily) {
@@ -1244,9 +1468,9 @@
         }
         var max = Math.max.apply(null, daily.map(function (d) { return d.tokens || 0; })) || 1;
         var bh = '', lh = '';
-        daily.forEach(function (d) {
+        daily.forEach(function (d, i) {
             var pct = Math.max(4, ((d.tokens || 0) / max * 100));
-            bh += '<div class="chart-col"><div class="chart-bar" style="height:' + pct.toFixed(0) + '%;"><span class="bar-calls">' + (d.calls || 0) + '</span></div></div>';
+            bh += '<div class="chart-col stagger-item" style="--i:' + i + '"><div class="chart-bar" style="height:' + pct.toFixed(0) + '%;"><span class="bar-calls">' + (d.calls || 0) + '</span></div></div>';
             lh += '<span>' + escHtml(d.date || '—') + '</span>';
         });
         bars.innerHTML = bh;
@@ -1279,12 +1503,12 @@
             el.innerHTML = '<div class="empty"><div class="ei">📊</div><div class="et">暂无调用明细</div></div>';
             return;
         }
-        el.innerHTML = records.map(function (r) {
+        el.innerHTML = records.map(function (r, i) {
             var pt = r.prompt_tokens || 0, ct = r.completion_tokens || 0;
             var total = pt + ct;
             var cost = r.cost_cny != null ? Number(r.cost_cny) : calcCostCny(pt, ct);
             var latency = (r.latency_ms === 0 || r.latency_ms == null) ? '—' : (r.latency_ms + 'ms');
-            return '<div class="usage-rec">' +
+            return '<div class="usage-rec stagger-item" style="--i:' + i + '">' +
                 '<div class="ur-top"><span>' + escHtml(r.call_type || '—') + '</span><span class="usage-pill ' + (r.status === '成功' ? 'success' : 'error') + '">' + escHtml(r.status || '—') + '</span></div>' +
                 '<div class="ur-meta"><span>🕐 ' + escHtml(r.time || '—') + '</span><span>ID ' + escHtml(r.request_id || '—') + '</span></div>' +
                 '<div class="ur-meta"><span>输入 ' + pt.toLocaleString() + '</span><span>输出 ' + ct.toLocaleString() + '</span><span>总 ' + total.toLocaleString() + '</span><span>延迟 ' + latency + '</span><span style="color:var(--ios-green);font-weight:700;">¥' + cost.toFixed(4) + '</span></div>' +
@@ -1440,6 +1664,10 @@
             case 'inv-download': window.invDownload(); break;
             case 'guide-preset': sendGuidePreset(el.getAttribute('data-kw')); break;
             case 'guide-send': sendGuide(); break;
+            case 'reupload':
+                resetUploadForm();
+                if (fileInput) fileInput.click();
+                break;
         }
     });
 

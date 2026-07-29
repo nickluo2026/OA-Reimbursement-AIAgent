@@ -20,6 +20,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from PIL import Image  # 顶层导入，供类型注解使用（运行时仍由函数内局部导入）
+
 logger = logging.getLogger(__name__)
 
 # PaddleOCR 引擎单例（模型加载较慢，进程内复用）
@@ -125,6 +127,30 @@ def _ocr_with_paddle(image_path: str) -> str:
     return "\n".join(lines)
 
 
+def _preprocess_for_ocr(img) -> Image.Image:
+    """发票图片 OCR 前预处理：灰度化 + 对比度增强 + 适度放大。
+
+    解决「小字号字段（如购买方名称）漏识别」问题——实测对发票图片，
+    灰度 + 对比度 1.6x + 3x 放大可让 Tesseract 完整抽到「上海东闻新材料科技有限公司」，
+    而原图/纯放大均漏抽。属于通用增强，不依赖额外依赖。
+    """
+    from PIL import Image, ImageEnhance
+
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    gray = img.convert("L")
+    # 提升对比度，弱化红章/底纹对文字的干扰
+    gray = ImageEnhance.Contrast(gray).enhance(1.6)
+    w, h = gray.size
+    scale = 3
+    # 限制最大边长，避免超大图放大后内存/耗时爆炸（发票原图高约 2400，3x = 7200，
+    # 故上限需 ≥ 7200 才能保留 3x 放大；过小会把放大砍成 1x 导致识别退化）
+    max_side = 8000
+    if max(w, h) * scale > max_side:
+        scale = max(1, max_side // max(w, h))
+    return gray.resize((w * scale, h * scale), Image.LANCZOS)
+
+
 def _ocr_with_tesseract(image_path: str) -> str:
     """Tesseract 识别图片，返回文本。"""
     import pytesseract
@@ -136,9 +162,8 @@ def _ocr_with_tesseract(image_path: str) -> str:
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
     with Image.open(image_path) as img:
-        # 转 RGB，避免 RGBA/P 模式在部分 tesseract 版本下报错
-        if img.mode not in ("RGB", "L"):
-            img = img.convert("RGB")
+        # 预处理（灰度 + 对比度增强 + 放大）显著提升小字号字段识别率
+        img = _preprocess_for_ocr(img)
         text = pytesseract.image_to_string(img, lang=TESSERACT_LANG)
     return text
 
