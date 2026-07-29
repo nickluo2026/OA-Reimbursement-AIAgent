@@ -60,7 +60,9 @@ def test_invoice_image_uses_local_ocr_then_text_pipeline(mock_ocr, mock_call, tm
     "skill.utils.image_ocr.extract_image_text",
     side_effect=ImportError("未检测到可用的本地 OCR 引擎"),
 )
-def test_invoice_image_ocr_dependency_missing_returns_error(mock_ocr, mock_call, mock_vision, tmp_path):
+def test_invoice_image_ocr_dependency_missing_returns_error(
+    mock_ocr, mock_call, mock_vision, tmp_path
+):
     img = _make_image(tmp_path)
     mock_vision.return_value = {
         "发票号码": "12345678",

@@ -471,10 +471,10 @@ body{
 
 /* 真机全屏自适应：真实手持设备（触摸 / 窄屏）下隐藏桌面预览用的「手机壳」外框，铺满视口 */
 @media (max-width:430px), (pointer:coarse){
-  body{padding:0; background:var(--ios-gray6);}
-  .stage{width:100vw; height:100vh;}
+  html, body{height:100dvh; overflow:hidden; padding:0; background:var(--ios-gray6);}
+  .stage{width:100vw; height:100dvh;}
   .device{
-    width:100vw; height:100vh; height:100dvh; border-radius:0; padding:0;
+    width:100vw; height:100dvh; border-radius:0; padding:0;
     box-shadow:none;
   }
   .device::after{display:none;}
@@ -482,6 +482,9 @@ body{
   .island{display:none;}
   .status-bar{height:calc(env(safe-area-inset-top,0px) + 44px); padding-top:env(safe-area-inset-top,0px);}
 }
+
+/* flex 滚动容器双保险：确保 .content 在真机下可压缩并只在内部滚动 */
+.content{min-height:0;}
 
 /* ───────────────────────── 发票影像缩略图 ───────────────────────── */
 .inv-gallery{

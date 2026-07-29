@@ -1034,14 +1034,21 @@
                     body: JSON.stringify({ request_id: id, action: action })
                 }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
                     .then(function (res) {
-                        if (!res.ok || res.d.error) { showToast((res.d && res.d.error) || '操作失败', 'error'); }
-                        else {
+                        if (!res.ok || res.d.error) {
+                            showAlert({ title: '操作失败', message: (res.d && res.d.error) || '操作失败' });
+                        } else {
                             var st = (res.d.data && res.d.data.workflow_status) || '';
-                            showToast('已' + action + '：' + id + (st ? '（当前状态：' + st + '）' : ''), 'success');
+                            showAlert({
+                                title: '审批成功',
+                                message: '已' + action + '报销单 ' + id + (st ? '（当前状态：' + st + '）' : '')
+                            });
                         }
                         loadApproveList();
                     })
-                    .catch(function () { showToast('请求失败，请重试', 'error'); loadApproveList(); });
+                    .catch(function () {
+                        showAlert({ title: '请求失败', message: '网络异常，请重试' });
+                        loadApproveList();
+                    });
             }
         });
     };
@@ -1140,11 +1147,11 @@
             body: JSON.stringify({ request_id: id, action: action })
         }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {
-                if (!res.ok || res.d.error) { showToast((res.d && res.d.error) || '操作失败', 'error'); }
+                if (!res.ok || res.d.error) { showAlert({ title: '操作失败', message: (res.d && res.d.error) || '操作失败' }); }
                 else if (onDone) { onDone(res.d); }
                 loadFinanceLists();
             })
-            .catch(function () { showToast('请求失败，请重试', 'error'); loadFinanceLists(); });
+            .catch(function () { showAlert({ title: '请求失败', message: '网络异常，请重试' }); loadFinanceLists(); });
     }
 
     window.handleFinance = function (id, action) {
@@ -1155,7 +1162,7 @@
                 confirmText: '复核',
                 onConfirm: function () {
                     postFinance(id, '归档', function () {
-                        showToast('已复核并受理：' + id + '（请切换「出纳岗 FIN-002」登录后发起打款）', 'success', 3200);
+                        showAlert({ title: '复核成功', message: '已复核并受理报销单 ' + id + '（请切换出纳岗 FIN-002 登录后发起打款）' });
                     });
                 }
             });
@@ -1165,7 +1172,7 @@
             var it = financeItems[id];
             // 舞弊风险拦截（职责分离）：复核人与打款人不能为同一人（后端 /api/finance 同样兜底校验）
             if (it && it.archived_by && currentAccount && it.archived_by === currentAccount) {
-                showToast('⚠️ 舞弊风险拦截：复核人（' + it.archived_by + '）与打款人不能为同一人。请切换「出纳岗（FIN-002）」账号登录后再发起打款。', 'error', 4000);
+                showAlert({ title: '舞弊风险拦截', message: '复核人（' + it.archived_by + '）与打款人不能为同一人。请切换「出纳岗（FIN-002）」账号登录后再发起打款。' });
                 return;
             }
             showConfirm({
@@ -1175,7 +1182,7 @@
                 danger: true,
                 onConfirm: function () {
                     postFinance(id, '打款', function () {
-                        showToast('已打款：' + id + '（银行回单已自动回写归档，请在「待存档备案」中完成存档）', 'success', 3200);
+                        showAlert({ title: '打款成功', message: '已打款报销单 ' + id + '（银行回单已自动回写归档，请在「待存档备案」中完成存档）' });
                     });
                 }
             });
@@ -1186,8 +1193,8 @@
     /* ── 存档备案 Sheet（凭证 + 审批记录 + 发票影像） ── */
     window.openFileSheet = function (id) {
         var item = financeItems[id];
-        if (!item) { showToast('未找到报销单 ' + id, 'error'); return; }
-        if (item.workflow_status !== '已打款') { showToast('该报销单尚未打款，无法存档备案。请先发起打款。', 'warning'); return; }
+        if (!item) { showAlert({ title: '操作失败', message: '未找到报销单 ' + id }); return; }
+        if (item.workflow_status !== '已打款') { showAlert({ title: '无法存档备案', message: '该报销单尚未打款，无法存档备案。请先发起打款。' }); return; }
         var html = '';
         html += '<p style="font-size:13px;color:var(--ios-gray);margin:0 0 12px;">请核对以下三项材料齐全后，确认统一存档备案。</p>';
         html += '<div class="file-block"><div class="fb-title">🧾 凭证（银行回单 / 付款凭证）</div><div class="detail-list">' +
@@ -1217,10 +1224,10 @@
         var v = document.getElementById('chkVoucher') && document.getElementById('chkVoucher').checked;
         var a = document.getElementById('chkApproval') && document.getElementById('chkApproval').checked;
         var i = document.getElementById('chkImage') && document.getElementById('chkImage').checked;
-        if (!(v && a && i)) { showToast('请确认凭证、审批记录、发票原件三项均已齐全后再存档备案。', 'warning'); return; }
+        if (!(v && a && i)) { showAlert({ title: '材料不齐', message: '请确认凭证、审批记录、发票原件三项均已齐全后再存档备案。' }); return; }
         postFinance(id, '备案', function () {
             closeFileSheet();
-            showToast('已存档备案：' + id + '（凭证、审批记录及发票影像已统一归档备案）', 'success', 3200);
+            showAlert({ title: '存档备案成功', message: '已存档备案报销单 ' + id + '（凭证、审批记录及发票影像已统一归档备案）' });
         });
     };
 

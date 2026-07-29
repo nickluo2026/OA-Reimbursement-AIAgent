@@ -185,7 +185,7 @@ def _session_guard():
 #              浏览器每次都重新拉取 /static/*.js *.css，杜绝浏览器侧陈旧。
 # 生产环境保持默认（模板不自动重载以保性能，静态资源长缓存），更新内容必须靠「部署即重启」刷新。
 OA_ENV = os.environ.get("OA_ENV", "production")
-APP_VERSION = os.environ.get("APP_VERSION", "20260722")
+APP_VERSION = os.environ.get("APP_VERSION", "20260729")
 if OA_ENV != "production" or os.environ.get("FLASK_DEBUG") == "1":
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
