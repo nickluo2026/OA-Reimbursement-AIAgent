@@ -1,13 +1,15 @@
 pymupdf==1.25.0
 requests==2.32.3
 # ── 本地 OCR 引擎（方案 A：图片先本地 OCR 抽文本，再走 DeepSeek 文本管线）──
-# Tesseract 方案（默认回退引擎）：需系统安装 tesseract 及中文语言包
+# 默认引擎 Tesseract（轻量）：需系统安装 tesseract 及语言包
 #   macOS:  brew install tesseract tesseract-lang
 #   Ubuntu: apt install tesseract-ocr tesseract-ocr-chi-sim
+# 注：Tesseract 二进制不在 PyPI，须系统级安装；Python 侧仅需下方 pytesseract。
 pytesseract==0.3.13
 pillow==11.0.0
-# PaddleOCR 方案（可选，中文识别更准，依赖较重；安装后 auto 模式自动优先使用）：
+# PaddleOCR（可选增强，中文更准，依赖较重）：仅当需切换 LOCAL_OCR_ENGINE=paddle 时安装
 #   pip install paddleocr paddlepaddle
+# 当前 requirements 未包含，故默认/auto 实际均走 Tesseract。
 python-dotenv==1.0.1
 pyyaml==6.0.2
 flask==3.1.0

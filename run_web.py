@@ -28,4 +28,6 @@ if __name__ == "__main__":
     print("  企业报销智能化系统 — Web 服务")
     print(f"  访问地址: http://{host}:5001  (debug={debug})")
     print("=" * 50)
-    app.run(debug=debug, host=host, port=5001)
+    # threaded=True 显式开启多线程：/upload 为同步阻塞长请求（整条流水线约 40s+），
+    # 需与 /api/progress 的 SSE 长连接并发运行，否则进度事件无法实时下发。
+    app.run(debug=debug, host=host, port=5001, threaded=True)

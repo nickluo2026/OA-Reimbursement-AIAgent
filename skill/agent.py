@@ -18,6 +18,14 @@ from typing import Any
 
 from .orchestrator.graph import run_graph
 from .orchestrator.state import CheckStatus, ReimbursementState
+from .utils.progress import (
+    STATUS_DONE,
+    STATUS_START,
+    STEP_ROUTE,
+    ProgressCallback,
+    emit_progress,
+    progress_scope,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +39,7 @@ def run_reimbursement_skill(
     reason: str = "",
     expense_category: str = "",
     ticket_type: str = "发票",
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """报销智能校验主编排函数（V1.4 委托 LangGraph StateGraph 执行）
 
@@ -43,6 +52,9 @@ def run_reimbursement_skill(
         reason: 报销事由（可选）
         expense_category: 费用分类预选（可选）
         ticket_type: 票据类型（发票/行程单），决定路由分支
+        on_progress: 可选的真实进度回调 ``cb(event: dict)``。传入后，编排层各节点
+            会在开始/结束边界推送 ``{"step","status","message","ts"}`` 事件，
+            供 Web 层经 SSE 实时驱动前端流水线动画；不传则完全无副作用。
 
     Returns:
         完整校验结果字典，结构如下::
@@ -71,7 +83,6 @@ def run_reimbursement_skill(
         "ocr_result": None,
         "anomaly_result": None,
         "classify_result": None,
-        "verify_result": None,
         "itinerary_result": None,
         "final_status": CheckStatus.PASS,
         "summary": "",
@@ -80,8 +91,11 @@ def run_reimbursement_skill(
         "history": [],
     }
 
-    # 委托 StateGraph 执行
-    final = run_graph(initial_state)
+    # 委托 StateGraph 执行（在进度作用域内，使各节点/工具可上报真实进度）
+    with progress_scope(on_progress):
+        emit_progress(STEP_ROUTE, STATUS_START, "识别票据类型…")
+        emit_progress(STEP_ROUTE, STATUS_DONE, f"票据类型：{ticket_type}")
+        final = run_graph(initial_state)
 
     # 转换为旧返回结构（保持向后兼容）
     final_status = final.get("final_status", CheckStatus.PASS)
@@ -93,7 +107,6 @@ def run_reimbursement_skill(
         "anomaly_result": final.get("anomaly_result"),
         "classify_result": final.get("classify_result"),
         "itinerary_result": final.get("itinerary_result"),
-        "verify_result": final.get("verify_result"),  # 功能5：发票真伪查验
         "final_status": final_status,  # 最终状态枚举（PASS/WARN/BLOCK）
         "summary": final.get("summary", ""),
         # 行程单智能体回写的金额/费用类型（发票流程此值为表单原值，前端按票据类型区分使用）

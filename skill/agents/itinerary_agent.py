@@ -27,6 +27,16 @@ from ..utils.db_store import (
     save_invoice,
     update_ai_status,
 )
+from ..utils.progress import (
+    STATUS_DONE,
+    STATUS_FAIL,
+    STATUS_SKIP,
+    STATUS_START,
+    STEP_ITINERARY_ANOMALY,
+    STEP_ITINERARY_OCR,
+    STEP_ITINERARY_VERIFY,
+    emit_progress,
+)
 from .base_agent import AgentMeta, BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -59,10 +69,12 @@ class ItineraryAgent(BaseAgent):
 
         # ── 步骤1：OCR 提取行程单 ──
         logger.info("▶ 行程单 Agent 步骤1: OCR 提取行程明细 (%s)", pdf_path)
+        emit_progress(STEP_ITINERARY_OCR, STATUS_START, "读取行程单并提取明细…")
         ocr_result = ocr_extract_itinerary(pdf_path)
 
         if "_error" in ocr_result:
             logger.warning("✗ 行程单 OCR 失败: %s", ocr_result["_error"])
+            emit_progress(STEP_ITINERARY_OCR, STATUS_FAIL, f"提取失败：{ocr_result['_error']}")
             return {
                 "ocr_result": ocr_result,
                 "final_status": CheckStatus.ERROR,
@@ -74,6 +86,11 @@ class ItineraryAgent(BaseAgent):
         synced_amount = _to_float(total_amount)
         trip_count = len(ocr_result.get("行程详情") or [])
         logger.info("✓ 行程单 OCR 完成, 总金额: %s, 行程数: %d", total_amount, trip_count)
+        emit_progress(
+            STEP_ITINERARY_OCR,
+            STATUS_DONE,
+            f"共 {trip_count} 段行程，总金额 {total_amount} 元",
+        )
 
         # 计算本次应回写的申请金额与费用类型（落库与接口返回复用同一份值）
         written_amount = (
@@ -103,6 +120,7 @@ class ItineraryAgent(BaseAgent):
 
         # ── 步骤2：异常检测（前置拦截）──
         logger.info("▶ 行程单 Agent 步骤2: 异常检测")
+        emit_progress(STEP_ITINERARY_ANOMALY, STATUS_START, "行程异常研判中…")
         anomaly_result = detect_itinerary_anomaly(
             itinerary=ocr_result,
             apply_amount=apply_amount,
@@ -110,6 +128,7 @@ class ItineraryAgent(BaseAgent):
         )
         conclusion = anomaly_result.get("总体结论", "通过")
         logger.info("✓ 行程单异常检测完成, 总体结论: %s", conclusion)
+        emit_progress(STEP_ITINERARY_ANOMALY, STATUS_DONE, f"异常检测结论：{conclusion}")
 
         if conclusion == "拦截":
             summary = (
@@ -124,6 +143,7 @@ class ItineraryAgent(BaseAgent):
                     save_ai_check_result(request_id, "行程单异常检测", "拦截", anomaly_result)
                 except Exception as e:
                     logger.warning("持久化异常（非致命）: %s", e)
+            emit_progress(STEP_ITINERARY_VERIFY, STATUS_SKIP, "已拦截，跳过合理性校验")
             return {
                 "ocr_result": ocr_result,
                 "anomaly_result": anomaly_result,
@@ -140,12 +160,14 @@ class ItineraryAgent(BaseAgent):
 
         # ── 步骤3：行程合理性校验 ──
         logger.info("▶ 行程单 Agent 步骤3: 合理性校验")
+        emit_progress(STEP_ITINERARY_VERIFY, STATUS_START, "行程合理性校验中…")
         itinerary_result = verify_itinerary(
             itinerary=ocr_result,
             apply_amount=apply_amount,
         )
         verify_conclusion = itinerary_result.get("校验结论", "通过")
         logger.info("✓ 行程单合理性校验完成, 校验结论: %s", verify_conclusion)
+        emit_progress(STEP_ITINERARY_VERIFY, STATUS_DONE, f"校验结论：{verify_conclusion}")
 
         if request_id:
             try:

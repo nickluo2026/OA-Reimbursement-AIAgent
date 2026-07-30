@@ -128,8 +128,6 @@
 <tr><td><code class='inline'>TestFinanceAPI::test_finance_segregation_api</code></td><td>职责分离</td><td>test_api_approve_finance.py</td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>131.0 ms</td></tr>
 <tr><td><code class='inline'>TestFinanceAPI::test_finance_forbidden_for_approver</code></td><td>授权（越权拦截）</td><td>test_api_approve_finance.py</td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>95.0 ms</td></tr>
 <tr><td><code class='inline'>TestReimbursementUpdate::test_update_forbidden_for_other_employee</code></td><td>授权（越权拦截）</td><td>test_api_approve_finance.py</td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>61.0 ms</td></tr>
-<tr><td><code class='inline'>TestInvoiceAuthToggle::test_auth_disabled_skips_verify</code></td><td>认证（登录校验）</td><td>test_system_config_e2e.py</td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>68.0 ms</td></tr>
-<tr><td><code class='inline'>TestInvoiceAuthToggle::test_auth_enabled_runs_verify</code></td><td>认证（登录校验）</td><td>test_system_config_e2e.py</td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>66.0 ms</td></tr>
 <tr><td><code class='inline'>TestSubmitFinance::test_segregation_violation_same_person</code></td><td>职责分离</td><td>test_workflow.py</td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>110.0 ms</td></tr>
         </tbody>
       </table>
@@ -211,22 +209,6 @@
 <tr><td><code class='inline'>TestOcrExtractInvoice::test_successful_extraction</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>2.0 ms</td></tr>
 <tr><td><code class='inline'>TestOcrExtractInvoice::test_pdf_read_error</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>2.0 ms</td></tr>
 <tr><td><code class='inline'>TestOcrExtractInvoice::test_deepseek_failure_returns_error</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<div class='card'>
-  <h3>test_verify_invoice.py <span class='badge b-pass' style='margin-left:8px'>全部通过</span>
-      <small style='color:var(--muted)'> · 功能测试 · 6 项 · 6.0 ms</small></h3>
-  <table>
-    <thead><tr><th>测试用例</th><th class='center'>结果</th><th class='center'>耗时</th></tr></thead>
-    <tbody>
-<tr><td><code class='inline'>test_verify_invoice::test_mock_normal_passes</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
-<tr><td><code class='inline'>test_verify_invoice::test_mock_void_blocks</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
-<tr><td><code class='inline'>test_verify_invoice::test_mock_red_blocks</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
-<tr><td><code class='inline'>test_verify_invoice::test_mock_fake_blocks</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
-<tr><td><code class='inline'>test_verify_invoice::test_block_on_fake_false_downgrades_to_warn</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
-<tr><td><code class='inline'>test_verify_invoice::test_unknown_provider_falls_back_to_mock</code></td><td class='center'><span class="badge b-pass">通过</span></td><td class='center'>1.0 ms</td></tr>
     </tbody>
   </table>
 </div>

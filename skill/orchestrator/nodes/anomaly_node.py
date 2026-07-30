@@ -18,6 +18,15 @@ from typing import Any
 from ...tools.tool_anomaly_check import detect_anomaly
 from ...utils.db_store import save_ai_check_result, update_ai_status
 from ...config import SMALL_AMOUNT_THRESHOLD
+from ...utils.progress import (
+    STATUS_DONE,
+    STATUS_FAIL,
+    STATUS_SKIP,
+    STATUS_START,
+    STEP_ANOMALY,
+    STEP_CLASSIFY,
+    emit_progress,
+)
 from ..state import CheckStatus, ReimbursementState
 from ..nodes import classify_node as classify_node_mod
 
@@ -27,6 +36,22 @@ logger = logging.getLogger(__name__)
 def _run_classify(ocr_result: dict) -> dict:
     """在线程池中调用分类限额工具（经由模块引用，确保测试 patch 生效）。"""
     return classify_node_mod.classify_and_check_limit(invoice=ocr_result)
+
+
+def _tracked(step: str, done_message: str, fn, *args, **kwargs):
+    """在子线程内执行 fn 并**就地**上报该步骤的完成/失败。
+
+    并行分支下两个任务耗时不同，若在主线程 ``future.result()`` 后统一上报，
+    先完成的一方会被慢的一方拖住（进度失真）。此处在各自线程内上报，
+    前端即可如实看到「分类限额先打勾、异常检测后打勾」。
+    """
+    try:
+        result = fn(*args, **kwargs)
+    except Exception as e:  # noqa: BLE001 — 交由上层处理，仅补一条失败事件
+        emit_progress(step, STATUS_FAIL, f"执行异常：{e}")
+        raise
+    emit_progress(step, STATUS_DONE, done_message)
+    return result
 
 
 def _run_in_ctx(ctx, fn, *args, **kwargs):
@@ -52,25 +77,40 @@ def anomaly_node(state: ReimbursementState) -> dict[str, Any]:
     # —— 并行分支（方案A）：异常检测 ‖ 分类限额 ——
     if large:
         logger.info("▶ 功能3+功能2: 异常检测 ‖ 分类限额 并行 (金额 %.2f)", invoice_amount)
-        ctx = copy_context()  # 捕获主线程上下文（含 request_id），供子线程继承
+        # 两步同时进入「执行中」，如实反映并行执行
+        emit_progress(STEP_ANOMALY, STATUS_START, "大模型异常研判中…")
+        emit_progress(STEP_CLASSIFY, STATUS_START, "费用分类与限额校验中…")
+        ctx = copy_context()  # 捕获主线程上下文（含 request_id / 进度回调），供子线程继承
         with ThreadPoolExecutor(max_workers=2) as ex:
             f_anomaly = ex.submit(
                 _run_in_ctx,
                 ctx,
+                _tracked,
+                STEP_ANOMALY,
+                "异常检测完成",
                 detect_anomaly,
                 invoice=ocr_result,
                 apply_amount=state.get("apply_amount"),
                 apply_date=state.get("apply_date"),
             )
-            f_classify = ex.submit(_run_in_ctx, ctx, _run_classify, ocr_result)
+            f_classify = ex.submit(
+                _run_in_ctx, ctx, _tracked, STEP_CLASSIFY, "分类限额校验完成", _run_classify, ocr_result
+            )
             anomaly_result = f_anomaly.result()
             classify_result = f_classify.result()
     else:
         logger.info("▶ 功能3: 异常输入检查")
+        emit_progress(STEP_ANOMALY, STATUS_START, "大模型异常研判中…")
         anomaly_result = detect_anomaly(
             invoice=ocr_result,
             apply_amount=state.get("apply_amount"),
             apply_date=state.get("apply_date"),
+        )
+        emit_progress(STEP_ANOMALY, STATUS_DONE, "异常检测完成")
+        emit_progress(
+            STEP_CLASSIFY,
+            STATUS_SKIP,
+            f"小额免审（≤{SMALL_AMOUNT_THRESHOLD} 元），跳过分类限额",
         )
         classify_result = None
 
@@ -89,6 +129,7 @@ def anomaly_node(state: ReimbursementState) -> dict[str, Any]:
                 save_ai_check_result(request_id, "异常检测", "拦截", anomaly_result)
             except Exception as e:
                 logger.warning("持久化异常（非致命）: %s", e)
+        # 拦截即结束：后续分类/行程单不会执行，如实告知前端「已拦截」
         return {
             "anomaly_result": anomaly_result,
             "classify_result": classify_result,

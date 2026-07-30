@@ -781,6 +781,21 @@ select.form-input { appearance: auto; }
 .pipeline.itinerary .pipeline-step.active .step-status { color: var(--itinerary); }
 .pipeline-step.done .step-status { color: var(--green); }
 
+/* 真实进度事件驱动新增的两种终态：跳过（未执行）/ 失败 */
+.pipeline-step.skipped .step-icon { opacity: 0.45; border-style: dashed; }
+.pipeline-step.skipped .step-name { color: var(--text-light); }
+.pipeline-step.skipped .step-status { color: var(--text-light); }
+.pipeline-step.failed .step-icon { border-color: var(--red, #dc2626); background: rgba(220,38,38,0.08); }
+.pipeline-step.failed .step-status { color: var(--red, #dc2626); }
+
+/* 全流程实时耗时（消除「动画跑完但仍在处理」的错觉） */
+.pipeline-elapsed {
+    font-size: 12px;
+    color: var(--text-light);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 10px;
+}
+
 .step-spinner {
     width: 12px; height: 12px;
     border: 2px solid rgba(37,99,235,0.2);

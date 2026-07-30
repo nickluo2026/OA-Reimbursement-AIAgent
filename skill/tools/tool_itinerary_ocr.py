@@ -85,28 +85,42 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
 
 
 def _ocr_extract_image(image_path: str) -> dict[str, Any]:
-    """图片 OCR：本地 OCR 引擎抽取文本 → DeepSeek Function Call 文本管线"""
+    """图片 OCR：本地 OCR 引擎抽取文本 → DeepSeek Function Call 文本管线；
+    本地 OCR 不可用时，若 OCR_VISION_FALLBACK_ENABLED=True 降级 DeepSeek Vision，
+    否则直接返回 _error（与发票统一兜底策略，解决发现 A）。"""
+    from ..config import OCR_VISION_FALLBACK_ENABLED
     from ..utils.image_ocr import extract_image_text
+    from ..utils.ocr_fallback import ocr_image_via_vision
 
     try:
         raw_text = extract_image_text(image_path)
     except FileNotFoundError as e:
         return {"_error": str(e)}
-    except ImportError as e:
-        return {"_error": f"本地 OCR 依赖缺失: {e}"}
-    except RuntimeError as e:
-        return {"_error": str(e)}
     except Exception as e:
-        return {"_error": f"本地 OCR 识别失败: {e}"}
+        # 本地 OCR 不可用（ImportError/RuntimeError/识别失败）
+        if not OCR_VISION_FALLBACK_ENABLED:
+            logger.warning("行程单本地 OCR 失败，且 Vision 降级已禁用，返回错误: %s", e)
+            return {"_error": f"本地 OCR 失败且 Vision 降级已禁用（OCR_VISION_FALLBACK_ENABLED=false）: {e}"}
+        logger.warning("行程单本地 OCR 失败，降级 DeepSeek Vision: %s", e)
+        return ocr_image_via_vision(
+            image_path,
+            tool_def=ITINERARY_EXTRACT_TOOL,
+            essential_fields=["总金额_元"],
+            system_prompt=SYSTEM_PROMPT,
+            reason=str(e),
+        )
 
     logger.info("行程单本地 OCR 识别出 %d 字符, 调用 DeepSeek Function Call ...", len(raw_text))
     return _extract_from_text(raw_text, OCR_TEXT_SYSTEM_PROMPT)
 
 
 def _ocr_extract_scanned_pdf(pdf_path: str) -> dict[str, Any]:
-    """扫描件 PDF：渲染页图 → 本地 OCR → DeepSeek Function Call 文本管线"""
-    from ..config import OCR_RENDER_DPI
+    """扫描件 PDF：渲染页图 → 本地 OCR → DeepSeek Function Call 文本管线；
+    本地 OCR 整体失败时，若 OCR_VISION_FALLBACK_ENABLED=True 降级 DeepSeek Vision
+    （渲染首页为图），否则直接返回 _error。"""
+    from ..config import OCR_RENDER_DPI, OCR_VISION_FALLBACK_ENABLED
     from ..utils.image_ocr import extract_scanned_pdf_text
+    from ..utils.ocr_fallback import ocr_image_via_vision, render_pdf_first_page
 
     try:
         raw_text = extract_scanned_pdf_text(pdf_path, dpi=OCR_RENDER_DPI)
@@ -115,7 +129,24 @@ def _ocr_extract_scanned_pdf(pdf_path: str) -> dict[str, Any]:
     except ImportError as e:
         return {"_error": f"本地 OCR 依赖缺失: {e}"}
     except RuntimeError as e:
-        return {"_error": str(e)}
+        # 本地 OCR 完全失败（全部页无文字）
+        if not OCR_VISION_FALLBACK_ENABLED:
+            logger.warning("行程单扫描件 PDF 本地 OCR 失败，且 Vision 降级已禁用，返回错误: %s", e)
+            return {"_error": f"行程单扫描件 PDF 本地 OCR 失败且 Vision 降级已禁用（OCR_VISION_FALLBACK_ENABLED=false）: {e}"}
+        logger.warning("行程单扫描件 PDF 本地 OCR 失败，降级 DeepSeek Vision: %s", e)
+        first_page = render_pdf_first_page(pdf_path, dpi=OCR_RENDER_DPI)
+        if first_page:
+            try:
+                return ocr_image_via_vision(
+                    first_page,
+                    tool_def=ITINERARY_EXTRACT_TOOL,
+                    essential_fields=["总金额_元"],
+                    system_prompt=SYSTEM_PROMPT,
+                    reason=f"扫描件PDF本地OCR失败: {e}",
+                )
+            finally:
+                Path(first_page).unlink(missing_ok=True)
+        return {"_error": f"行程单扫描件 PDF 本地 OCR 失败且无可用 Vision 兜底: {e}"}
     except Exception as e:
         return {"_error": f"扫描件 PDF 本地 OCR 失败: {e}"}
 

@@ -46,7 +46,6 @@ graph TB
     end
 
     subgraph 外部API服务
-        D1[增值税发票查验平台<br/>发票真实性核验]
         D2[银行系统API<br/>流水核对]
     end
 
@@ -64,7 +63,6 @@ graph TB
     O1 --> C3
     O2 -.-> O1
     O3 -.-> O1
-    C3 --> D1
     C3 --> D2
     C3 --> O1
     O1 --> B3
@@ -525,9 +523,10 @@ Content-Type: application/json
 }
 ```
 
-### 3.7 增值税发票查验平台接口（R2.3, P1）
+### 3.7 增值税发票查验平台接口（R2.3, P1 — 已从流水线移除）
 
 > 对应需求 R2.3，用于发票真实性核验。
+> ⚠️ **该接口对应的「发票查验」步骤已从报销校验流水线中移除（见 §16.4），以下仅作历史接口设计保留参考。**
 
 ```http
 POST /api/invoice/verify
@@ -613,9 +612,6 @@ sequenceDiagram
         else 金额 ≤ 100元
             OA->>OA: 小额免审，跳过限额校验
         end
-
-        OA->>EXT: 调用发票查验平台（P1，可选）
-        EXT-->>OA: 返回查验结果
 
         OA->>OA: 自动填单 + 显示预警标识
         OA->>OA: 启动审批工作流
@@ -897,7 +893,7 @@ graph TB
 |------|------|--------|
 | **V1.0** | 发票 OCR + 异常检测 + 分类限额 +   OA 集成 | ✅ 已实现 |
 | **V1.1** | 行程单 Schema 实现 + 行程单 OCR 提取 + 行程单异常检测 + 合理性校验 | ✅ 已实现 |
-| **V1.2** | 增值税发票查验平台对接 + 银行流水核对 | P1（待实现） |
+| **V1.2** | 银行流水核对（注：原「增值税发票查验平台对接」已从流水线移除） | P1（待实现） |
 | **V1.3** | 审批权限规则落地（金额阶梯审批，`rules/approval_authority.yaml` + `tool_approval_routing.py`） | ✅ 已实现 |
 | **V1.4（当前）** | 引入 LangGraph 编排层，三功能重构为 StateGraph 节点；抽象 Agent 注册机制（见 §16、ADR-007/008） | ✅ 已实现 |
 | **V2.0** | 火车票/机票 Schema + 多票据类型支持（多 Agent 并行编排） | P2 |
@@ -979,7 +975,6 @@ graph TB
 |---------|------|------|------|
 |   OA → AI Agent | 同步 HTTP | REST + JSON | OA 提交报销时同步调用 AI 校验（超时 30s） |
 | AI Agent → DeepSeek | 同步 HTTP | REST + JSON | Function Call 调用（超时 120s） |
-| AI Agent → 发票查验平台 | 异步（可选） | REST + JSON | 非关键路径，异步回调结果 |
 |   OA → 银行系统 | 异步 | REST + JSON | 财务确认后触发，结果回写 |
 |   OA → AI Agent（流程流转）| 事件驱动 | Webhook 回调 | OA 审批节点流转时通知 AI Agent |
 
@@ -1000,7 +995,6 @@ graph TB
 |---------|------|---------|---------|
 | DeepSeek API | 60 RPM | 1 分钟 | Token Bucket（API Key 级别） |
 | AI Agent 对外接口 | 100 RPM | 1 分钟 | 滑动窗口限流（Redis） |
-| 发票查验平台 | 10 RPM | 1 分钟 | Token Bucket（P1 对接时启用） |
 | 单用户上传 | 10 次 | 1 分钟 | 用户级别限流，防滥用 |
 
 ```python
@@ -1356,9 +1350,8 @@ graph LR
     Decision -->|否| Gate{金额>100?}
     Gate -->|是| ClassifyLimit[分类限额 Agent<br/>费用分类+限额校验]
     Gate -->|否| Skip[小额免审<br/>跳过限额校验]
-    ClassifyLimit --> Verify[发票查验 Agent<br/>P1 可选]
-    Skip --> Verify
-    Verify --> END([结束/回写OA])
+    ClassifyLimit --> END([结束/回写OA])
+    Skip --> END
 
     Itinerary --> END
     Other --> END
@@ -1403,7 +1396,7 @@ class ReimbursementState(TypedDict, total=False):
     ocr_result: Optional[dict[str, Any]]            # OCR 提取的结构化票据数据
     anomaly_result: Optional[dict[str, Any]]        # 异常检测结果
     classify_result: Optional[dict[str, Any]]       # 分类限额校验结果
-    verify_result: Optional[dict[str, Any]]         # 发票查验结果（P1 占位）
+
     itinerary_result: Optional[dict[str, Any]]      # 行程单合理性校验结果
 
     # —— 流程控制 ——
@@ -1438,7 +1431,6 @@ from .nodes.classify_node import classify_node
 from .nodes.itinerary_node import itinerary_node
 from .nodes.ocr_node import ocr_node
 from .nodes.skip_node import skip_node
-from .nodes.verify_node import verify_node
 from .state import CheckStatus, ReimbursementState
 
 
@@ -1479,7 +1471,6 @@ def build_reimbursement_graph():
     workflow.add_node("classify", classify_node)
     workflow.add_node("skip", skip_node)
     workflow.add_node("itinerary", itinerary_node)
-    workflow.add_node("verify", verify_node)
 
     # —— 设置入口：按票据类型路由 ——
     _ticket_routing = {
@@ -1511,9 +1502,8 @@ def build_reimbursement_graph():
             "skip": "skip",
         },
     )
-    workflow.add_edge("classify", "verify")
-    workflow.add_edge("skip", "verify")
-    workflow.add_edge("verify", END)
+    workflow.add_edge("classify", END)
+    workflow.add_edge("skip", END)
 
     # —— 行程单分支直接结束 ——
     workflow.add_edge("itinerary", END)
@@ -1624,7 +1614,6 @@ skill/
 │       ├── anomaly_node.py
 │       ├── classify_node.py
 │       ├── itinerary_node.py  # 新增 Agent 节点
-│       └── verify_node.py     # 发票查验节点（P1）
 ├── agents/                    # 新增：独立 Agent 定义
 │   ├── base_agent.py          # Agent 抽象基类
 │   ├── invoice_agent.py       # 发票 Agent
@@ -1660,7 +1649,7 @@ skill/
 > 对应需求 R3.5（P1 ✅ 已实现）。
 
 前端在校验提交后展示 LangGraph 节点逐步执行的动画，包含：
-- **节点名称**：票据类型路由 → OCR → 异常检测 → 分类限额/小额免审 → 发票查验
+- **节点名称**：票据类型路由 → OCR → 异常检测 → 分类限额/小额免审
 - **调用工具**：每个节点调用的 DeepSeek Function Call 工具名称
 - **执行详情**：节点输入/输出摘要、耗时、状态（进行中/完成/拦截）
 
@@ -1752,7 +1741,7 @@ skill/
 | 配置类别 | 配置项 |
 |---------|--------|
 | 💰 费用限额 | 交通月度限额、住宿月度限额、餐饮月度限额、行程单单笔阈值 |
-| 🚨 异常检测规则 | 重复报销、金额异常、发票真伪、行程单字段完整性、DeepSeek 语义复核（开关） |
+| 🚨 异常检测规则 | 重复报销、金额异常、行程单字段完整性、DeepSeek 语义复核（开关） |
 | 🤖 DeepSeek 大模型 | 启用/停用 AI 校验总开关（`ds_enabled`，默认开启）；关闭后全量 AI 校验停用、转规则引擎兜底或人工填写报销单（与需求 V1.5 对齐） |
 | 👥 审批权限 | ≤3000元直属领导 / ≤10000元部门总监 / ≤50000元VP·分管副总 / >50000元CEO / 金额 ≥ 10000 元 需两人会签（在对应级别基础上增加一位审批人）（开关） |
 

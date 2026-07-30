@@ -2,7 +2,6 @@
 
 覆盖 prototype.html「系统配置」分组的新增项与依赖代码：
     - 🤖 启用/停用 DeepSeek 大模型（ds_enabled / api_key / base_url / model）
-    - 🚨 检测发票真伪开关（rule_invoice_auth）经 verify 节点生效
     - 🚨 行程单字段完整性开关（rule_itinerary_field）
     - 💰 餐饮 月度限额（label 对齐）
 并验证：配置保存落库 → 运行时 getter 生效 → 各工具/节点行为随之改变。
@@ -14,7 +13,6 @@ from skill.config import (
     get_category_limits,
     get_deepseek_settings,
     get_itinerary_rules,
-    get_verify_rules,
 )
 from skill.orchestrator.state import CheckStatus, ReimbursementState
 from skill.utils import admin_store
@@ -69,7 +67,6 @@ class TestSystemConfigSchema:
         assert cfg["ds_enabled"] is True
         assert cfg["deepseek_model"] == "deepseek-v4-flash"
         assert cfg["deepseek_base_url"] == "https://api.deepseek.com/chat/completions"
-        assert cfg["rule_invoice_auth"] is True
 
     def test_meal_limit_label_monthly(self, fresh_db):
         schema = admin_store.get_config_schema()
@@ -89,7 +86,6 @@ class TestSystemConfigPersistence:
                 "ds_enabled": False,
                 "deepseek_model": "deepseek-test-model",
                 "deepseek_base_url": "https://example.test/v1",
-                "rule_invoice_auth": False,
                 "rule_itinerary_field": False,
             },
             operator="赵管理",
@@ -108,14 +104,12 @@ class TestSystemConfigPersistence:
             {
                 "ds_enabled": False,
                 "deepseek_model": "deepseek-test-model",
-                "rule_invoice_auth": False,
                 "rule_itinerary_field": False,
             },
             operator="赵管理",
         )
         assert get_deepseek_settings()["enabled"] is False
         assert get_deepseek_settings()["model"] == "deepseek-test-model"
-        assert get_verify_rules()["enable_invoice_auth"] is False
         assert get_itinerary_rules()["enable_itinerary_field"] is False
 
     def test_api_override_falls_back_to_env(self, fresh_db, monkeypatch):
@@ -172,48 +166,6 @@ class TestDeepSeekDisabled:
 
 
 # ─────────────────────────────────────────────
-# 4. rule_invoice_auth → verify 节点跳过查验
-# ─────────────────────────────────────────────
-class TestInvoiceAuthToggle:
-    def _state(self, invoice):
-        return ReimbursementState(
-            pdf_path="",
-            apply_amount=100.0,
-            apply_date="2026-06-10",
-            request_id="REQ-V-1",
-            employee_id="EMP-2026",
-            reason="",
-            expense_category="差旅",
-            ticket_type="发票",
-            ocr_result=invoice,
-            anomaly_result=None,
-            classify_result=None,
-            verify_result=None,
-            itinerary_result=None,
-            final_status=CheckStatus.PASS,
-            summary="",
-            warnings=[],
-            errors=[],
-            history=[],
-        )
-
-    def test_auth_disabled_skips_verify(self, fresh_db):
-        from skill.orchestrator.nodes.verify_node import verify_node
-
-        admin_store.save_system_config({"rule_invoice_auth": False}, operator="赵管理")
-        out = verify_node(self._state({"发票号码": "12345678", "发票金额": 100.0}))
-        assert out["verify_result"]["总体结论"] == "通过"
-        assert "停用" in out["verify_result"]["查验摘要"]
-
-    def test_auth_enabled_runs_verify(self, fresh_db):
-        from skill.orchestrator.nodes.verify_node import verify_node
-
-        # 默认启用；普通号码走 mock provider 返回正常
-        out = verify_node(self._state({"发票号码": "12345678", "发票金额": 100.0}))
-        assert out["verify_result"]["查验状态"] == "正常"
-
-
-# ─────────────────────────────────────────────
 # 5. 前端 API 端到端（保存新配置项）
 # ─────────────────────────────────────────────
 class TestAdminApiE2E:
@@ -224,7 +176,6 @@ class TestAdminApiE2E:
                 "items": {
                     "ds_enabled": False,
                     "deepseek_model": "deepseek-e2e-model",
-                    "rule_invoice_auth": False,
                 }
             },
             headers={"X-CSRF-Token": "x"},  # 测试模式跳过校验，header 可选

@@ -11,6 +11,7 @@
     POST /upload    处理上传与 AI 校验
 """
 
+import json
 import logging
 import os
 import re
@@ -20,7 +21,17 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from skill import run_reimbursement_skill
@@ -42,6 +53,7 @@ from skill.utils.file_storage import (
 )
 from skill.utils.mask_sensitive import mask_amount, mask_ocr_result
 from skill.utils.structured_log import get_request_id, set_request_id
+from web.progress_bus import progress_bus
 from web.security import (
     JsonLogFormatter,
     LoginRateLimiter,
@@ -393,6 +405,62 @@ def index():
     )
 
 
+# ═══════════════════════════════════════════════
+# 流水线真实进度（SSE）
+# ═══════════════════════════════════════════════
+# 前端生成随机 progress_id → ① 订阅 GET /api/progress/<id> ② 随 /upload 一并提交，
+# 服务端把编排层各节点的 start/done/skip/fail 事件实时下发，驱动流水线动画按真实节拍推进，
+# 彻底消除「动画 6 秒跑完、实际 40 秒才出结果」的不同步问题。
+PROGRESS_DONE_STEP = "__done__"  # 终止哨兵，与 skill.utils.progress 保持一致
+_PROGRESS_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+PROGRESS_STREAM_TIMEOUT = float(os.environ.get("OA_PROGRESS_TIMEOUT", "300"))
+
+
+def _open_progress_channel(progress_id: str | None):
+    """校验 progress_id 并打开（或复用）当前用户的进度频道，非法/越权时返回 None。"""
+    pid = (progress_id or "").strip()
+    if not _PROGRESS_ID_RE.match(pid):
+        return None
+    return progress_bus.open(pid, session.get("account", ""))
+
+
+@app.route("/api/progress/<progress_id>")
+def api_progress(progress_id: str):
+    """SSE：实时下发指定频道的流水线进度事件。
+
+    - 需登录，且频道归属必须为当前账号（防跨用户偷窥）。
+    - 前端可能先于 /upload 发起订阅，此处按需创建频道（订阅端与上传端谁先到都能对上）。
+    - 空闲时每秒下发一条注释帧作为心跳，防止反向代理切断长连接。
+    """
+    err = _require_login()
+    if err:
+        return err
+
+    channel = _open_progress_channel(progress_id)
+    if channel is None:
+        return jsonify({"error": "进度频道不可用"}), 400
+
+    def generate():
+        try:
+            for event in channel.subscribe(timeout=PROGRESS_STREAM_TIMEOUT):
+                if event is None:
+                    yield ": keep-alive\n\n"  # 心跳（SSE 注释帧，客户端自动忽略）
+                    continue
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except GeneratorExit:  # 客户端断开
+            raise
+        finally:
+            # 频道已结束则顺手回收，避免内存滞留
+            if channel.is_closed:
+                progress_bus.discard(channel.channel_id)
+
+    resp = Response(generate(), mimetype="text/event-stream")
+    resp.headers["Cache-Control"] = "no-cache, no-transform"
+    resp.headers["X-Accel-Buffering"] = "no"  # 关闭 Nginx 缓冲，保证实时性
+    resp.headers["Connection"] = "keep-alive"
+    return resp
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
     # [S-003] 登录校验：未登录用户不可上传文件或触发 AI 校验
@@ -438,6 +506,11 @@ def upload():
     # 提交人取登录账号（前端未传 employee_id 时回退到 session）
     employee_id = request.form.get("employee_id", "").strip() or session.get("account", "unknown")
 
+    # ── 真实进度频道：前端随机生成 progress_id 并同时订阅 SSE，驱动流水线动画 ──
+    # 注意：progress_id 与报销单号 request_id 刻意解耦，报销单号仍由服务端生成，
+    #      避免前端伪造 ID 覆盖既有单据/影像文件。
+    channel = _open_progress_channel(request.form.get("progress_id"))
+
     result: dict[str, Any]
     try:
         result = run_reimbursement_skill(
@@ -449,10 +522,23 @@ def upload():
             reason=reason,
             expense_category=expense_category,
             ticket_type=ticket_type,
+            on_progress=channel.publish if channel else None,
         )
     except Exception as e:
         logger.exception("AI 校验异常")
         result = {"status": "错误", "summary": f"AI 校验异常: {e}"}
+    finally:
+        # 无论成功/异常，都补发终止事件并关闭频道，确保前端 EventSource 及时收尾
+        if channel:
+            channel.publish(
+                {
+                    "step": PROGRESS_DONE_STEP,
+                    "status": "done",
+                    "message": "",
+                    "ts": round(time.time(), 3),
+                }
+            )
+            channel.close()
 
     # ── 渲染发票影像（缩略图 + 整页 PNG）──
     try:

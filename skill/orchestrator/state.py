@@ -39,7 +39,6 @@ class ReimbursementState(TypedDict, total=False):
     ocr_result: dict[str, Any] | None  # OCR 提取的结构化票据数据
     anomaly_result: dict[str, Any] | None  # 异常检测结果
     classify_result: dict[str, Any] | None  # 分类限额校验结果
-    verify_result: dict[str, Any] | None  # 发票查验结果（P1 占位）
     itinerary_result: dict[str, Any] | None  # 行程单合理性校验结果
 
     # —— 流程控制 ——

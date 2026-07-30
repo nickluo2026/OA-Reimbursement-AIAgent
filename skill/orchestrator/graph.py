@@ -1,7 +1,7 @@
 """工作流定义（StateGraph）
 
 对应 design.md §16.4。构建并编译报销校验 StateGraph：
-票据类型路由 → OCR → 异常检测 → (拦截/分类/小额免审) → 查验 → 结束。
+票据类型路由 → OCR → 异常检测 → (拦截/分类/小额免审) → 结束。
 
 相对 design.md §16.4 骨架，本实现补充 ``route_after_ocr`` 条件边处理
 OCR 失败提前结束（与原 ``agent.py`` 功能等价所必需）。
@@ -28,7 +28,6 @@ from .nodes.anomaly_node import anomaly_node
 from .nodes.itinerary_node import itinerary_node
 from .nodes.ocr_node import ocr_node
 from .nodes.skip_node import skip_node
-from .nodes.verify_node import verify_node
 from .state import CheckStatus, ReimbursementState
 from ..utils.db_store import save_ai_check_result, update_ai_status
 
@@ -100,7 +99,7 @@ def post_check_node(state: ReimbursementState) -> dict[str, Any]:
 
 
 def route_post_check(state: ReimbursementState) -> str:
-    """合并后路由：异常拦截则跳过查验直接结束，否则进入发票查验。"""
+    """合并后路由：异常拦截则结束，否则结束（发票真伪查验已移除）。"""
     if (state.get("anomaly_result") or {}).get("总体结论") == "拦截":
         return "block"
     return "proceed"
@@ -131,7 +130,6 @@ def build_reimbursement_graph():
     workflow.add_node("post_check", post_check_node)
     workflow.add_node("skip", skip_node)
     workflow.add_node("itinerary", itinerary_node)
-    workflow.add_node("verify", verify_node)
 
     # —— 设置入口：按票据类型路由 ——
     _ticket_routing = {
@@ -163,14 +161,13 @@ def build_reimbursement_graph():
             "skip": "skip",
         },
     )
-    # 合并节点：拦截→END（跳过查验）/ 否则→查验
+    # 合并节点：拦截→END / 否则→END（发票真伪查验步骤已移除）
     workflow.add_conditional_edges(
         "post_check",
         route_post_check,
-        {"block": END, "proceed": "verify"},
+        {"block": END, "proceed": END},
     )
-    workflow.add_edge("skip", "verify")
-    workflow.add_edge("verify", END)
+    workflow.add_edge("skip", END)
 
     # —— 行程单分支直接结束 ——
     workflow.add_edge("itinerary", END)

@@ -149,6 +149,24 @@ body{
 .ocr-status.show{display:block; color:var(--ios-blue); background:rgba(0,122,255,.08);}
 .ocr-status.done{display:block; color:var(--ios-green); background:rgba(52,199,89,.1);}
 
+/* 多文件列表 */
+.file-list{display:flex; flex-direction:column; gap:10px;}
+.file-row{position:relative; padding-right:30px;}
+.file-remove{position:absolute; right:0; top:50%; transform:translateY(-50%); width:26px; height:26px; border:none; border-radius:50%; background:var(--ios-gray6); color:var(--ios-gray); font-size:13px; display:flex; align-items:center; justify-content:center; flex:none;}
+.file-remove:active{background:var(--ios-gray5); color:var(--ios-red);}
+.add-more{margin-top:2px; text-align:center; font-size:14px; font-weight:600; color:var(--ios-blue); padding:11px; border:.5px dashed var(--ios-gray3); border-radius:12px;}
+.add-more:active{background:rgba(0,122,255,.06);}
+.reupload-btn{margin-top:12px; width:100%; border:none; border-radius:12px; padding:11px; font-size:15px; font-weight:600; color:var(--ios-blue); background:rgba(0,122,255,.1);}
+.reupload-btn:active{background:rgba(0,122,255,.18);}
+.result-cards{display:block;}
+
+/* 多张发票按张回写表单 */
+.invoice-form{
+  background:#f8f8fb; border-radius:12px; padding:10px 12px; margin-bottom:10px;
+}
+.if-title{font-size:13px; font-weight:700; color:var(--ios-gray); margin:2px 0 8px;}
+.invoice-form .row{padding:8px 0;}
+
 /* 分组列表行 */
 .group{
   background:#fff; border-radius:14px; overflow:hidden; margin-bottom:16px;
@@ -291,25 +309,39 @@ body{
 }
 .pipe-steps{display:flex; flex-direction:column; gap:2px;}
 .pipe-step{
-  display:flex; align-items:center; gap:12px; padding:13px 4px;
+  display:grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 55%);
+  column-gap:12px;
+  align-items:start;
+  padding:13px 4px;
   border-bottom:.5px solid var(--ios-sep);
 }
 .pipe-step:last-child{border-bottom:none;}
 .ps-icon{
-  width:34px; height:34px; border-radius:50%; flex:none;
+  width:34px; height:34px; border-radius:50%;
   display:flex; align-items:center; justify-content:center; font-size:17px;
   background:var(--ios-gray6); color:var(--ios-gray);
   transition:background .3s, color .3s;
 }
 .pipe-step.active .ps-icon{background:rgba(0,122,255,.15); color:var(--ios-blue);}
 .pipe-step.done .ps-icon{background:var(--ios-green); color:#fff;}
-.ps-name{flex:1; font-size:14px;}
+.ps-name{font-size:14px; line-height:1.5; padding-top:6px; min-width:0; word-break:keep-all; overflow-wrap:break-word;}
 .pipe-step.active .ps-name{font-weight:600;}
-.ps-status{font-size:12px; color:var(--ios-gray);}
+.ps-status{font-size:13px; color:var(--ios-gray); white-space:normal; padding-top:7px; text-align:right; min-width:0; max-width:100%; line-height:1.4; word-break:break-word;}
 .pipe-step.active .ps-status{color:var(--ios-blue);}
 .pipe-step.done .ps-status{color:var(--ios-green); font-weight:600;}
 .ps-spin{display:inline-block; animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+/* 真实进度事件驱动新增：跳过（未执行）/ 失败 两种终态 + 实时耗时 */
+.pipe-step.skipped .ps-icon{opacity:.45;}
+.pipe-step.skipped .ps-name{color:var(--ios-gray);}
+.pipe-step.skipped .ps-status{color:var(--ios-gray);}
+.pipe-step.failed .ps-icon{background:rgba(255,59,48,.15); color:var(--ios-red,#ff3b30);}
+.pipe-step.failed .ps-status{color:var(--ios-red,#ff3b30); font-weight:600;}
+.pipe-elapsed{
+  font-size:12px; color:var(--ios-gray); margin-bottom:8px;
+  font-variant-numeric:tabular-nums;
+}
 
 /* ───────────────────────── 登录页 ───────────────────────── */
 .login-screen{

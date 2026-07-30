@@ -20,10 +20,9 @@
   - [1.3 分类限额（test_classify_limit.py · 4 项）](#13-分类限额test_classify_limitpy--4-项)
   - [1.4 行程单工具（test_itinerary_verify.py · 14 项）](#14-行程单工具test_itinerary_verifypy--14-项)
   - [1.5 审批工作流（test_workflow.py · 25 项）](#15-审批工作流test_workflowpy--25-项)
-  - [1.6 系统配置端到端（test_system_config_e2e.py · 19 项）](#16-系统配置端到端test_system_config_e2epy--19-项)
-  - [1.7 发票真伪查验（test_verify_invoice.py · 6 项）](#17-发票真伪查验test_verify_invoicepy--6-项)
-  - [1.8 模型配置自检（test_model_config_selfcheck.py · 9 项）](#18-模型配置自检test_model_config_selfcheckpy--9-项)
-  - [1.9 视觉模型接线（test_vision_model_wiring.py · 2 项）](#19-视觉模型接线test_vision_model_wiringpy--2-项)
+  - [1.6 系统配置端到端（test_system_config_e2e.py · 17 项）](#16-系统配置端到端test_system_config_e2epy--17-项)
+  - [1.7 模型配置自检（test_model_config_selfcheck.py · 9 项）](#17-模型配置自检test_model_config_selfcheckpy--9-项)
+  - [1.8 视觉模型接线（test_vision_model_wiring.py · 2 项）](#18-视觉模型接线test_vision_model_wiringpy--2-项)
 - [二、集成测试用例（46 项）](#二集成测试用例46-项)
   - [2.1 Agent 编排（test_agent.py · 12 项）](#21-agent-编排test_agentpy--12-项)
   - [2.2 行程单 Agent（test_itinerary_agent.py · 10 项）](#22-行程单-agenttest_itinerary_agentpy--10-项)
@@ -40,7 +39,7 @@
 
 | 测试类型 | 测试文件 | 用例数 |
 |---------|---------|-------|
-| 功能测试 | test_ocr_extract / test_anomaly_check / test_classify_limit / test_itinerary_verify / test_workflow / test_system_config_e2e / test_verify_invoice / test_model_config_selfcheck / test_vision_model_wiring | 95 |
+| 功能测试 | test_ocr_extract / test_anomaly_check / test_classify_limit / test_itinerary_verify / test_workflow / test_system_config_e2e / test_model_config_selfcheck / test_vision_model_wiring | 89 |
 | 集成测试 | test_agent / test_itinerary_agent / test_api_approve_finance / test_admin | 46 |
 | 安全测试 | test_api_approve_finance / test_admin / test_system_config_e2e / test_workflow（认证 / 授权 / 职责分离） | 18 |
 | 端到端测试 | test_e2e | 2 |
@@ -197,11 +196,11 @@
 
 ---
 
-### 1.6 系统配置端到端（test_system_config_e2e.py · 19 项，含 2 项安全见第四章）
+### 1.6 系统配置端到端（test_system_config_e2e.py · 17 项）
 
-**被测模块**：`web/app.py` 管理员配置 API + `skill/utils/admin_store.py` + `skill/config.py` + `skill/orchestrator/nodes/verify_node.py` + `skill/tools/tool_approval_routing.py`
+**被测模块**：`web/app.py` 管理员配置 API + `skill/utils/admin_store.py` + `skill/config.py` + `skill/tools/tool_approval_routing.py`
 
-> 覆盖 prototype.html「系统配置」分组新增项与依赖代码：DeepSeek 启停、发票真伪开关、行程单字段完整性开关、分类限额覆盖、会签开关，并验证「配置保存落库 → 运行时 getter 生效 → 工具/节点行为随之改变」。
+> 覆盖 prototype.html「系统配置」分组新增项与依赖代码：DeepSeek 启停、行程单字段完整性开关、分类限额覆盖、会签开关，并验证「配置保存落库 → 运行时 getter 生效 → 工具/节点行为随之改变」。
 
 #### TestSystemConfigSchema（Schema/默认值 · 4 项）
 
@@ -209,7 +208,7 @@
 |---|---------|---------|---------|
 | 202 | test_deepseek_group_present | schema 含「🤖 启用/停用Deepseek大模型」分组，4 个 key | 含 `ds_enabled` / `deepseek_api_key` / `deepseek_base_url` / `deepseek_model` |
 | 203 | test_deepseek_item_types | 各配置项类型正确 | `ds_enabled`=toggle，`api_key`=secret，`base_url`/`model`=text |
-| 204 | test_default_values | 默认值符合预期 | `ds_enabled is True`，`model=="deepseek-v4-flash"`，`rule_invoice_auth is True` |
+| 204 | test_default_values | 默认值符合预期 | `ds_enabled is True`，`model=="deepseek-v4-flash"` |
 | 205 | test_meal_limit_label_monthly | 餐饮限额 label 对齐原型 | `limit_meal_single` 的 label == "餐饮 月度限额" |
 
 #### TestSystemConfigPersistence（保存→落库→运行时生效 · 4 项）
@@ -217,7 +216,7 @@
 | # | 测试方法 | 用例说明 | 预期结果 |
 |---|---------|---------|---------|
 | 206 | test_save_new_items_persists | 保存新配置项后重读生效 | 重读 `ds_enabled is False` |
-| 207 | test_getters_reflect_config | 运行时 getter 反映配置 | `get_deepseek_settings()` / `get_verify_rules()` / `get_itinerary_rules()` 反映新值 |
+| 207 | test_getters_reflect_config | 运行时 getter 反映配置 | `get_deepseek_settings()` / `get_itinerary_rules()` 反映新值 |
 | 208 | test_api_override_falls_back_to_env | 清空字段回退环境变量 | 回退到 `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` |
 | 209 | test_reset_restores_defaults | 重置恢复默认值 | 重置后 `ds_enabled is True` |
 
@@ -227,13 +226,6 @@
 |---|---------|---------|---------|
 | 210 | test_call_deepseek_function_disabled | `ds_enabled=False` 时不发起网络请求 | 返回含 `_disabled` 标记 |
 | 211 | test_call_deepseek_function_enabled_no_network | 默认启用但无网络/Key 时不崩溃 | 返回 dict（含 `_error`） |
-
-#### TestInvoiceAuthToggle（发票真伪开关 · 2 项）
-
-| # | 测试方法 | 用例说明 | 预期结果 |
-|---|---------|---------|---------|
-| 212 | test_auth_disabled_skips_verify | `rule_invoice_auth=False` 时 verify 节点跳过查验 | 结论「通过」，摘要含「停用」 |
-| 213 | test_auth_enabled_runs_verify | 默认启用时 verify 节点执行查验 | 查验状态「正常」 |
 
 #### TestAdminApiE2E（前端 API 端到端 · 1 项）
 
@@ -257,20 +249,7 @@
 | 219 | test_other_limit_overrides_yaml | 其他限额覆盖 YAML 默认 | `get_category_limits()["其他"] == 800.0` |
 | 220 | test_all_category_limits_override | 全部分类限额覆盖生效 | 交通/住宿/餐饮/办公/其他均按新值 |
 
-### 1.7 发票真伪查验（test_verify_invoice.py · 6 项）
-
-**被测模块**：`skill/tools/tool_verify_invoice.py` → `verify_invoice()`（Mock Provider）
-
-| # | 测试方法 | 用例说明 | 预期结果 |
-|---|---------|---------|---------|
-| 221 | test_mock_normal_passes | 正常发票（INV-1001）查验 | 查验状态「正常」、总体结论「通过」 |
-| 222 | test_mock_void_blocks | 作废发票（INV-VOID-1）查验 | 查验状态「作废」、总体结论「拦截」 |
-| 223 | test_mock_red_blocks | 红冲发票（INV-RED-1）查验 | 查验状态「红冲」、总体结论「拦截」 |
-| 224 | test_mock_fake_blocks | 查无此票（INV-FAKE-1）查验 | 查验状态「查无此票」、总体结论「拦截」 |
-| 225 | test_block_on_fake_false_downgrades_to_warn | `block_on_fake=False` 时降级为预警 | 总体结论「预警」 |
-| 226 | test_unknown_provider_falls_back_to_mock | 未知 provider 回退 mock | 查验平台「mock」、状态「正常」 |
-
-### 1.8 模型配置自检（test_model_config_selfcheck.py · 9 项）
+### 1.7 模型配置自检（test_model_config_selfcheck.py · 9 项）
 
 **被测模块**：`skill/config.py` → `self_check_model_config()`、`skill/utils/admin_store.py` → `calc_cost_cny`、`skill_manifest.yaml`
 
@@ -286,7 +265,7 @@
 | 234 | test_admin_store_no_legacy_vl_constant | 已无 deepseek-vl 硬编码 | `DEEPSEEK_VISION_MODEL == "deepseek-v4-flash"` |
 | 235 | test_manifest_aligns_with_config_default | manifest 与 config 默认模型对齐 | manifest 的 deepseek_model / vision_model 与 config 一致 |
 
-### 1.9 视觉模型接线（test_vision_model_wiring.py · 2 项）
+### 1.8 视觉模型接线（test_vision_model_wiring.py · 2 项）
 
 **被测模块**：`skill/tools/tool_ocr_extract.py` / `tool_itinerary_ocr.py` → OCR 视觉调用接线（C1/C3 验收，mock `requests.post`）
 
@@ -464,8 +443,6 @@
 | 120 | test_usage_requires_login | test_admin.py | 用量统计 API 未登录 → 401 | `status_code == 401` |
 | 121 | test_approve_page_requires_login | test_api_approve_finance.py | 审批页未登录 → 重定向登录 | `status_code == 302` |
 | 122 | test_approve_list_requires_login | test_api_approve_finance.py | 待审列表 API 未登录 → 401 | `status_code == 401` |
-| 123 | test_auth_disabled_skips_verify | test_system_config_e2e.py | `rule_invoice_auth=False` 时 verify 节点跳过查验 | 结论「通过」，摘要含「停用」 |
-| 124 | test_auth_enabled_runs_verify | test_system_config_e2e.py | 默认启用时 verify 节点执行查验 | 查验状态「正常」 |
 
 > **静态验证**：密码经 werkzeug `generate_password_hash`（scrypt）哈希存储，非明文；Flask Secret Key 经环境变量配置，未设置时生成随机临时密钥并警告；Session Cookie `HTTPONLY=True / SAMESITE=Lax / SECURE` 按 `OA_ENV=production` 启用。
 
@@ -756,8 +733,7 @@ if os.path.exists(_TEST_DB_PATH):
 | test_classify_limit.py | 功能 | 4 |
 | test_itinerary_verify.py | 功能 | 14 |
 | test_workflow.py | 功能 | 25（含 1 安全，见第四章） |
-| test_system_config_e2e.py | 功能 | 19（含 2 安全，见第四章） |
-| test_verify_invoice.py | 功能 | 6 |
+| test_system_config_e2e.py | 功能 | 17 |
 | test_model_config_selfcheck.py | 功能 | 9 |
 | test_vision_model_wiring.py | 功能 | 2 |
 | test_agent.py | 集成 | 12 |

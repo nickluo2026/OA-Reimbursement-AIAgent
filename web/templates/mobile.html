@@ -60,7 +60,7 @@
             <div class="card">
               <div class="field-label">票据文件</div>
               <!-- 隐藏的文件选择：点击上传区触发；iOS Safari 会弹出「拍照 / 照片 / 文件」 -->
-              <input type="file" id="fileInput" accept="image/*,application/pdf" style="display:none">
+              <input type="file" id="fileInput" accept="image/*,application/pdf" multiple style="display:none">
               <div class="upload-zone" id="uploadZone">
                 <div class="upload-placeholder" id="uploadPlaceholder">
                   <div class="upload-icon" id="uploadIcon">🧾</div>
@@ -68,13 +68,7 @@
                   <div class="upload-hint" id="uploadHint">支持 PDF / JPG / PNG，发票类票据</div>
                 </div>
                 <div class="upload-preview" id="uploadPreview" style="display:none">
-                  <div class="file-row">
-                    <span class="file-icon" id="fileIcon">📄</span>
-                    <div class="file-meta">
-                      <span class="file-name" id="fileName">invoice.pdf</span>
-                      <span class="file-size" id="fileSize">256 KB</span>
-                    </div>
-                  </div>
+                  <div class="file-list" id="fileList"></div>
                   <div class="ocr-status" id="ocrStatus"></div>
                   <button class="reupload-btn" id="reuploadBtn" data-action="reupload" style="display:none">↻ 重新上传</button>
                 </div>
@@ -83,26 +77,31 @@
 
             <div class="group" id="autoFields" style="display:none">
               <div class="group-title">必填信息 <span class="required">*</span></div>
-              <div class="row">
-                <div class="row-label">费用类型<span class="required">*</span><span class="ai-dot">AI</span></div>
-                <select class="row-input" id="expense_category">
-                  <option value="">—</option>
-                  <option value="交通">交通</option>
-                  <option value="住宿">住宿</option>
-                  <option value="餐饮">餐饮</option>
-                  <option value="办公">办公</option>
-                  <option value="其他">其他</option>
-                </select>
+              <!-- 多张发票分组容器：多张时由 JS 填充每张一组字段；单张时隐藏 -->
+              <div id="invoiceForms" style="display:none"></div>
+              <!-- 单张模式字段：多张时隐藏 -->
+              <div id="singleInvoiceRows">
+                <div class="row">
+                  <div class="row-label">费用类型<span class="required">*</span><span class="ai-dot">AI</span></div>
+                  <select class="row-input" id="expense_category">
+                    <option value="">—</option>
+                    <option value="交通">交通</option>
+                    <option value="住宿">住宿</option>
+                    <option value="餐饮">餐饮</option>
+                    <option value="办公">办公</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </div>
+                <div class="row">
+                  <div class="row-label">申请金额<span class="required">*</span><span class="ai-dot">AI</span></div>
+                  <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—"><span class="unit">元</span>
+                </div>
+                <div class="row">
+                  <div class="row-label">申请日期<span class="required">*</span><span class="sys-dot">系统</span></div>
+                  <input class="row-input" id="apply_date" type="date">
+                </div>
               </div>
-              <div class="row">
-                <div class="row-label">申请金额<span class="required">*</span><span class="ai-dot">AI</span></div>
-                <input class="row-input" id="apply_amount" inputmode="decimal" placeholder="—"><span class="unit">元</span>
-              </div>
-              <div class="row">
-                <div class="row-label">申请日期<span class="required">*</span><span class="sys-dot">系统</span></div>
-                <input class="row-input" id="apply_date" type="date">
-              </div>
-              <div class="row col">
+              <div class="row col" style="margin-top:6px;border-top:.5px solid var(--ios-sep);padding-top:14px;">
                 <div class="row-label">报销事由<span class="required">*</span></div>
                 <input class="row-input" id="reason" placeholder="如：北京出差交通费">
               </div>
@@ -112,7 +111,7 @@
               <p class="footnote" id="autoFieldsNote" style="display:none;margin-top:10px;text-align:left;"></p>
             </div>
 
-            <div class="result-card" id="resultCard" style="display:none"></div>
+            <div class="result-cards" id="resultCard" style="display:none"></div>
 
             <button class="btn-primary" id="submitBtn" data-action="submit">提交审核</button>
             <p class="footnote">申请金额和费用类型由 AI 智能体自动回写，申请日期为系统当前时间，报销事由为人工填写，请核对无误后提交审批。</p>

@@ -5,12 +5,14 @@
     「文本 → DeepSeek Function Call」管线（DeepSeek 仍作为结构化提取的大脑）。
 
 支持两种引擎（经环境变量 ``LOCAL_OCR_ENGINE`` 选择）：
-    - paddle:    PaddleOCR（中文识别更准，依赖较重）
-                 pip install paddleocr paddlepaddle
-    - tesseract: Tesseract + pytesseract（轻量，需系统安装 tesseract 与中文语言包）
-                 macOS: brew install tesseract tesseract-lang
+    - tesseract: 默认引擎。Tesseract + pytesseract（轻量），需系统安装 tesseract
+                 与中文语言包（chi_sim/chi_tra）。macOS: brew install tesseract tesseract-lang
                  Ubuntu: apt install tesseract-ocr tesseract-ocr-chi-sim
-    - auto（默认）: 优先 PaddleOCR，不可用时回退 pytesseract
+    - paddle:    PaddleOCR（中文识别更准，依赖较重，可选增强）
+                 仅当另装 paddleocr/paddlepaddle 后才会真正启用：
+                 pip install paddleocr paddlepaddle
+    - auto（默认）: 优先 PaddleOCR（若已安装），否则回退 Tesseract。
+                 注：当前依赖未含 PaddleOCR，故 auto 实际等效于 tesseract。
 """
 
 from __future__ import annotations
@@ -72,7 +74,7 @@ def _resolve_engine() -> str:
                 "及中文语言包（macOS: brew install tesseract tesseract-lang）"
             )
         return "tesseract"
-    # auto：优先 PaddleOCR（中文更准），回退 Tesseract
+    # auto：优先 PaddleOCR（若已安装），否则回退 Tesseract
     if _paddle_available():
         return "paddle"
     if _tesseract_available():
@@ -127,12 +129,35 @@ def _ocr_with_paddle(image_path: str) -> str:
     return "\n".join(lines)
 
 
+def _correct_rotation(img: "Image.Image", lang: str) -> "Image.Image":
+    """用 Tesseract OSD 检测并校正页面旋转（0/90/180/270）。失败时原样返回。"""
+    import re
+
+    import pytesseract
+
+    from ..config import TESSERACT_CMD
+
+    if TESSERACT_CMD:
+        pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+    try:
+        osd = pytesseract.image_to_osd(img, lang=lang, config="--psm 0")
+        m = re.search(r"Orientation in degrees:\s*(\d+)", osd or "")
+        if m:
+            angle = int(m.group(1))
+            if angle in (90, 180, 270):
+                logger.info("发票图片旋转校正: %d°", angle)
+                return img.rotate(360 - angle, expand=True)
+    except Exception as e:  # 旋转校正为增强项，失败不影响主流程
+        logger.debug("旋转校正跳过: %s", e)
+    return img
+
+
 def _preprocess_for_ocr(img) -> Image.Image:
-    """发票图片 OCR 前预处理：灰度化 + 对比度增强 + 适度放大。
+    """发票图片 OCR 前预处理：灰度化 + 对比度增强 + 锐化 + 适度放大。
 
     解决「小字号字段（如购买方名称）漏识别」问题——实测对发票图片，
     灰度 + 对比度 1.6x + 3x 放大可让 Tesseract 完整抽到「上海东闻新材料科技有限公司」，
-    而原图/纯放大均漏抽。属于通用增强，不依赖额外依赖。
+    而原图/纯放大均漏抽。锐化强化小字号笔画边缘。属于通用增强，不依赖额外依赖。
     """
     from PIL import Image, ImageEnhance
 
@@ -148,7 +173,10 @@ def _preprocess_for_ocr(img) -> Image.Image:
     max_side = 8000
     if max(w, h) * scale > max_side:
         scale = max(1, max_side // max(w, h))
-    return gray.resize((w * scale, h * scale), Image.LANCZOS)
+    gray = gray.resize((w * scale, h * scale), Image.LANCZOS)
+    # 轻微锐化，强化小字号笔画边缘（尤其旋转校正后的图片）
+    gray = ImageEnhance.Sharpness(gray).enhance(1.4)
+    return gray
 
 
 def _ocr_with_tesseract(image_path: str) -> str:
@@ -162,7 +190,8 @@ def _ocr_with_tesseract(image_path: str) -> str:
         pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
     with Image.open(image_path) as img:
-        # 预处理（灰度 + 对比度增强 + 放大）显著提升小字号字段识别率
+        # 旋转校正（增强项）→ 预处理（灰度 + 对比度 + 锐化 + 放大）
+        img = _correct_rotation(img, TESSERACT_LANG)
         img = _preprocess_for_ocr(img)
         text = pytesseract.image_to_string(img, lang=TESSERACT_LANG)
     return text

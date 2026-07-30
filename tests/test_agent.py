@@ -135,10 +135,9 @@ class TestRunReimbursementSkill:
         mock_ocr.return_value = sample_invoice_data  # 发票金额=300 > 100 → 并行分支
         mock_anomaly.side_effect = _slow_anomaly
         mock_classify.side_effect = _slow_classify
-        with patch("skill.orchestrator.nodes.verify_node.verify_invoice", return_value={}):
-            run_reimbursement_skill(
-                pdf_path="test.pdf", apply_amount=500, apply_date="2026-06-10"
-            )
+        run_reimbursement_skill(
+            pdf_path="test.pdf", apply_amount=500, apply_date="2026-06-10"
+        )
 
         # 两节点几乎同时启动
         assert events["classify_start"] - events["anomaly_start"] < 0.15

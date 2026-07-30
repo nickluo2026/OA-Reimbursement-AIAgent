@@ -47,19 +47,21 @@
     /* ========================================
        智能体执行流水线（对应后端 LangGraph 节点）
        ======================================== */
+    /* key 必须与后端 skill/utils/progress.py 的 STEP_* 常量一一对应：
+       后端在各节点边界通过 SSE 推送 {step,status,message}，前端据此驱动动画，
+       确保流水线进度与真实处理节拍完全同步（不再使用固定定时器"假动画"）。 */
     var PIPELINE_STEPS = {
         '发票': [
-            { icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为发票，路由到【发票智能体】' },
-            { icon: '🔍', name: 'OCR 提取发票字段', node: 'ocr_node', tool: '本地 OCR + DeepSeek FunctionCall', detail: '提取发票类型/号码/金额/商品明细等字段' },
-            { icon: '⚠️', name: '异常检测', node: 'anomaly_node', tool: '规则引擎', detail: '校验字段完整性、金额逻辑、重复发票等' },
-            { icon: '💰', name: '分类限额校验', node: 'classify_node', tool: 'DeepSeek + 限额规则', detail: '识别费用类型并校验是否超限' },
-            { icon: '✅', name: '发票查验', node: 'verify_node', tool: 'Mock Provider', detail: '发票真伪查验（Provider 抽象，默认 Mock 模式）' },
+            { key: 'route', icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为发票，路由到【发票智能体】' },
+            { key: 'ocr', icon: '🔍', name: 'OCR 提取发票字段', node: 'ocr_node', tool: '本地 OCR + DeepSeek FunctionCall', detail: '提取发票类型/号码/金额/商品明细等字段' },
+            { key: 'anomaly', icon: '⚠️', name: '异常检测', node: 'anomaly_node', tool: '规则引擎', detail: '校验字段完整性、金额逻辑、重复发票等' },
+            { key: 'classify', icon: '💰', name: '分类限额校验', node: 'classify_node', tool: 'DeepSeek + 限额规则', detail: '识别费用类型并校验是否超限' },
         ],
         '行程单': [
-            { icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为行程单，路由到【行程单智能体】' },
-            { icon: '🚕', name: 'OCR 提取行程明细', node: 'itinerary_ocr', tool: '本地 OCR + DeepSeek FunctionCall', detail: '提取行程汇总信息与明细列表' },
-            { icon: '⚠️', name: '行程单异常检测', node: 'itinerary_anomaly', tool: '规则引擎', detail: '校验字段/日期/金额异常' },
-            { icon: '✅', name: '行程合理性校验', node: 'itinerary_verify', tool: '合理性规则', detail: '校验金额匹配/天数/连续性' },
+            { key: 'route', icon: '🤖', name: '票据类型路由', node: 'route_by_ticket_type', tool: '条件边路由', detail: '识别为行程单，路由到【行程单智能体】' },
+            { key: 'itinerary_ocr', icon: '🚕', name: 'OCR 提取行程明细', node: 'itinerary_ocr', tool: '本地 OCR + DeepSeek FunctionCall', detail: '提取行程汇总信息与明细列表' },
+            { key: 'itinerary_anomaly', icon: '⚠️', name: '行程单异常检测', node: 'itinerary_anomaly', tool: '规则引擎', detail: '校验字段/日期/金额异常' },
+            { key: 'itinerary_verify', icon: '✅', name: '行程合理性校验', node: 'itinerary_verify', tool: '合理性规则', detail: '校验金额匹配/天数/连续性' },
         ],
     };
 
@@ -72,6 +74,140 @@
     var pipelineCurrentIdx = 0;
     var pipelineStepsData = [];
     var pipelineStarted = false;
+
+    /* ── 真实进度（SSE）相关状态 ── */
+    var progressSource = null;      // EventSource 实例
+    var progressPending = [];       // 流水线 DOM 就绪前缓存的事件
+    var progressReceived = false;   // 是否收到过真实进度事件
+    var progressFallbackTimer = null;
+    var pipelineTicker = null;      // 「已用时」刷新定时器
+    var pipelineStartTs = 0;
+    var stepStartTs = {};           // step key → 开始时间戳
+
+    var PROGRESS_FALLBACK_MS = 6000; // 6s 内无任何真实事件 → 降级为定时器动画
+
+    /** 生成 32 位十六进制随机 ID，作为 SSE 进度频道标识（与报销单号无关） */
+    function genProgressId() {
+        var buf = new Uint8Array(16);
+        if (window.crypto && window.crypto.getRandomValues) {
+            window.crypto.getRandomValues(buf);
+        } else {
+            for (var i = 0; i < 16; i++) { buf[i] = Math.floor(Math.random() * 256); }
+        }
+        return Array.prototype.map.call(buf, function (b) {
+            return ('0' + b.toString(16)).slice(-2);
+        }).join('');
+    }
+
+    function fmtSec(ms) { return (ms / 1000).toFixed(1) + 's'; }
+
+    function stepElByKey(key) {
+        if (!pipelineStepsEl) { return null; }
+        return pipelineStepsEl.querySelector('.pipeline-step[data-key="' + key + '"]');
+    }
+
+    /** 渲染「执行中」状态：转圈 + 实时描述 + 已耗时 */
+    function renderActiveStep(el) {
+        var statusEl = el.querySelector('.step-status');
+        if (!statusEl) { return; }
+        var key = el.getAttribute('data-key');
+        var elapsed = stepStartTs[key] ? ' · ' + fmtSec(Date.now() - stepStartTs[key]) : '';
+        var msg = el.getAttribute('data-msg') || '执行中...';
+        statusEl.innerHTML = '<span class="step-spinner"></span> ' + escHtml(msg) + escHtml(elapsed);
+    }
+
+    /** 每 200ms 刷新所有执行中步骤的耗时与总耗时，让用户明确感知"仍在处理" */
+    function startPipelineTicker() {
+        stopPipelineTicker();
+        pipelineTicker = setInterval(function () {
+            if (!pipelineStepsEl) { return; }
+            pipelineStepsEl.querySelectorAll('.pipeline-step.active').forEach(renderActiveStep);
+            var totalEl = document.getElementById('pipelineElapsed');
+            if (totalEl && pipelineStartTs) {
+                totalEl.textContent = '⏱ 已用时 ' + fmtSec(Date.now() - pipelineStartTs);
+            }
+        }, 200);
+    }
+
+    function stopPipelineTicker() {
+        if (pipelineTicker) { clearInterval(pipelineTicker); pipelineTicker = null; }
+    }
+
+    /** 应用一条后端进度事件 */
+    function applyProgressEvent(ev) {
+        if (!ev || !ev.step) { return; }
+        if (ev.step === '__done__') {
+            progressReceived = true;
+            return; // 收尾由 finishPipeline() 统一处理（此时仍在等 /upload 返回结果体）
+        }
+        if (!pipelineStarted) { progressPending.push(ev); return; }  // DOM 未就绪 → 暂存
+
+        progressReceived = true;
+        if (progressFallbackTimer) { clearTimeout(progressFallbackTimer); progressFallbackTimer = null; }
+        if (pipelineTimer) { clearTimeout(pipelineTimer); pipelineTimer = null; }  // 停用降级动画
+
+        var el = stepElByKey(ev.step);
+        if (!el) { return; }
+        var statusEl = el.querySelector('.step-status');
+
+        if (ev.status === 'start') {
+            el.classList.remove('pending', 'done', 'skipped', 'failed');
+            el.classList.add('active');
+            stepStartTs[ev.step] = Date.now();
+            el.setAttribute('data-msg', ev.message || '执行中...');
+            renderActiveStep(el);
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else if (ev.status === 'info') {
+            // 步骤内子进度：仅更新描述文案，不改变步骤状态
+            if (el.classList.contains('active')) {
+                el.setAttribute('data-msg', ev.message || el.getAttribute('data-msg'));
+                renderActiveStep(el);
+            }
+        } else if (ev.status === 'done') {
+            el.classList.remove('pending', 'active', 'skipped', 'failed');
+            el.classList.add('done');
+            var cost = stepStartTs[ev.step] ? ' · ' + fmtSec(Date.now() - stepStartTs[ev.step]) : '';
+            if (statusEl) { statusEl.textContent = '✓ ' + (ev.message || '完成') + cost; }
+        } else if (ev.status === 'skip') {
+            el.classList.remove('pending', 'active', 'done', 'failed');
+            el.classList.add('skipped');
+            if (statusEl) { statusEl.textContent = '⏭ ' + (ev.message || '已跳过'); }
+        } else if (ev.status === 'fail') {
+            el.classList.remove('pending', 'active', 'done', 'skipped');
+            el.classList.add('failed');
+            if (statusEl) { statusEl.textContent = '✗ ' + (ev.message || '执行失败'); }
+        }
+    }
+
+    /** 订阅 SSE 进度流；不支持或失败时静默降级为定时器动画 */
+    function openProgressStream(progressId) {
+        closeProgressStream();
+        if (typeof window.EventSource === 'undefined') { return; }
+        try {
+            progressSource = new EventSource('/api/progress/' + encodeURIComponent(progressId));
+        } catch (e) {
+            progressSource = null;
+            return;
+        }
+        progressSource.onmessage = function (e) {
+            var ev;
+            try { ev = JSON.parse(e.data); } catch (err) { return; }
+            applyProgressEvent(ev);
+            if (ev && ev.step === '__done__') { closeProgressStream(); }
+        };
+        progressSource.onerror = function () {
+            // 未收到任何事件即断开 → 判定进度通道不可用，走降级动画
+            closeProgressStream();
+            if (!progressReceived && pipelineStarted) { startFallbackAnimation(); }
+        };
+    }
+
+    function closeProgressStream() {
+        if (progressSource) {
+            try { progressSource.close(); } catch (e) { /* ignore */ }
+            progressSource = null;
+        }
+    }
 
     function startPipeline(ticketType) {
         if (!pipelineEl) return;
@@ -88,9 +224,9 @@
         pipelineAgentBadgeEl.textContent = isItinerary ? '行程单智能体' : '发票智能体';
         pipelineAgentBadgeEl.className = 'pipeline-agent-badge' + (isItinerary ? ' itinerary' : '');
 
-        var html = '';
+        var html = '<div class="pipeline-elapsed" id="pipelineElapsed">⏱ 已用时 0.0s</div>';
         pipelineStepsData.forEach(function (step, i) {
-            html += '<div class="pipeline-step pending" data-idx="' + i + '">' +
+            html += '<div class="pipeline-step pending" data-idx="' + i + '" data-key="' + escHtml(step.key) + '">' +
                 '<div class="step-icon">' + step.icon + '</div>' +
                 '<div class="step-body">' +
                 '<div class="step-name">' + escHtml(step.name) + '</div>' +
@@ -111,39 +247,89 @@
         var modal = document.getElementById('pipelineModal');
         if (modal) modal.style.display = 'flex';
         pipelineCurrentIdx = 0;
+        pipelineStartTs = Date.now();
+        startPipelineTicker();
 
+        // 消费 DOM 就绪前已到达的进度事件（SSE 可能早于流水线渲染）
+        var buffered = progressPending;
+        progressPending = [];
+        buffered.forEach(applyProgressEvent);
+
+        // 兜底：若在阈值内一条真实事件都没收到（SSE 被代理拦截等），降级为定时器动画
+        if (!progressReceived) {
+            if (progressFallbackTimer) { clearTimeout(progressFallbackTimer); }
+            progressFallbackTimer = setTimeout(function () {
+                if (!progressReceived) { startFallbackAnimation(); }
+            }, PROGRESS_FALLBACK_MS);
+        }
+    }
+
+    /** 降级动画：进度通道不可用时，退回原固定节奏动画（仅作兜底） */
+    function startFallbackAnimation() {
+        if (pipelineTimer) { return; }
+        pipelineCurrentIdx = 0;
         advancePipeline();
     }
 
     function advancePipeline() {
+        if (progressReceived) { return; }  // 真实事件已接管，降级动画立即让位
         if (pipelineCurrentIdx >= pipelineStepsData.length) { return; }
         var stepEl = pipelineStepsEl.querySelector('.pipeline-step[data-idx="' + pipelineCurrentIdx + '"]');
         if (!stepEl) { return; }
 
         stepEl.classList.remove('pending');
         stepEl.classList.add('active');
-        var statusEl = stepEl.querySelector('.step-status');
-        if (statusEl) { statusEl.innerHTML = '<span class="step-spinner"></span> 执行中...'; }
+        stepStartTs[stepEl.getAttribute('data-key')] = Date.now();
+        stepEl.setAttribute('data-msg', '执行中...');
+        renderActiveStep(stepEl);
         stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+        // 兜底模式下不再"跑完就打勾"：最后一步保持执行中，直到 /upload 真正返回
+        if (pipelineCurrentIdx >= pipelineStepsData.length - 1) { return; }
         pipelineTimer = setTimeout(function () {
+            if (progressReceived) { return; }
             stepEl.classList.remove('active');
             stepEl.classList.add('done');
+            var statusEl = stepEl.querySelector('.step-status');
             if (statusEl) { statusEl.textContent = '✓ 完成'; }
             pipelineCurrentIdx++;
             advancePipeline();
         }, 1200);
     }
 
+    /** 收尾：/upload 已返回，停止所有计时并结算剩余步骤状态 */
     function finishPipeline() {
         if (pipelineTimer) { clearTimeout(pipelineTimer); pipelineTimer = null; }
+        if (progressFallbackTimer) { clearTimeout(progressFallbackTimer); progressFallbackTimer = null; }
+        closeProgressStream();
+        stopPipelineTicker();
         if (!pipelineStepsEl) { return; }
-        var remaining = pipelineStepsEl.querySelectorAll('.pipeline-step.pending, .pipeline-step.active');
-        remaining.forEach(function (el) {
-            el.classList.remove('pending', 'active');
+
+        var totalEl = document.getElementById('pipelineElapsed');
+        if (totalEl && pipelineStartTs) {
+            totalEl.textContent = '⏱ 全流程用时 ' + fmtSec(Date.now() - pipelineStartTs);
+        }
+
+        pipelineStepsEl.querySelectorAll('.pipeline-step.active').forEach(function (el) {
+            el.classList.remove('active');
             el.classList.add('done');
             var statusEl = el.querySelector('.step-status');
-            if (statusEl) { statusEl.textContent = '✓ 完成'; }
+            var key = el.getAttribute('data-key');
+            var cost = stepStartTs[key] ? ' · ' + fmtSec(Date.now() - stepStartTs[key]) : '';
+            if (statusEl) { statusEl.textContent = '✓ 完成' + cost; }
+        });
+        pipelineStepsEl.querySelectorAll('.pipeline-step.pending').forEach(function (el) {
+            var statusEl = el.querySelector('.step-status');
+            if (progressReceived) {
+                // 真实进度模式：未收到该步骤事件说明其确实未执行，如实标注而非谎报完成
+                el.classList.remove('pending');
+                el.classList.add('skipped');
+                if (statusEl) { statusEl.textContent = '⏭ 未执行'; }
+            } else {
+                el.classList.remove('pending');
+                el.classList.add('done');
+                if (statusEl) { statusEl.textContent = '✓ 完成'; }
+            }
         });
         pipelineCurrentIdx = pipelineStepsData.length;
     }
@@ -320,6 +506,8 @@
     window.closePipelineModal = function () {
         var modal = document.getElementById('pipelineModal');
         if (modal) { modal.style.display = 'none'; }
+        stopPipelineTicker();
+        closeProgressStream();
         // 停用态：展开人工填写字段并切换为「提交审批」
         if (isDisabledMode) {
             enableManualMode();
@@ -616,14 +804,24 @@
         var dsDisabled = false;
         var resolvedResults = null;
 
+        // 重置进度状态并订阅 SSE：必须早于 /upload 发起，避免漏掉最初的事件
+        progressPending = [];
+        progressReceived = false;
+        stepStartTs = {};
+        if (progressFallbackTimer) { clearTimeout(progressFallbackTimer); progressFallbackTimer = null; }
+        var progressId = genProgressId();
+        openProgressStream(progressId);
+
         // 并行：状态探测（DeepSeek 是否停用）+ 上传校验
         var statusPromise = fetch('/api/deepseek/status')
             .then(function (r) { return r.json(); })
             .catch(function () { return { enabled: true }; });
 
-        var uploadPromise = Promise.all(selectedFiles.map(function (file) {
+        var uploadPromise = Promise.all(selectedFiles.map(function (file, idx) {
             var formData = new FormData(uploadForm);
             formData.set('file', file);
+            // 流水线动画只展示一条链路，故仅首个文件绑定进度频道
+            if (idx === 0) { formData.set('progress_id', progressId); } else { formData.delete('progress_id'); }
             var csrfMeta = document.querySelector('meta[name="csrf-token"]');
             var csrfToken = csrfMeta ? csrfMeta.content : '';
             return fetch('/upload', { method: 'POST', body: formData, headers: { 'X-CSRF-Token': csrfToken } })
@@ -638,6 +836,8 @@
         // 根据最终结论展示结果：停用 → 不显示流水线动画；正常 → 走动画 + 结果
         function present(results) {
             if (dsDisabled) {
+                closeProgressStream();
+                stopPipelineTicker();
                 showDisabledModal(results);
             } else {
                 finishPipeline();
@@ -650,6 +850,8 @@
             dsDisabled = !cfg.enabled;
             if (!dsDisabled) {
                 startPipeline(currentTicketType);
+            } else {
+                closeProgressStream();
             }
             if (resolvedResults) { present(resolvedResults); }
         });
@@ -665,6 +867,7 @@
                 if (dsDisabled || pipelineStarted) { present(resolvedResults); }
             })
             .finally(function () {
+                closeProgressStream();  // 兜底：请求结束必定释放 SSE 连接
                 submitBtn.disabled = false;
                 submitBtn.querySelector('.btn-text').style.display = 'inline';
                 submitBtn.querySelector('.btn-loading').style.display = 'none';

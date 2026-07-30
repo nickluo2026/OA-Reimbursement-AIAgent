@@ -12,12 +12,17 @@ DeepSeek 仅作为结构化提取的大脑，不再依赖其原生多模态（Vi
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
+from ..config import LOCAL_OCR_ENGINE
 from ..schemas.invoice_schema import EXTRACT_INVOICE_TOOL
+from ..utils.admin_store import record_api_usage
 from ..utils.http_client import call_deepseek_function
 from ..utils.pdf_extractor import extract_pdf_text
+from ..utils.progress import STATUS_INFO, STEP_OCR, emit_progress
+from ..utils.structured_log import get_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,23 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 # 避免为小字段放大耗时（优化点：详见 tests/perf_e2e_latency.py 的 image_vision 基线）。
 # 注：名称类字段缺失不再触发重试，其异常级别已在异常检测中降为「警告」，不会误拦截有效发票。
 VISION_RETRY_ESSENTIAL_FIELDS = ["发票号码", "开票日期", "发票金额"]
+
+
+def _record_local_ocr(latency_ms: int, ok: bool) -> None:
+    """将本地 OCR（Tesseract）耗时写入 ``api_usage``，补全发票智能体全链路计时。
+
+    仅在真实请求上下文（``request_id`` 已设置）下记录，避免单元测试污染数据库。
+    """
+    rid = get_request_id()
+    if rid == "unknown":
+        return
+    record_api_usage(
+        call_type="本地OCR",
+        model=LOCAL_OCR_ENGINE,
+        latency_ms=latency_ms,
+        status="成功" if ok else "失败",
+        request_id=rid,
+    )
 
 SYSTEM_PROMPT = (
     "你是发票数据提取助手。\n"
@@ -91,44 +113,86 @@ def _ocr_extract_pdf(pdf_path: str) -> dict[str, Any]:
         return {"_error": f"PDF 读取失败: {e}"}
 
     logger.info("提取到 %d 字符, 调用 DeepSeek Function Call ...", len(raw_text))
+    emit_progress(STEP_OCR, STATUS_INFO, f"已读取 PDF 文本层（{len(raw_text)} 字符），结构化中…")
 
     # ② 调用 DeepSeek Function Call
     return _extract_from_text(raw_text, SYSTEM_PROMPT)
 
 
 def _ocr_extract_image(image_path: str) -> dict[str, Any]:
-    """图片 OCR：优先本地 OCR → DeepSeek 文本管线；本地 OCR 不可用或漏字段时
-    降级为 DeepSeek Vision 直接识别图片。
+    """图片 OCR：本地 OCR 引擎抽取文本 → DeepSeek 文本管线。
 
-    修复：用户机器未安装 Tesseract/PaddleOCR 时图片无法识别（PDF 仍可走文本层）。
-    此外，即使本地 OCR 成功但 DeepSeek 文本管线漏了关键字段（如购买方名称），
-    也会触发 Vision 降级做一次聚焦重试，最大程度补全字段。
+    本地 OCR 不可用（如未安装 tesseract/pytesseract）时：
+      - 若 OCR_VISION_FALLBACK_ENABLED=True → 降级 DeepSeek Vision 直接看图识别
+      - 否则 → 直接返回 _error（链路只走「本地 OCR + 文本 Function Call」）
     """
+    from ..config import OCR_VISION_FALLBACK_ENABLED
     from ..utils.image_ocr import extract_image_text
+    from ..utils.ocr_fallback import ocr_image_via_vision
 
-    # ① 优先本地 OCR（依赖较重，用户机器可能未安装 Tesseract/PaddleOCR）
-    result: dict[str, Any] = {}
+    ocr_t0 = time.perf_counter()
+    emit_progress(STEP_OCR, STATUS_INFO, "本地 OCR 识别图片文字中…")
     try:
         raw_text = extract_image_text(image_path)
-        logger.info("本地 OCR 识别出 %d 字符, 调用 DeepSeek Function Call ...", len(raw_text))
-        result = _extract_from_text(raw_text, OCR_TEXT_SYSTEM_PROMPT)
     except FileNotFoundError as e:
         return {"_error": str(e)}
     except Exception as e:
-        # 本地 OCR 引擎不可用（ImportError）或识别失败（RuntimeError）等 → 降级 Vision
-        logger.warning("本地 OCR 失败，降级为 DeepSeek Vision 直接识别图片: %s", e)
-        return _ocr_extract_image_by_vision(image_path, reason=str(e))
+        # 本地 OCR 引擎不可用（ImportError）或识别失败（RuntimeError）等
+        ocr_ms = int((time.perf_counter() - ocr_t0) * 1000)
+        _record_local_ocr(ocr_ms, ok=False)
+        if not OCR_VISION_FALLBACK_ENABLED:
+            logger.warning("本地 OCR 失败 (耗时 %dms)，且 Vision 降级已禁用，返回错误: %s", ocr_ms, e)
+            return {
+                "_error": f"本地 OCR 失败且 Vision 降级已禁用（OCR_VISION_FALLBACK_ENABLED=false）: {e}"
+            }
+        logger.warning("本地 OCR 失败 (耗时 %dms)，降级为 DeepSeek Vision 直接识别图片: %s", ocr_ms, e)
+        emit_progress(STEP_OCR, STATUS_INFO, "本地 OCR 不可用，降级 Vision 识别中…")
+        return ocr_image_via_vision(
+            image_path,
+            tool_def=EXTRACT_INVOICE_TOOL,
+            essential_fields=VISION_RETRY_ESSENTIAL_FIELDS,
+            system_prompt=SYSTEM_PROMPT,
+            reason=str(e),
+        )
 
-    # ② 即使本地 OCR 成功，也检查「校验必需」字段是否遗漏；若有则追加 Vision 降级做聚焦重试。
+    # 本地 OCR 成功：记录耗时，再走 DeepSeek 文本管线
+    ocr_ms = int((time.perf_counter() - ocr_t0) * 1000)
+    _record_local_ocr(ocr_ms, ok=True)
+    logger.info("本地 OCR 识别出 %d 字符 (耗时 %dms), 调用 DeepSeek Function Call 结构化发票字段", len(raw_text), ocr_ms)
+    emit_progress(
+        STEP_OCR,
+        STATUS_INFO,
+        f"本地 OCR 完成（{ocr_ms / 1000:.1f}s / {len(raw_text)} 字符），大模型结构化中…",
+    )
+    result = _extract_from_text(raw_text, OCR_TEXT_SYSTEM_PROMPT)
+
+    # DeepSeek 文本管线被停用（_disabled）：直接透传，不再做字段补全（修复发现 E）
+    if isinstance(result, dict) and result.get("_disabled"):
+        return result
+
+    # ② 即使本地 OCR 成功，也检查「校验必需」字段是否遗漏；若有且 Vision 降级启用，
+    #    则追加 Vision 降级做聚焦重试（仅 OCR_VISION_FALLBACK_ENABLED=True 时）。
     #    仅对校验必需字段（号码/日期/金额）触发重试，购买方/销售方名称漏识别不再整图重跑，
     #    避免为小字段放大耗时（优化点）。
-    if isinstance(result, dict) and not result.get("_error"):
+    if (
+        isinstance(result, dict)
+        and not result.get("_error")
+        and OCR_VISION_FALLBACK_ENABLED
+    ):
         missing = [f for f in VISION_RETRY_ESSENTIAL_FIELDS if not result.get(f)]
         if missing:
             logger.warning("本地 OCR 文本管线遗漏字段 %s，追加 Vision 降级", missing)
-            vision_result = _ocr_extract_image_by_vision(
-                image_path, reason=f"文本管线遗漏字段: {missing}"
+            emit_progress(STEP_OCR, STATUS_INFO, f"补全遗漏字段 {'、'.join(missing)} 中…")
+            vision_result = ocr_image_via_vision(
+                image_path,
+                tool_def=EXTRACT_INVOICE_TOOL,
+                essential_fields=VISION_RETRY_ESSENTIAL_FIELDS,
+                system_prompt=SYSTEM_PROMPT,
+                reason=f"文本管线遗漏字段: {missing}",
             )
+            # DeepSeek 停用：直接透传，不再合并
+            if isinstance(vision_result, dict) and vision_result.get("_disabled"):
+                return vision_result
             if (
                 isinstance(vision_result, dict)
                 and not vision_result.get("_error")
@@ -148,85 +212,24 @@ def _ocr_extract_image(image_path: str) -> dict[str, Any]:
     return result
 
 
-def _ocr_extract_image_by_vision(image_path: str, reason: str = "") -> dict[str, Any]:
-    """降级识别：图片 → base64 data URL → DeepSeek Vision (Function Call with image)。
-
-    首轮调用后检查关键必填字段（购买方名称 / 销售方名称 / 发票号码 / 开票日期），
-    若有遗漏则执行一次聚焦重试（让模型重点关注遗漏区域），合并两轮结果。
-
-    用于本地 OCR（Paddle/Tesseract）不可用时的兜底识别。
-    模型由 :data:`DEEPSEEK_VISION_MODEL` 或管理员配置的 ``deepseek_vision_model`` 指定。
-    """
-    import base64
-    import mimetypes
-
-    from ..utils.http_client import call_deepseek_vision
-
-    try:
-        with open(image_path, "rb") as f:
-            b64 = base64.b64encode(f.read()).decode("ascii")
-    except Exception as e:
-        return {"_error": f"读取图片失败: {e}"}
-    mime = mimetypes.guess_type(image_path)[0] or "image/png"
-    data_url = f"data:{mime};base64,{b64}"
-
-    # ① 首轮 Vision 调用
-    logger.info("调用 DeepSeek Vision 直接识别图片: %s (降级原因: %s)", image_path, reason)
-    result = call_deepseek_vision(
-        system_prompt=SYSTEM_PROMPT,
-        image_data_url=data_url,
-        tools=EXTRACT_INVOICE_TOOL,
-        call_type="发票OCR提取(vision)",
-    )
-    if isinstance(result, dict) and (result.get("_error") or result.get("_warning")):
-        result["_fallback_reason"] = f"本地 OCR 失败: {reason}"
-        return result
-
-    # ② 仅检查「校验必需」字段是否遗漏；若有则做一次聚焦重试。
-    #    购买方/销售方名称漏识别不再触发整图重跑（其异常级别已降为警告，不会误拦截）。
-    critical_fields = VISION_RETRY_ESSENTIAL_FIELDS
-    missing = [
-        f for f in critical_fields if not (result.get(f) if isinstance(result, dict) else None)
-    ]
-    if missing:
-        logger.warning("Vision 首次识别遗漏字段 %s，执行聚焦重试", missing)
-        retry_hint = (
-            f"第一次识别遗漏了以下字段：{'、'.join(missing)}。"
-            f"请重新仔细观察整张图片，重点关注这些字段对应的版式区域，确保完整提取。"
-        )
-        result2 = call_deepseek_vision(
-            system_prompt=SYSTEM_PROMPT,
-            image_data_url=data_url,
-            tools=EXTRACT_INVOICE_TOOL,
-            call_type="发票OCR提取(vision·重试)",
-            text_hint=retry_hint,
-        )
-        if isinstance(result2, dict) and not result2.get("_error") and not result2.get("_warning"):
-            # 合并：缺失字段优先补全，其它字段仅在原结果为空时更新
-            for f in missing:
-                if result2.get(f):
-                    result[f] = result2[f]
-                    logger.info("聚焦重试补全字段: %s", f)
-            for k, v in result2.items():
-                if k not in result or not result.get(k):
-                    if k not in ("_error", "_warning", "_fallback_reason", "_retry_missing"):
-                        result[k] = v
-        still_missing = [f for f in critical_fields if not result.get(f)]
-        if still_missing:
-            result["_retry_missing"] = still_missing
-            logger.warning("聚焦重试后仍遗漏字段: %s", still_missing)
-        else:
-            logger.info("聚焦重试后所有关键字段均已补全")
-
-    result["_fallback_reason"] = f"本地 OCR 失败: {reason}"
-    return result
+# 注：原 _ocr_extract_image_by_vision 已抽离为共享模块
+# skill.utils.ocr_fallback.ocr_image_via_vision，供发票/行程单图片及扫描件 PDF
+# 统一复用，消除兜底策略不一致（发现 A）。
 
 
 def _ocr_extract_scanned_pdf(pdf_path: str) -> dict[str, Any]:
-    """扫描件 PDF：渲染页图 → 本地 OCR → DeepSeek Function Call 文本管线"""
-    from ..config import OCR_RENDER_DPI
-    from ..utils.image_ocr import extract_scanned_pdf_text
+    """扫描件 PDF：渲染页图 → 本地 OCR → DeepSeek Function Call 文本管线。
 
+    本地 OCR 整体失败（全部页无文字）时：
+      - 若 OCR_VISION_FALLBACK_ENABLED=True → 降级 DeepSeek Vision（渲染首页为图）
+      - 否则 → 直接返回 _error
+    """
+    from ..config import OCR_RENDER_DPI, OCR_VISION_FALLBACK_ENABLED
+    from ..utils.image_ocr import extract_scanned_pdf_text
+    from ..utils.ocr_fallback import ocr_image_via_vision, render_pdf_first_page
+
+    ocr_t0 = time.perf_counter()
+    emit_progress(STEP_OCR, STATUS_INFO, "渲染扫描件并本地 OCR 识别中…")
     try:
         raw_text = extract_scanned_pdf_text(pdf_path, dpi=OCR_RENDER_DPI)
     except FileNotFoundError as e:
@@ -234,11 +237,39 @@ def _ocr_extract_scanned_pdf(pdf_path: str) -> dict[str, Any]:
     except ImportError as e:
         return {"_error": f"本地 OCR 依赖缺失: {e}"}
     except RuntimeError as e:
-        return {"_error": str(e)}
+        # 本地 OCR 完全失败（全部页无文字）
+        ocr_ms = int((time.perf_counter() - ocr_t0) * 1000)
+        _record_local_ocr(ocr_ms, ok=False)
+        if not OCR_VISION_FALLBACK_ENABLED:
+            logger.warning("扫描件 PDF 本地 OCR 失败 (耗时 %dms)，且 Vision 降级已禁用，返回错误: %s", ocr_ms, e)
+            return {
+                "_error": f"扫描件 PDF 本地 OCR 失败且 Vision 降级已禁用（OCR_VISION_FALLBACK_ENABLED=false）: {e}"
+            }
+        logger.warning("扫描件 PDF 本地 OCR 失败 (耗时 %dms)，降级 DeepSeek Vision: %s", ocr_ms, e)
+        first_page = render_pdf_first_page(pdf_path, dpi=OCR_RENDER_DPI)
+        if first_page:
+            try:
+                return ocr_image_via_vision(
+                    first_page,
+                    tool_def=EXTRACT_INVOICE_TOOL,
+                    essential_fields=VISION_RETRY_ESSENTIAL_FIELDS,
+                    system_prompt=SYSTEM_PROMPT,
+                    reason=f"扫描件PDF本地OCR失败: {e}",
+                )
+            finally:
+                Path(first_page).unlink(missing_ok=True)
+        return {"_error": f"扫描件 PDF 本地 OCR 失败且无可用 Vision 兜底: {e}"}
     except Exception as e:
         return {"_error": f"扫描件 PDF 本地 OCR 失败: {e}"}
 
-    logger.info("扫描件 PDF 本地 OCR 识别出 %d 字符", len(raw_text))
+    ocr_ms = int((time.perf_counter() - ocr_t0) * 1000)
+    _record_local_ocr(ocr_ms, ok=True)
+    logger.info("扫描件 PDF 本地 OCR 识别出 %d 字符 (耗时 %dms)", len(raw_text), ocr_ms)
+    emit_progress(
+        STEP_OCR,
+        STATUS_INFO,
+        f"本地 OCR 完成（{ocr_ms / 1000:.1f}s / {len(raw_text)} 字符），大模型结构化中…",
+    )
     return _extract_from_text(raw_text, OCR_TEXT_SYSTEM_PROMPT)
 
 

@@ -25,6 +25,9 @@
     // 本地兜底文案：仅当后端未返回 summary 时启用；运行期文案统一由后端 config.DEEPSEEK_DISABLED_MSG 下发
     var DISABLED_MSG_FALLBACK = 'DeepSeek 大模型已停用（系统配置），请联系系统管理员启用DeepSeek大模型或者人工填写报销单';
     var selectedFile = null;
+    var selectedFiles = [];
+    var allResultsMap = {};
+    var lastRequestIds = [];
     var isLoggedIn = document.body.getAttribute('data-logged-in') === 'true';
     var currentRole = document.body.getAttribute('data-role') || 'employee';
     var currentAccount = document.body.getAttribute('data-account') || '';
@@ -57,17 +60,18 @@
     };
     var ALL_TABS = ['reimburse', 'my', 'approve', 'fin-review', 'fin-pay', 'admin', 'audit', 'usage', 'guide'];
 
-    /* ───────────────── 流水线步骤（与原型一致） ───────────────── */
+    /* ───────────────── 流水线步骤（与原型一致） ─────────────────
+       key 与后端 skill/utils/progress.py 的 STEP_* 常量一一对应，
+       用于把 SSE 真实进度事件映射到对应步骤（替代原固定定时器动画）。 */
     var INVOICE_STEPS = [
-        { icon: '🔍', name: 'OCR 提取发票内容' },
-        { icon: '⚠️', name: '异常检测（规则引擎 + DeepSeek）' },
-        { icon: '💰', name: '分类限额校验' },
-        { icon: '✅', name: '发票查验' }
+        { key: 'ocr', icon: '🔍', name: 'OCR 提取发票内容' },
+        { key: 'anomaly', icon: '⚠️', name: '异常检测（规则引擎 + DeepSeek）' },
+        { key: 'classify', icon: '💰', name: '分类限额校验' }
     ];
     var ITINERARY_STEPS = [
-        { icon: '🔍', name: 'OCR 提取行程明细' },
-        { icon: '⚠️', name: '行程单异常检测（日期/金额/字段）' },
-        { icon: '🛣️', name: '行程合理性校验（金额匹配/日期范围）' }
+        { key: 'itinerary_ocr', icon: '🔍', name: 'OCR 提取行程明细' },
+        { key: 'itinerary_anomaly', icon: '⚠️', name: '行程单异常检测（日期/金额/字段）' },
+        { key: 'itinerary_verify', icon: '🛣️', name: '行程合理性校验（金额匹配/日期范围）' }
     ];
 
     /* ───────────────── 工具函数 ───────────────── */
@@ -357,30 +361,13 @@
     var uploadZone = document.getElementById('uploadZone');
     if (uploadZone) {
         uploadZone.addEventListener('click', function () {
-            if (document.getElementById('uploadPreview').style.display === 'block') return;
-            fileInput.click();
+            if (fileInput) fileInput.click();
         });
     }
     if (fileInput) {
         fileInput.addEventListener('change', function () {
-            var f = fileInput.files && fileInput.files[0];
-            if (!f) return;
-            var ext = '.' + f.name.split('.').pop().toLowerCase();
-            if (['.pdf', '.jpg', '.jpeg', '.png'].indexOf(ext) === -1) {
-                showToast('仅支持 PDF / JPG / PNG 格式', 'error'); fileInput.value = ''; return;
-            }
-            if (f.size > 10 * 1024 * 1024) {
-                showToast('文件超过 10MB 限制', 'error'); fileInput.value = ''; return;
-            }
-            selectedFile = f;
-            document.getElementById('uploadPlaceholder').style.display = 'none';
-            document.getElementById('uploadPreview').style.display = 'block';
-            document.getElementById('fileIcon').textContent = ext === '.pdf' ? '📄' : '🖼️';
-            document.getElementById('fileName').textContent = f.name;
-            document.getElementById('fileSize').textContent = formatSize(f.size);
-            var o = document.getElementById('ocrStatus');
-            o.className = 'ocr-status show';
-            o.innerHTML = '📄 票据已选择，点击「提交校验」后由智能体执行 OCR 提取并回写字段';
+            addFiles(Array.prototype.slice.call(fileInput.files || []));
+            fileInput.value = '';
         });
     }
 
@@ -388,6 +375,12 @@
     function resetUploadForm() {
         if (fileInput) fileInput.value = '';
         selectedFile = null;
+        selectedFiles = [];
+        var fl = document.getElementById('fileList'); if (fl) fl.innerHTML = '';
+        var ifb = document.getElementById('invoiceForms'); if (ifb) { ifb.innerHTML = ''; ifb.style.display = 'none'; }
+        var sir = document.getElementById('singleInvoiceRows'); if (sir) sir.style.display = '';
+        allResultsMap = {};
+        lastRequestIds = [];
         document.getElementById('uploadPlaceholder').style.display = 'block';
         document.getElementById('uploadPreview').style.display = 'none';
         var o = document.getElementById('ocrStatus'); o.className = 'ocr-status'; o.innerHTML = '';
@@ -441,8 +434,103 @@
         }
     };
 
-    /* ───────────────── 智能体流水线 ───────────────── */
+    /* ───────────────── 智能体流水线 ─────────────────
+       进度来源：后端 SSE /api/progress/<progress_id> 推送的真实节点事件。
+       固定定时器动画仅在进度通道不可用时作为兜底，且不再提前谎报「全部完成」。 */
     var pipeTimer = null, pipeIdx = 0, pipeStepsData = [], pipeResolved = false, pipelineStarted = false;
+    var pipeSource = null;          // EventSource
+    var pipePending = [];           // Sheet 渲染前缓存的事件
+    var pipeGotEvent = false;       // 是否收到过真实事件
+    var pipeFallbackTimer = null;
+    var pipeTicker = null;
+    var pipeStartTs = 0;
+    var pipeStepTs = {};            // step key → 开始时间戳
+    var PIPE_FALLBACK_MS = 6000;
+
+    function genProgressId() {
+        var buf = new Uint8Array(16);
+        if (window.crypto && window.crypto.getRandomValues) { window.crypto.getRandomValues(buf); }
+        else { for (var i = 0; i < 16; i++) { buf[i] = Math.floor(Math.random() * 256); } }
+        return Array.prototype.map.call(buf, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    }
+    function pipeFmtSec(ms) { return (ms / 1000).toFixed(1) + 's'; }
+    function pipeStepEl(key) { return document.querySelector('.pipe-step[data-key="' + key + '"]'); }
+
+    function pipeRenderActive(el) {
+        var st = el.querySelector('.ps-status');
+        if (!st) return;
+        var key = el.getAttribute('data-key');
+        var elapsed = pipeStepTs[key] ? ' · ' + pipeFmtSec(Date.now() - pipeStepTs[key]) : '';
+        st.innerHTML = '<span class="ps-spin">⏳</span> ' + escHtml((el.getAttribute('data-msg') || '执行中…') + elapsed);
+    }
+    function pipeStartTicker() {
+        pipeStopTicker();
+        pipeTicker = setInterval(function () {
+            document.querySelectorAll('.pipe-step.active').forEach(pipeRenderActive);
+            var t = document.getElementById('pipeElapsed');
+            if (t && pipeStartTs) { t.textContent = '⏱ 已用时 ' + pipeFmtSec(Date.now() - pipeStartTs); }
+        }, 200);
+    }
+    function pipeStopTicker() { if (pipeTicker) { clearInterval(pipeTicker); pipeTicker = null; } }
+
+    function pipeApplyEvent(ev) {
+        if (!ev || !ev.step) return;
+        if (ev.step === '__done__') { pipeGotEvent = true; return; }
+        if (!pipelineStarted) { pipePending.push(ev); return; }
+
+        pipeGotEvent = true;
+        if (pipeFallbackTimer) { clearTimeout(pipeFallbackTimer); pipeFallbackTimer = null; }
+        if (pipeTimer) { clearTimeout(pipeTimer); pipeTimer = null; }
+
+        var el = pipeStepEl(ev.step);
+        if (!el) return;
+        var st = el.querySelector('.ps-status');
+        if (ev.status === 'start') {
+            el.classList.remove('done', 'skipped', 'failed');
+            el.classList.add('active');
+            pipeStepTs[ev.step] = Date.now();
+            el.setAttribute('data-msg', ev.message || '执行中…');
+            pipeRenderActive(el);
+        } else if (ev.status === 'info') {
+            if (el.classList.contains('active')) {
+                el.setAttribute('data-msg', ev.message || el.getAttribute('data-msg'));
+                pipeRenderActive(el);
+            }
+        } else if (ev.status === 'done') {
+            el.classList.remove('active', 'skipped', 'failed');
+            el.classList.add('done');
+            var cost = pipeStepTs[ev.step] ? ' · ' + pipeFmtSec(Date.now() - pipeStepTs[ev.step]) : '';
+            if (st) { st.textContent = '✓ 完成' + cost; }
+        } else if (ev.status === 'skip') {
+            el.classList.remove('active', 'done', 'failed');
+            el.classList.add('skipped');
+            if (st) { st.textContent = '⏭ ' + (ev.message || '已跳过'); }
+        } else if (ev.status === 'fail') {
+            el.classList.remove('active', 'done', 'skipped');
+            el.classList.add('failed');
+            if (st) { st.textContent = '✗ ' + (ev.message || '执行失败'); }
+        }
+    }
+
+    function pipeOpenStream(progressId) {
+        pipeCloseStream();
+        if (typeof window.EventSource === 'undefined') return;
+        try { pipeSource = new EventSource('/api/progress/' + encodeURIComponent(progressId)); }
+        catch (e) { pipeSource = null; return; }
+        pipeSource.onmessage = function (e) {
+            var ev;
+            try { ev = JSON.parse(e.data); } catch (err) { return; }
+            pipeApplyEvent(ev);
+            if (ev && ev.step === '__done__') { pipeCloseStream(); }
+        };
+        pipeSource.onerror = function () {
+            pipeCloseStream();
+            if (!pipeGotEvent && pipelineStarted) { advance(); }
+        };
+    }
+    function pipeCloseStream() {
+        if (pipeSource) { try { pipeSource.close(); } catch (e) { /* ignore */ } pipeSource = null; }
+    }
 
     function setupPipeSheet(isIt, steps) {
         pipeStepsData = steps; pipeIdx = 0; pipeResolved = false;
@@ -453,9 +541,9 @@
         badge.style.display = 'none';
         document.getElementById('pipeSteps').style.display = '';
         var pr = document.getElementById('pipeResult'); pr.style.display = 'none'; pr.className = 'result-card'; pr.style.marginTop = '14px';
-        var html = '';
+        var html = '<div class="pipe-elapsed" id="pipeElapsed">⏱ 已用时 0.0s</div>';
         steps.forEach(function (s, i) {
-            html += '<div class="pipe-step" data-i="' + i + '">' +
+            html += '<div class="pipe-step" data-i="' + i + '" data-key="' + escHtml(s.key) + '">' +
                 '<span class="ps-icon">' + s.icon + '</span>' +
                 '<span class="ps-name">' + s.name + '</span>' +
                 '<span class="ps-status">等待中</span></div>';
@@ -464,20 +552,39 @@
         document.getElementById('pipelineSheet').classList.add('show');
     }
     function startPipelineAnim() {
-        advance();
+        pipeStartTs = Date.now();
+        pipeStartTicker();
+        // 消费 Sheet 渲染前已到达的真实进度事件
+        var buffered = pipePending; pipePending = [];
+        buffered.forEach(pipeApplyEvent);
+        // 兜底：阈值内无任何真实事件才启用定时器动画
+        if (!pipeGotEvent) {
+            if (pipeFallbackTimer) { clearTimeout(pipeFallbackTimer); }
+            pipeFallbackTimer = setTimeout(function () { if (!pipeGotEvent) { advance(); } }, PIPE_FALLBACK_MS);
+        }
     }
     function advance() {
-        if (pipeResolved) return;
+        if (pipeResolved || pipeGotEvent) return;
         if (pipeIdx >= pipeStepsData.length) return;
         var elems = document.querySelectorAll('.pipe-step');
         var el = elems[pipeIdx];
         if (el) {
             el.classList.add('active');
-            el.querySelector('.ps-status').innerHTML = '<span class="ps-spin">⏳</span> 执行中…';
+            pipeStepTs[el.getAttribute('data-key')] = Date.now();
+            el.setAttribute('data-msg', '执行中…');
+            pipeRenderActive(el);
         }
+        // 兜底模式下最后一步保持「执行中」，直到 /upload 真正返回，避免提前谎报完成
+        if (pipeIdx >= pipeStepsData.length - 1) return;
         pipeTimer = setTimeout(function () {
-            if (pipeResolved) return;
-            if (el) { el.classList.remove('active'); el.classList.add('done'); el.querySelector('.ps-status').innerHTML = '✓ 完成'; }
+            if (pipeResolved || pipeGotEvent) return;
+            if (el) {
+                var key = el.getAttribute('data-key');
+                var cost = pipeStepTs[key] ? ' · ' + pipeFmtSec(Date.now() - pipeStepTs[key]) : '';
+                el.classList.remove('active'); el.classList.add('done');
+                var st2 = el.querySelector('.ps-status');
+                if (st2) st2.textContent = '✓ 完成' + cost;
+            }
             pipeIdx++;
             advance();
         }, 900);
@@ -485,17 +592,36 @@
     function finishPipeAnim() {
         pipeResolved = true;
         if (pipeTimer) { clearTimeout(pipeTimer); pipeTimer = null; }
+        if (pipeFallbackTimer) { clearTimeout(pipeFallbackTimer); pipeFallbackTimer = null; }
+        pipeCloseStream();
+        pipeStopTicker();
+        var t = document.getElementById('pipeElapsed');
+        if (t && pipeStartTs) { t.textContent = '⏱ 全流程用时 ' + pipeFmtSec(Date.now() - pipeStartTs); }
         document.querySelectorAll('.pipe-step').forEach(function (el) {
-            if (!el.classList.contains('done')) {
+            if (el.classList.contains('done') || el.classList.contains('skipped') || el.classList.contains('failed')) { return; }
+            var st = el.querySelector('.ps-status');
+            if (el.classList.contains('active')) {
                 el.classList.remove('active'); el.classList.add('done');
-                el.querySelector('.ps-status').innerHTML = '✓ 完成';
+                var key = el.getAttribute('data-key');
+                var cost = pipeStepTs[key] ? ' · ' + pipeFmtSec(Date.now() - pipeStepTs[key]) : '';
+                st.innerHTML = '✓ 完成' + escHtml(cost);
+            } else if (pipeGotEvent) {
+                // 真实进度模式：未收到事件即未执行，如实标注
+                el.classList.add('skipped');
+                st.innerHTML = '⏭ 未执行';
+            } else {
+                el.classList.add('done');
+                st.innerHTML = '✓ 完成';
             }
         });
+        // AI 智能体全部执行完成：自动关闭流水线 Sheet，让员工直接看到按张表单回写
+        var ps = document.getElementById('pipelineSheet');
+        if (ps) ps.classList.remove('show');
     }
 
     function runCheck() {
         if (!currentTicketType) { showAlert({ title: '请选择票据类型', message: '请先选择票据类型（发票 / 行程单），再提交审核。' }); return; }
-        if (!selectedFile) { showAlert({ title: '请上传票据文件', message: '请先上传票据文件（PDF / JPG / PNG），再提交审核。' }); return; }
+        if (!selectedFiles.length) { showAlert({ title: '请上传票据文件', message: '请先选择至少一张票据文件（PDF / JPG / PNG），再提交审核。' }); return; }
         var btn = document.getElementById('submitBtn');
         btn.disabled = true;
         isDisabledMode = false;
@@ -503,35 +629,45 @@
         var isIt = currentTicketType === '行程单';
         var steps = isIt ? ITINERARY_STEPS : INVOICE_STEPS;
 
+        // 重置进度状态并先行订阅 SSE，确保不漏掉最早的节点事件
+        pipePending = []; pipeGotEvent = false; pipeStepTs = {};
+        if (pipeFallbackTimer) { clearTimeout(pipeFallbackTimer); pipeFallbackTimer = null; }
+        var progressId = genProgressId();
+        pipeOpenStream(progressId);
+
         var statusPromise = fetch('/api/deepseek/status')
             .then(function (r) { return r.json(); })
             .catch(function () { return { enabled: true }; });
 
-        var fd = new FormData();
-        fd.append('file', selectedFile);
-        fd.append('ticket_type', currentTicketType);
-        var uploadPromise = fetch('/upload', {
-            method: 'POST', body: fd,
-            headers: { 'X-CSRF-Token': csrfToken() }
-        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-            .catch(function () { return { ok: false, d: { error: '网络错误，请重试' } }; });
+        // 逐张上传：仅首张绑定 progress_id 驱动流水线动画，其余静默提交
+        var allPromise = Promise.all(selectedFiles.map(function (file, idx) {
+            return uploadOne(file, idx === 0 ? progressId : '');
+        })).then(function (results) {
+            results.forEach(function (r, i) { if (r && r.d) r.d._index = i; });
+            lastRequestIds = results.filter(function (r) { return r && r.ok && r.d && r.d._request_id; })
+                                    .map(function (r) { return r.d._request_id; });
+            return results;
+        });
 
         var resolved = null;
         // 与 Web 端一致：停用 → 不显示流水线，仅提示信息；启用 → 流水线动画 + 结果
-        function present(res) {
+        function present(results) {
             btn.disabled = false;
             if (dsDisabled) {
-                showDisabledSheet(res);
+                pipeCloseStream();
+                pipeStopTicker();
+                showDisabledSheetMulti(results);
                 return;
             }
             finishPipeAnim();
-            if (!res || !res.ok) {
-                var msg = (res && res.d && (res.d.summary || res.d.error)) || '请求失败，请重试';
+            var okResults = results.filter(function (r) { return r && r.ok && r.d; });
+            if (!okResults.length) {
+                var msg = (results[0] && results[0].d && (results[0].d.summary || results[0].d.error)) || '请求失败，请重试';
                 renderErrorResult(msg);
                 lastCheckPassed = false;
                 return;
             }
-            finalize(res.d);
+            finalizeAll(results);
         }
         statusPromise.then(function (cfg) {
             dsDisabled = !cfg.enabled;
@@ -540,58 +676,245 @@
                 setupPipeSheet(isIt, steps);
                 pipelineStarted = true;
                 startPipelineAnim();
+            } else {
+                pipeCloseStream();
             }
             if (resolved) present(resolved);
         });
-        uploadPromise.then(function (res) {
-            resolved = res;
-            if (dsDisabled || pipelineStarted) present(res);
+        allPromise.then(function (results) {
+            resolved = results;
+            if (dsDisabled || pipelineStarted) present(results);
         });
     }
 
+    function uploadOne(file, progressId) {
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('ticket_type', currentTicketType);
+        if (progressId) fd.append('progress_id', progressId);
+        return fetch('/upload', {
+            method: 'POST', body: fd,
+            headers: { 'X-CSRF-Token': csrfToken() }
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .catch(function () { return { ok: false, d: { error: '网络错误，请重试' } }; })
+            .finally(function () { if (progressId) pipeCloseStream(); });
+    }
+
     /* ── DeepSeek 停用：对齐 prototype_ios.html，改用 iOS 原生提示框（iosAlert），不再弹流水线替代 Sheet ── */
-    function showDisabledSheet(res) {
+    function showDisabledSheetMulti(results) {
         isDisabledMode = true;
-        var data = (res && res.d) || {};
-        lastRequestId = data._request_id || (data._form && data._form['报销单号']) || '';
+        var okResults = results.filter(function (r) { return r && r.ok && r.d; });
+        allResultsMap = {};
+        okResults.forEach(function (r) { if (r.d._request_id) allResultsMap[r.d._request_id] = r.d; });
+        lastRequestIds = okResults.map(function (r) { return r.d._request_id; }).filter(Boolean);
+        lastRequestId = lastRequestIds[0] || '';
         lastCheckPassed = false;
 
         // 优先采用后端返回的统一停用说明（来源：config.DEEPSEEK_DISABLED_MSG）
         var summary = DISABLED_MSG_FALLBACK;
-        if (data.summary) {
-            summary = String(data.summary).replace(/^OCR 提取失败:\s*/, '');
+        var firstOk = okResults[0];
+        if (firstOk && firstOk.d && firstOk.d.summary) {
+            summary = String(firstOk.d.summary).replace(/^OCR 提取失败:\s*/, '');
         }
         lastDisabledSummary = summary;
 
         // 对齐 prototype：弹 iOS 原生提示框（iosAlert 风格），文案与 prototype 一致
-        showAlert({
-            title: '⚠️ AI 校验已停用',
-            message: 'DeepSeek 大模型已停用（系统配置）。\n' + (summary || '请联系系统管理员启用，或人工填写报销单后直接提交审批。')
-        });
+        if (lastRequestIds.length > 1) {
+            showAlert({
+                title: '⚠️ AI 校验已停用',
+                message: 'DeepSeek 大模型已停用（系统配置）。\n本次 ' + lastRequestIds.length + ' 张票据已建立报销单，请人工填写金额后逐一提交审批。'
+            });
+        } else {
+            showAlert({
+                title: '⚠️ AI 校验已停用',
+                message: 'DeepSeek 大模型已停用（系统配置）。\n' + (summary || '请联系系统管理员启用，或人工填写报销单后直接提交审批。')
+            });
+        }
 
         // 显示人工填写区、预填系统日期，并切换为「提交审批」模式（与原型 dsOn()=false 分支一致）
         var af = document.getElementById('autoFields');
         if (af) af.style.display = 'block';
         var dEl = document.getElementById('apply_date');
-        if (dEl) dEl.value = new Date().toISOString().slice(0, 10);
+        if (dEl && !dEl.value) dEl.value = new Date().toISOString().slice(0, 10);
         setSubmitMode('approve');
     }
 
-    function finalize(data) {
-        lastRequestId = data._request_id || (data._form && data._form['报销单号']) || '';
-        var status = data.status || '错误';
-        renderResult(data);
-        if (status === '通过' || status === '预警') {
-            autoFillFromOcr(data);
+    function finalizeAll(results) {
+        var okResults = results.filter(function (r) { return r && r.ok && r.d; });
+        allResultsMap = {};
+        okResults.forEach(function (r) { if (r.d._request_id) allResultsMap[r.d._request_id] = r.d; });
+        lastRequestIds = okResults.map(function (r) { return r.d._request_id; }).filter(Boolean);
+        lastRequestId = lastRequestIds[0] || lastRequestId;
+        var passList = okResults.filter(function (r) { return r.d.status === '通过' || r.d.status === '预警'; });
+        var multi = okResults.length > 1;
+        if (passList.length) {
+            if (multi) {
+                renderInvoiceForms(passList);
+                var sir = document.getElementById('singleInvoiceRows'); if (sir) sir.style.display = 'none';
+                var ifb = document.getElementById('invoiceForms'); if (ifb) ifb.style.display = 'block';
+            } else {
+                autoFillFromOcr(passList[0].d);
+            }
             lastCheckPassed = true;
             setSubmitMode('approve');
+            var rb = document.getElementById('reuploadBtn'); if (rb) rb.style.display = 'none';
         } else {
             lastCheckPassed = false;
             setSubmitMode('check');
-            // 拦截/错误：开放「重新上传」入口，避免员工因字段缺失被卡死
-            var rb = document.getElementById('reuploadBtn');
-            if (rb) rb.style.display = 'inline-block';
+            var rb2 = document.getElementById('reuploadBtn'); if (rb2) rb2.style.display = 'inline-block';
         }
+        if (okResults.length === 1) {
+            renderResult(okResults[0].d);
+        } else {
+            // 多张结果已在 Pipeline Sheet 展示并自动关闭，提交审批页面不再重复显示
+            var ic = document.getElementById('resultCard');
+            if (ic) { ic.innerHTML = ''; ic.style.display = 'none'; ic.className = 'result-cards'; }
+        }
+    }
+
+    function renderInvoiceForms(passList) {
+        var box = document.getElementById('invoiceForms');
+        if (!box) return;
+        var isIt = currentTicketType === '行程单';
+        var t = new Date();
+        var sysDate = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+        var cats = ['交通', '住宿', '餐饮', '办公', '其他'];
+        var html = '';
+        passList.forEach(function (r, idx) {
+            var d = r.d;
+            var name = (d.ocr_result && d.ocr_result['文件名']) || ('票据 ' + (idx + 1));
+            var amount = isIt ? d.ocr_result['总金额_元']
+                              : (d.ocr_result['发票金额'] != null ? d.ocr_result['发票金额'] : d.ocr_result['价税合计_小写']);
+            if (amount == null || amount === '') amount = '';
+            var cat = isIt ? '交通' : ((d.classify_result && d.classify_result['费用分类']) || '其他');
+            var catOpts = '<option value="">—</option>' + cats.map(function (c) {
+                return '<option value="' + c + '"' + (c === cat ? ' selected' : '') + '>' + c + '</option>';
+            }).join('');
+            html += '<div class="invoice-form" data-rid="' + escHtml(d._request_id || '') + '" data-idx="' + idx + '">' +
+                      '<div class="if-title">' + escHtml(name) + '</div>' +
+                      '<div class="row">' +
+                        '<div class="row-label">费用类型<span class="required">*</span><span class="ai-dot">AI</span></div>' +
+                        '<select class="row-input if-cat">' + catOpts + '</select>' +
+                      '</div>' +
+                      '<div class="row">' +
+                        '<div class="row-label">申请金额<span class="required">*</span><span class="ai-dot">AI</span></div>' +
+                        '<input class="row-input if-amt" inputmode="decimal" value="' + escHtml(String(amount)) + '"><span class="unit">元</span>' +
+                      '</div>' +
+                      '<div class="row">' +
+                        '<div class="row-label">申请日期<span class="required">*</span><span class="sys-dot">系统</span></div>' +
+                        '<input class="row-input if-dt" type="date" value="' + sysDate + '">' +
+                      '</div>' +
+                    '</div>';
+        });
+        box.innerHTML = html;
+        var af = document.getElementById('autoFields');
+        if (af) af.style.display = 'block';
+        if (af && typeof staggerChildren === 'function') staggerChildren(af, '.invoice-form');
+    }
+
+    function statusMeta(status) {
+        return ({
+            '通过': { icon: '✅', label: '校验通过', cls: 'pass' },
+            '预警': { icon: '⚠️', label: '校验预警', cls: 'warning' },
+            '拦截': { icon: '⛔', label: '校验拦截', cls: 'block' },
+            '错误': { icon: '❌', label: '系统错误', cls: 'block' }
+        })[status] || { icon: '✅', label: '校验通过', cls: 'pass' };
+    }
+    function summaryMeta(passN, blockN) {
+        if (blockN > 0) return { cls: 'block', icon: '⚠️' };
+        if (passN > 0) return { cls: 'pass', icon: '✅' };
+        return { cls: '', icon: 'ℹ️' };
+    }
+    function renderMultiResultMobile(results) {
+        var okResults = results.filter(function (r) { return r && r.ok && r.d; });
+        var passN = okResults.filter(function (r) { return r.d.status === '通过' || r.d.status === '预警'; }).length;
+        var blockN = okResults.filter(function (r) { return r.d.status === '拦截' || r.d.status === '错误'; }).length;
+        var failN = results.filter(function (r) { return !r || !r.ok; }).length;
+        var meta = summaryMeta(passN, blockN + failN);
+        var nameOf = function (d) {
+            var n = d.ocr_result && d.ocr_result['文件名'];
+            if (n) return n;
+            return (d._index != null ? ('票据 ' + (d._index + 1)) : '票据');
+        };
+        var html = '';
+        html += '<div class="result-card ' + meta.cls + '">' +
+                  '<div class="rc-icon">' + meta.icon + '</div>' +
+                  '<div class="rc-body"><div class="rc-label">共校验 ' + results.length + ' 张票据</div>' +
+                  '<div class="rc-summary">' + passN + ' 张通过/预警 · ' + (blockN + failN) + ' 张需处理</div></div>' +
+                '</div>';
+        okResults.forEach(function (r) {
+            var d = r.d; var rm = statusMeta(d.status);
+            html += '<div class="result-card ' + rm.cls + '" style="margin-top:10px;">' +
+                      '<div class="rc-icon">' + rm.icon + '</div>' +
+                      '<div class="rc-body"><div class="rc-label">' + escHtml(nameOf(d)) + ' · ' + rm.label + '</div></div>' +
+                    '</div>';
+        });
+        results.filter(function (r) { return !r || !r.ok; }).forEach(function (r) {
+            var m = (r && r.d && (r.d.summary || r.d.error)) || '上传/校验失败，请重试';
+            html += '<div class="result-card block" style="margin-top:10px;">' +
+                      '<div class="rc-icon">❌</div>' +
+                      '<div class="rc-body"><div class="rc-label">上传失败</div><div class="rc-summary">' + escHtml(m) + '</div></div>' +
+                    '</div>';
+        });
+        var ic = document.getElementById('resultCard');
+        ic.className = 'result-cards'; ic.style.display = 'block'; ic.innerHTML = html;
+        animateIn(ic, 'anim-fade-up');
+        var pr = document.getElementById('pipeResult');
+        if (pr) { pr.className = 'result-cards'; pr.style.display = 'block'; pr.innerHTML = html; }
+    }
+
+    /* ───────────────── 多文件选择管理 ───────────────── */
+    function addFiles(files) {
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            if (!f) continue;
+            var ext = '.' + (f.name.split('.').pop() || '').toLowerCase();
+            if (['.pdf', '.jpg', '.jpeg', '.png'].indexOf(ext) === -1) { showToast('仅支持 PDF / JPG / PNG 格式', 'error'); continue; }
+            if (f.size > 10 * 1024 * 1024) { showToast('文件超过 10MB 限制', 'error'); continue; }
+            var dup = selectedFiles.some(function (s) { return s.name === f.name && s.size === f.size; });
+            if (dup) continue;
+            selectedFiles.push(f);
+        }
+        if (selectedFiles.length) {
+            document.getElementById('uploadPlaceholder').style.display = 'none';
+            document.getElementById('uploadPreview').style.display = 'block';
+            document.getElementById('uploadZone').classList.add('has-file');
+        }
+        renderFileList();
+    }
+    function renderFileList() {
+        var box = document.getElementById('fileList');
+        if (!box) return;
+        if (!selectedFiles.length) { box.innerHTML = ''; return; }
+        var html = '';
+        selectedFiles.forEach(function (f, idx) {
+            var ext = '.' + (f.name.split('.').pop() || '').toLowerCase();
+            var icon = ext === '.pdf' ? '📄' : '🖼️';
+            html += '<div class="file-row" data-index="' + idx + '">' +
+                      '<div class="file-icon">' + icon + '</div>' +
+                      '<div class="file-meta">' +
+                        '<div class="file-name">' + escHtml(f.name) + '</div>' +
+                        '<div class="file-size">' + formatSize(f.size) + '</div>' +
+                      '</div>' +
+                      '<button type="button" class="file-remove" data-index="' + idx + '" aria-label="移除">✕</button>' +
+                    '</div>';
+        });
+        html += '<div class="add-more" id="addMoreBtn"><span>＋ 添加更多文件</span></div>';
+        box.innerHTML = html;
+        Array.prototype.forEach.call(box.querySelectorAll('.file-remove'), function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                removeFile(parseInt(btn.getAttribute('data-index'), 10));
+            });
+        });
+        var am = document.getElementById('addMoreBtn');
+        if (am) am.addEventListener('click', function (e) { e.stopPropagation(); if (fileInput) fileInput.click(); });
+    }
+    function removeFile(idx) {
+        if (idx < 0 || idx >= selectedFiles.length) return;
+        selectedFiles.splice(idx, 1);
+        if (!selectedFiles.length) { resetUploadForm(); return; }
+        renderFileList();
     }
 
     // 从异常检测结果中解析「字段缺失」类异常，提取缺失的字段名（如「发票号码」）
@@ -721,63 +1044,128 @@
     /* ───────────────── 关闭流水线 Sheet ───────────────── */
     window.closePipelineSheet = function () {
         document.getElementById('pipelineSheet').classList.remove('show');
+        pipeStopTicker();
+        pipeCloseStream();
         // 停用态：关闭提示信息后展开人工填写字段并切换为「提交审批」（与 Web 端 closePipelineModal 一致）
         if (isDisabledMode) { enableManualMode(); }
     };
 
     /* ───────────────── 提交审批 → 我的报销 ───────────────── */
     function submitApprove() {
-        if (!lastRequestId) { showToast('未找到报销单号，请重新提交校验', 'error'); return; }
-        var amount = document.getElementById('apply_amount').value.trim();
-        var category = document.getElementById('expense_category').value.trim();
-        var date = document.getElementById('apply_date').value.trim();
+        if (!lastRequestIds || !lastRequestIds.length) {
+            showToast('未找到报销单号，请重新提交校验', 'error'); return;
+        }
         var reason = document.getElementById('reason').value.trim();
-        var invNo = document.getElementById('invoice_number').value.trim();
-        var invDate = document.getElementById('invoice_date').value.trim();
-        if (!amount || !category) {
-            showToast('请先填写「申请金额」与「费用类型」后再提交审批', 'warning');
-            return;
+        if (!reason) { showToast('请先填写「报销事由」后再提交审批', 'warning'); return; }
+        // 多张按张表单模式：每张字段在 submitAllApprovals 内逐张校验
+        // 单张模式：仍校验单一字段（费用类型、申请日期）
+        var hasMultiForms = !!document.querySelector('#invoiceForms .invoice-form');
+        if (!hasMultiForms) {
+            var category = document.getElementById('expense_category').value.trim();
+            var date = document.getElementById('apply_date').value.trim();
+            if (!category) { showToast('请先填写「费用类型」后再提交审批', 'warning'); return; }
+            if (!date) { showToast('请先填写「申请日期」后再提交审批', 'warning'); return; }
         }
-        if (!date) {
-            showToast('请先填写「申请日期」后再提交审批', 'warning');
-            return;
-        }
-        if (!reason) {
-            showToast('请先填写「报销事由」后再提交审批', 'warning');
-            return;
-        }
-        var payload = {
-            apply_amount: amount || null,
-            apply_date: date || null,
-            expense_category: category || null,
-            reason: reason || null
-        };
-        if (invNo) payload.invoice_number = invNo;
-        if (invDate) payload.invoice_date = invDate;
-        // 与主管审批一致的 iOS 统一确认框
+        // 仅送审「通过/预警」的单；若全部被拦截，则仍一并提交（员工可在「我的报销」补正）
+        var passRids = lastRequestIds.filter(function (rid) {
+            var r = allResultsMap[rid];
+            return r && (r.status === '通过' || r.status === '预警');
+        });
+        var rids = passRids.length ? passRids : lastRequestIds;
+        var count = rids.length;
+        var msg = count > 1 ? ('确认提交 ' + count + ' 张票据并一并送审？') : ('确认提交报销单 ' + rids[0] + ' 并送审？');
         showConfirm({
             title: '提交审批',
-            message: '确认提交报销单 ' + lastRequestId + ' 并送审？',
+            message: msg,
             confirmText: '提交审批',
-            onConfirm: function () {
-                fetch('/api/reimbursement/' + encodeURIComponent(lastRequestId) + '/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
-                    body: JSON.stringify(payload)
-                }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-                    .then(function (res) {
-                        if (!res.ok || res.d.error) {
-                            showSuccess(null, (res.d && res.d.error) || '提交失败');
-                            return;
-                        }
-                        showSuccess({
-                            requestId: lastRequestId, amount: amount, category: category,
-                            reason: reason, invoiceNumber: invNo, invoiceDate: invDate
-                        });
-                        loadMyList();
-                    })
-                    .catch(function () { showSuccess(null, '请求失败，请重试'); });
+            onConfirm: function () { submitAllApprovals(rids); }
+        });
+    }
+    function submitAllApprovals(rids) {
+        var reason = document.getElementById('reason').value.trim();
+        var isIt = currentTicketType === '行程单';
+        // 收集按张表单（按 data-rid 匹配）；单张模式 formsByRid 为空则走原单一字段
+        var formsByRid = {};
+        var formNodes = document.querySelectorAll('#invoiceForms .invoice-form');
+        for (var i = 0; i < formNodes.length; i++) {
+            var f = formNodes[i];
+            var k = f.getAttribute('data-rid');
+            if (k) formsByRid[k] = f;
+        }
+        // 校验：每张必填金额/费用类型/日期
+        for (var j = 0; j < rids.length; j++) {
+            var rid2 = rids[j];
+            var form = formsByRid[rid2];
+            if (form) {
+                if (!form.querySelector('.if-amt').value.trim()) { showToast('请补全「申请金额」（AI 识别失败请手填）', 'warning'); return; }
+                if (!form.querySelector('.if-cat').value) { showToast('请选择「费用类型」', 'warning'); return; }
+                if (!form.querySelector('.if-dt').value) { showToast('请填写「申请日期」', 'warning'); return; }
             }
+        }
+        var tasks = rids.map(function (rid) {
+            var r = allResultsMap[rid];
+            var ocr = (r && r.ocr_result) || {};
+            var form = formsByRid[rid];
+            var amount, category, date, invNo, invDate;
+            if (form) {
+                amount = form.querySelector('.if-amt').value.trim();
+                category = form.querySelector('.if-cat').value;
+                date = form.querySelector('.if-dt').value;
+                invNo = (!isIt && ocr['发票号码']) ? ocr['发票号码'] : '';
+                invDate = (!isIt && ocr['开票日期']) ? String(ocr['开票日期']).slice(0, 10) : '';
+            } else {
+                amount = isIt ? ocr['总金额_元'] : (ocr['发票金额'] != null ? ocr['发票金额'] : ocr['价税合计_小写']);
+                category = document.getElementById('expense_category').value.trim();
+                date = document.getElementById('apply_date').value.trim();
+                invNo = document.getElementById('invoice_number').value.trim();
+                invDate = document.getElementById('invoice_date').value.trim();
+            }
+            var payload = {
+                apply_amount: (amount != null && amount !== '') ? amount : null,
+                apply_date: date || null,
+                expense_category: category || null,
+                reason: reason || null,
+                invoice_number: (!isIt && invNo) ? invNo : null,
+                invoice_date: (!isIt && invDate) ? invDate : null
+            };
+            return fetch('/api/reimbursement/' + encodeURIComponent(rid) + '/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+                body: JSON.stringify(payload)
+            }).then(function (r2) { return r2.json().then(function (d) { return { ok: r2.ok, d: d, rid: rid }; }); })
+              .catch(function () { return { ok: false, d: { error: '网络错误' }, rid: rid }; });
+        });
+        Promise.all(tasks).then(function (resList) {
+            var errs = resList.filter(function (x) { return !x.ok || x.d.error; });
+            if (errs.length) {
+                var okCount = resList.length - errs.length;
+                showSuccess(null, '共 ' + resList.length + ' 张，' + okCount + ' 张提交成功，' + errs.length + ' 张失败（请到「我的报销」重试）');
+                loadMyList();
+                return;
+            }
+            if (resList.length === 1) {
+                var rid0 = rids[0];
+                var r0 = allResultsMap[rid0];
+                var ocr0 = (r0 && r0.ocr_result) || {};
+                var invNo0 = ocr0['发票号码'] || '';
+                var invDate0 = ocr0['开票日期'] ? String(ocr0['开票日期']).slice(0, 10) : '';
+                var amtForm = document.getElementById('apply_amount').value || '';
+                var catForm = document.getElementById('expense_category').value || '';
+                var reaForm = document.getElementById('reason').value.trim() || '—';
+                var isIt0 = currentTicketType === '行程单';
+                var ocrAmt0 = isIt0 ? ocr0['总金额_元'] : (ocr0['发票金额'] != null ? ocr0['发票金额'] : ocr0['价税合计_小写']);
+                showSuccess({
+                    requestId: rid0,
+                    amount: amtForm || ocrAmt0 || '',
+                    category: catForm,
+                    reason: reaForm,
+                    invoiceNumber: invNo0,
+                    invoiceDate: invDate0
+                });
+            } else {
+                showSuccess({ batch: resList.length });
+            }
+            loadMyList();
         });
     }
 
@@ -788,6 +1176,14 @@
                 '<div class="rc-icon">❌</div><div class="rc-body"><div class="rc-label">提交失败</div>' +
                 '<div class="rc-summary">' + escHtml(errorMsg) + '</div></div></div>';
         } else {
+            if (item && item.batch) {
+                var bhtml = infoRow('提交数量', item.batch + ' 张')
+                    + infoRow('当前状态', '待审批')
+                    + '<p class="footnote" style="margin-top:16px;">已路由至主管，可在「我的报销」查看审批进度。</p>';
+                body.innerHTML = '<div class="detail-list">' + bhtml + '</div>';
+                document.getElementById('successSheet').classList.add('show');
+                return;
+            }
             var html = infoRow('报销单号', item.requestId)
                 + infoRow('申请金额', money(item.amount))
                 + infoRow('费用类型', item.category)
@@ -1566,7 +1962,7 @@
         '</div>' +
         '<div class="group">' +
         '  <div class="group-title">🚨 异常检测规则</div>' +
-        '  <div class="row col"><div class="row-label" style="font-weight:600;">风控开关</div><div class="row-sub">金额异常、发票真伪（国税查验）、行程单字段完整性、DeepSeek 语义复核，均可单独开启 / 关闭。</div></div>' +
+        '  <div class="row col"><div class="row-label" style="font-weight:600;">风控开关</div><div class="row-sub">金额异常、行程单字段完整性、DeepSeek 语义复核，均可单独开启 / 关闭。</div></div>' +
         '</div>' +
         '<div class="group">' +
         '  <div class="group-title">💰 费用限额配置（月度）</div>' +

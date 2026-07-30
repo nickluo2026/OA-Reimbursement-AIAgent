@@ -14,6 +14,13 @@ from ...utils.db_store import (
     save_ai_check_result,
     save_invoice,
 )
+from ...utils.progress import (
+    STATUS_DONE,
+    STATUS_FAIL,
+    STATUS_START,
+    STEP_OCR,
+    emit_progress,
+)
 from ..state import CheckStatus, ReimbursementState
 
 logger = logging.getLogger(__name__)
@@ -24,11 +31,13 @@ def ocr_node(state: ReimbursementState) -> dict[str, Any]:
     pdf_path = state["pdf_path"]
     logger.info("▶ 功能1: OCR 提取发票内容 (%s)", pdf_path)
 
+    emit_progress(STEP_OCR, STATUS_START, "读取票据文件…")
     ocr_result = ocr_extract_invoice(pdf_path)
 
     # OCR 失败：置错误状态，由条件边提前结束
     if "_error" in ocr_result:
         logger.warning("✗ 功能1 失败: %s", ocr_result["_error"])
+        emit_progress(STEP_OCR, STATUS_FAIL, f"提取失败：{ocr_result['_error']}")
         return {
             "ocr_result": ocr_result,
             "final_status": CheckStatus.ERROR,
@@ -42,6 +51,7 @@ def ocr_node(state: ReimbursementState) -> dict[str, Any]:
 
         msg = DEEPSEEK_DISABLED_MSG
         logger.warning("✗ 功能1 不可用: %s", msg)
+        emit_progress(STEP_OCR, STATUS_FAIL, msg)
         return {
             "ocr_result": ocr_result,
             "final_status": CheckStatus.ERROR,
@@ -51,6 +61,7 @@ def ocr_node(state: ReimbursementState) -> dict[str, Any]:
 
     invoice_amount = ocr_result.get("发票金额", 0)
     logger.info("✓ 功能1 完成, 发票金额: %s", invoice_amount)
+    emit_progress(STEP_OCR, STATUS_DONE, f"已提取发票金额 {invoice_amount} 元")
 
     # ── 持久化：仅保存发票 + OCR 结果（若有 request_id）──
     # 报销单不再在此处创建：通过/拦截单由后续状态节点预建，预警单推迟到「提交审批」时创建。

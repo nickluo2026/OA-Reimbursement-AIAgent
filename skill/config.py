@@ -26,14 +26,24 @@ MAX_TOKENS: int = 4096
 REQUEST_TIMEOUT: int = 120
 
 # ============ 本地 OCR 引擎配置（方案 A）============
-# 引擎选择：auto（默认，优先 PaddleOCR，回退 Tesseract）/ paddle / tesseract
+# 生产环境默认引擎为 Tesseract（已内置依赖 pytesseract，需系统安装 tesseract 与语言包）。
+# PaddleOCR 为可选增强：仅当另装 paddleocr/paddlepaddle 后，设 paddle 或 auto 才会启用。
+# 引擎选择：auto（默认，优先 PaddleOCR，未装则回退 Tesseract）/ paddle / tesseract
 LOCAL_OCR_ENGINE: str = os.getenv("LOCAL_OCR_ENGINE", "auto")
-# Tesseract 识别语言（中文简体 + 英文），需系统安装对应语言包
-TESSERACT_LANG: str = os.getenv("TESSERACT_LANG", "chi_sim+eng")
+# Tesseract 识别语言（简体 + 繁体 + 英文），覆盖简/繁体发票，需系统安装对应语言包
+TESSERACT_LANG: str = os.getenv("TESSERACT_LANG", "chi_sim+chi_tra+eng")
 # tesseract 可执行文件路径（留空则使用系统 PATH）
 TESSERACT_CMD: str = os.getenv("TESSERACT_CMD", "")
 # 扫描件 PDF 渲染为图片的分辨率（DPI）
 OCR_RENDER_DPI: int = int(os.getenv("OCR_RENDER_DPI", "200"))
+# Vision 兜底前图片最长边压缩上限（px），避免超大发票图占用过量请求体/token
+OCR_VISION_MAX_SIDE: int = int(os.getenv("OCR_VISION_MAX_SIDE", "1600"))
+# 是否启用 DeepSeek Vision 兜底（本地 OCR 失败 / 漏关键字段时降级「看图」识别）。
+# 默认关闭：链路只走「本地 OCR 抽文本 → DeepSeek 文本 Function Call」，不调用任何多模态 API；
+# 设为 true/1/yes/on 可恢复 Vision 安全网（需 DEEPSEEK_VISION_MODEL 支持多模态输入）。
+OCR_VISION_FALLBACK_ENABLED: bool = os.getenv(
+    "OCR_VISION_FALLBACK_ENABLED", "false"
+).lower() in ("1", "true", "yes", "on")
 
 # ============ DeepSeek-V4-Flash 定价（CNY / 千 token）============
 # 与官方价（≈$0.14/M 输入 · $0.28/M 输出）换算一致，可经环境变量覆盖。
@@ -47,12 +57,6 @@ DEEPSEEK_DISABLED_MSG: str = (
 
 # ============ 业务配置 ============
 SMALL_AMOUNT_THRESHOLD: float = 100.0  # 小额免审阈值（元）
-
-# ============ 发票查验平台配置 ============
-# 查验 Provider：mock（默认）/ 预留真实平台扩展点
-INVOICE_VERIFY_PROVIDER: str = os.getenv("INVOICE_VERIFY_PROVIDER", "mock")
-# 查验平台调用超时（秒），供真实 Provider 使用
-INVOICE_VERIFY_TIMEOUT: int = int(os.getenv("INVOICE_VERIFY_TIMEOUT", "30"))
 
 # 即将退役的旧模型名（2026-07-24 15:59 UTC 停服），用于启动自检拦截
 _LEGACY_MODELS = {"deepseek-chat", "deepseek-reasoner"}
@@ -74,6 +78,20 @@ def self_check_model_config() -> dict[str, Any]:
             f"检测到即将退役的旧模型名（{sorted(_LEGACY_MODELS)}），"
             f"将于 2026-07-24 15:59 UTC 停服，请改用 deepseek-v4-flash"
         )
+    # 发现 D：Vision 兜底有效性提示（非阻断）。
+    # 仅当 OCR_VISION_FALLBACK_ENABLED=True 时本地 OCR 不可用才依赖 DEEPSEEK_VISION_MODEL
+    # 识别图片；兜底关闭时无需关注视觉能力。
+    vision_model_note = (
+        "请确认 DEEPSEEK_VISION_MODEL 支持多模态（图像）输入；"
+        "否则本地 OCR 不可用时的发票/行程单图片兜底将失效"
+    )
+    if DEEPSEEK_VISION_MODEL != DEEPSEEK_MODEL:
+        vision_model_note = ""  # 已显式指定不同视觉模型，默认不再提示
+    if not OCR_VISION_FALLBACK_ENABLED:
+        vision_model_note = (
+            "Vision 兜底已禁用（OCR_VISION_FALLBACK_ENABLED=false）："
+            "本地 OCR 失败将直接报错，不再降级多看模态"
+        )
     return {
         "ok": not issues,
         "model": DEEPSEEK_MODEL,
@@ -82,6 +100,7 @@ def self_check_model_config() -> dict[str, Any]:
         "price_input_per_1k": PRICE_INPUT_PER_1K,
         "price_output_per_1k": PRICE_OUTPUT_PER_1K,
         "issues": issues,
+        "vision_model_note": vision_model_note,
     }
 
 
@@ -169,16 +188,3 @@ def get_itinerary_rules() -> dict[str, Any]:
     return get_anomaly_rules()
 
 
-def get_verify_rules() -> dict[str, Any]:
-    """获取发票查验配置（YAML 默认 + 管理员覆盖）"""
-    rules = _load_yaml("anomaly_rules.yaml")
-    admin = get_system_config_overrides()
-    rules["verify_block_on_fake"] = admin.get(
-        "verify_block_on_fake", rules.get("verify_block_on_fake", True)
-    )
-    rules["verify_block_on_error"] = admin.get(
-        "verify_block_on_error", rules.get("verify_block_on_error", False)
-    )
-    # 管理员可通过 rule_invoice_auth 关闭「检测发票真伪（国税查验）」
-    rules["enable_invoice_auth"] = admin.get("rule_invoice_auth", True)
-    return rules

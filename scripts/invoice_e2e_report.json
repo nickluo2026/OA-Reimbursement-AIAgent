@@ -1,0 +1,23 @@
+{
+  "request_id": "9998091c14d04ea9",
+  "final_status": "待复核",
+  "e2e_steps_ms": {
+    "employee_login": 106.828807999932,
+    "upload_http_total": 8547.202386000095,
+    "invoice_agent_single": 8518.008512000051,
+    "submit_approval": 93.65019900008065,
+    "manager_approve": 39.066332000061266,
+    "finance_archive": 4.284938999944643,
+    "cashier_pay": 0.799926000013329
+  },
+  "agent_timing": {
+    "runs": 5,
+    "ai_delay_ms_per_call": 1200,
+    "agent_with_ai_avg_ms": 8197.889289799992,
+    "agent_with_ai_p95_ms": 8968.520984000064,
+    "agent_without_ai_avg_ms": 4597.889289799991,
+    "ocr_engine_avg_ms": 5708.928677000055,
+    "ai_total_ms": 21825.929503999647,
+    "ai_calls": 18
+  }
+}

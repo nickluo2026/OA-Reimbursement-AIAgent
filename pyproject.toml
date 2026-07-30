@@ -56,6 +56,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "ocr_integration: 真实 OCR 引擎（tesseract/paddleocr）集成测试，需本地安装引擎，CI 默认跳过",
+]
 filterwarnings = [
     "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
 ]

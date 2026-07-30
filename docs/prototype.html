@@ -924,10 +924,6 @@ select.form-input { appearance: auto; }
                     <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
                 </div>
                 <div class="config-row">
-                    <div class="cfg-label">检测发票真伪（国税查验）</div>
-                    <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
-                </div>
-                <div class="config-row">
                     <div class="cfg-label">行程单字段完整性检查</div>
                     <div class="cfg-toggle on" onclick="this.classList.toggle('on')"></div>
                 </div>
@@ -1589,7 +1585,6 @@ var INVOICE_STEPS = [
     { icon: '🔍', name: 'OCR 提取发票内容', agent: 'invoice' },
     { icon: '⚠️', name: '异常检测（规则引擎 + DeepSeek）', agent: 'invoice' },
     { icon: '💰', name: '分类限额校验', agent: 'invoice' },
-    { icon: '✅', name: '发票查验', agent: 'invoice' },
 ];
 var ITINERARY_STEPS = [
     { icon: '🔍', name: 'OCR 提取行程明细', agent: 'itinerary' },
@@ -1786,7 +1781,7 @@ function showResult(isItinerary) {
     if (location.hash.indexOf('fail') >= 0) {
         data = {
             status: '拦截',
-            summary: '校验未通过：检测到异常项（金额超出限额 / 发票查验不一致），请核对后重新提交。'
+            summary: '校验未通过：检测到异常项（金额超出限额 / 字段不一致），请核对后重新提交。'
         };
     }
     var statusMap = {
@@ -2063,7 +2058,7 @@ var MOCK_PENDING_LIST = [
         amount: 358.50,
         reason: '北京出差酒店住宿费（6/15-6/17）',
         aiStatus: 'pass',
-        aiSummary: '发票查验通过 · 金额匹配 · 未超限额',
+        aiSummary: '金额匹配 · 未超限额',
         risk: '低'
     },
     {
@@ -2427,7 +2422,7 @@ var MOCK_FINAL_LIST = [
         amount: 680.00,
         reason: '上海客户拜访住宿',
         aiStatus: 'pass',
-        aiSummary: '发票查验通过 · 金额匹配 · 未超限额',
+        aiSummary: '金额匹配 · 未超限额',
         archiveStatus: 'pending', archivedBy: null, paid: false, paidBy: null, receiptArchived: false
     },
     {
