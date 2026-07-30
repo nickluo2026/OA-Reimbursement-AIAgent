@@ -50,10 +50,10 @@ class TestRunReimbursementSkill:
         mock_anomaly.assert_not_called()
         mock_classify.assert_not_called()
 
-    def test_anomaly_block_skips_classify(
+    def test_anomaly_block_discards_classify_result(
         self, mock_classify, mock_anomaly, mock_ocr, sample_invoice_data
     ):
-        """异常拦截时跳过分类限额"""
+        """异常拦截时分类限额被并行投机触发，但结果被丢弃，最终状态仍为拦截。"""
         mock_ocr.return_value = sample_invoice_data
         mock_anomaly.return_value = {
             "总体结论": "拦截",
@@ -67,8 +67,10 @@ class TestRunReimbursementSkill:
             apply_date="2026-06-10",
         )
 
+        # 方案A 并行化：分类限额会被投机调用（与串行版不同），但其结论不生效
+        assert mock_classify.called
+        # 拦截优先：最终状态为拦截，分类限额异常结论被忽略
         assert result["status"] == "拦截"
-        mock_classify.assert_not_called()  # 被拦截，不执行分类
 
     def test_small_amount_skips_classify(self, mock_classify, mock_anomaly, mock_ocr):
         """小额发票跳过分类限额"""
@@ -93,6 +95,58 @@ class TestRunReimbursementSkill:
         assert result["status"] == "通过"
         assert "小额免审" in result["classify_result"]["费用分类"]
         mock_classify.assert_not_called()
+
+    def test_parallel_anomaly_classify_for_large_amount(
+        self, mock_classify, mock_anomaly, mock_ocr, sample_invoice_data
+    ):
+        """方案A验收：金额>100 时异常检测与分类限额并行执行（而非串行）。
+
+        用带 sleep 的桩函数模拟两次 LLM 调用；若二者并行，重叠区间应接近单次耗时
+        （~0.30s）而非两次串行之和（~0.60s）。
+        """
+        import threading
+        import time
+
+        events: dict = {}
+        lock = threading.Lock()
+
+        def _slow_anomaly(invoice, apply_amount=None, apply_date=None):
+            with lock:
+                events["anomaly_start"] = time.time()
+            time.sleep(0.30)
+            with lock:
+                events["anomaly_end"] = time.time()
+            return {"总体结论": "通过", "异常明细": [], "检查摘要": "无异常"}
+
+        def _slow_classify(invoice=None):
+            with lock:
+                events["classify_start"] = time.time()
+            time.sleep(0.30)
+            with lock:
+                events["classify_end"] = time.time()
+            return {
+                "是否超限": False,
+                "费用分类": "差旅",
+                "发票金额": 300,
+                "分类限额": 1000,
+                "校验结果": "通过",
+            }
+
+        mock_ocr.return_value = sample_invoice_data  # 发票金额=300 > 100 → 并行分支
+        mock_anomaly.side_effect = _slow_anomaly
+        mock_classify.side_effect = _slow_classify
+        with patch("skill.orchestrator.nodes.verify_node.verify_invoice", return_value={}):
+            run_reimbursement_skill(
+                pdf_path="test.pdf", apply_amount=500, apply_date="2026-06-10"
+            )
+
+        # 两节点几乎同时启动
+        assert events["classify_start"] - events["anomaly_start"] < 0.15
+        # 重叠区间（关键路径）远小于两次串行之和 0.60s，证明并行
+        span = max(events["anomaly_end"], events["classify_end"]) - min(
+            events["anomaly_start"], events["classify_start"]
+        )
+        assert span < 0.5
 
     @patch("skill.orchestrator.nodes.classify_node.update_ai_status")
     @patch("skill.orchestrator.nodes.classify_node.save_ai_check_result")
@@ -195,9 +249,20 @@ class TestGraphRouting:
         """OCR 失败 → error（提前结束）"""
         assert route_after_ocr({"final_status": CheckStatus.ERROR}) == "error"
 
-    def test_route_after_ocr_ok(self):
-        """OCR 成功 → ok（进入异常检测）"""
-        assert route_after_ocr({"final_status": CheckStatus.PASS}) == "ok"
+    def test_route_after_ocr_routing(self):
+        """OCR 后路由（方案A）：金额>100 并行、≤100 串行、失败提前结束"""
+        # 金额 > 100 → 异常检测 ‖ 分类限额 并行分支
+        assert (
+            route_after_ocr({"final_status": CheckStatus.PASS, "ocr_result": {"发票金额": 300}})
+            == "parallel"
+        )
+        # 金额 ≤ 100 → 仅异常检测（小额免审，串行）
+        assert (
+            route_after_ocr({"final_status": CheckStatus.PASS, "ocr_result": {"发票金额": 80}})
+            == "anomaly_only"
+        )
+        # OCR 失败 → 提前结束
+        assert route_after_ocr({"final_status": CheckStatus.ERROR}) == "error"
 
     def test_route_after_anomaly_block(self):
         """异常拦截 → block（提前结束）"""
